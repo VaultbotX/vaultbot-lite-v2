@@ -15,8 +15,9 @@ var (
 )
 
 type Client struct {
-	Client *spotify.Client
-	Mu     sync.Mutex
+	DynamicPlaylistId spotify.ID
+	Client            *spotify.Client
+	Mu                sync.Mutex
 }
 
 func GetSpotifyClient(ctx context.Context) (*Client, error) {
@@ -34,6 +35,11 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 		log.Fatal("Missing SPOTIFY_CLIENT_SECRET environment variable")
 	}
 
+	playlistId, playlistIdPresent := os.LookupEnv("SPOTIFY_PLAYLIST_ID")
+	if !playlistIdPresent {
+		log.Fatal("Missing SPOTIFY_PLAYLIST_ID environment variable")
+	}
+
 	config := &clientcredentials.Config{
 		ClientID:     clientId,
 		ClientSecret: secret,
@@ -47,7 +53,7 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 
 	httpClient := auth.New().Client(ctx, token)
 	client := spotify.New(httpClient)
-	instance = &Client{Client: client}
+	instance = &Client{Client: client, DynamicPlaylistId: spotify.ID(playlistId)}
 
 	return instance, nil
 }
