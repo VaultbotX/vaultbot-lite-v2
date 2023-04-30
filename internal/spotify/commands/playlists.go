@@ -57,3 +57,20 @@ func addTracksToPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []
 
 	return nil
 }
+
+func remoteTracksFromPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []spotify.ID) error {
+	client, err := sp.GetSpotifyClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	client.Mu.Lock()
+	defer client.Mu.Unlock()
+
+	_, err = client.Client.RemoveTracksFromPlaylist(ctx, playlistId, trackIds...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
