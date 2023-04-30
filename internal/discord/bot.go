@@ -2,6 +2,7 @@ package discord
 
 import (
 	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -18,26 +19,31 @@ func Run() {
 
 	_, envPresent := os.LookupEnv("ENVIRONMENT")
 	if !envPresent {
-		// Development mode
 		log.SetLevel(log.DebugLevel)
+		log.Info("Starting in development mode")
 
-		tokenPresent := true
-		BotToken, tokenPresent = os.LookupEnv("DISCORD_TOKEN")
-
-		if !tokenPresent {
-			log.Fatal("Missing DISCORD_TOKEN environment variable")
-		}
-
-		var guildId, guildIdPresent = os.LookupEnv("DISCORD_GUILD_ID")
-		if !guildIdPresent {
-			log.Debug("DISCORD_GUILD_ID environment variable missing, commands will be registered globally")
-			TestGuildId = ""
-		} else {
-			TestGuildId = guildId
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
 		}
 	} else {
 		log.SetLevel(log.InfoLevel)
+		log.Info("Starting in production mode")
 		log.Fatal("Production environment not yet configured")
+	}
+
+	tokenPresent := true
+	BotToken, tokenPresent = os.LookupEnv("DISCORD_TOKEN")
+	if !tokenPresent {
+		log.Fatal("Missing DISCORD_TOKEN environment variable")
+	}
+
+	guildId, guildIdPresent := os.LookupEnv("DISCORD_GUILD_ID")
+	if !guildIdPresent {
+		log.Debug("DISCORD_GUILD_ID environment variable missing, commands will be registered globally")
+		TestGuildId = ""
+	} else {
+		TestGuildId = guildId
 	}
 
 	var err error
