@@ -4,7 +4,7 @@ import (
 	"context"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmb3/spotify/v2"
-	spotifyauth "github.com/zmb3/spotify/v2/auth"
+	auth "github.com/zmb3/spotify/v2/auth"
 	"golang.org/x/oauth2/clientcredentials"
 	"os"
 	"sync"
@@ -19,12 +19,10 @@ type Client struct {
 	Mu     sync.Mutex
 }
 
-func GetSpotifyClient() (*Client, error) {
+func GetSpotifyClient(ctx context.Context) (*Client, error) {
 	if instance != nil {
 		return instance, nil
 	}
-
-	ctx := context.Background()
 
 	clientId, clientIdPresent := os.LookupEnv("SPOTIFY_CLIENT_ID")
 	if !clientIdPresent {
@@ -39,14 +37,15 @@ func GetSpotifyClient() (*Client, error) {
 	config := &clientcredentials.Config{
 		ClientID:     clientId,
 		ClientSecret: secret,
-		TokenURL:     spotifyauth.TokenURL,
+		TokenURL:     auth.TokenURL,
+		Scopes:       []string{auth.ScopePlaylistModifyPublic},
 	}
 	token, err := config.Token(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	httpClient := spotifyauth.New().Client(ctx, token)
+	httpClient := auth.New().Client(ctx, token)
 	client := spotify.New(httpClient)
 	instance = &Client{Client: client}
 

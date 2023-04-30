@@ -7,9 +7,8 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-// getTrack is a function that is meant to be run as a goroutine to get a track from Spotify
-func getTrack(ctx context.Context, id spotify.ID, trackChan chan<- *spotify.FullTrack) error {
-	client, err := sp.GetSpotifyClient()
+func getTrack(ctx context.Context, trackId spotify.ID, trackChan chan<- *spotify.FullTrack) error {
+	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		log.Errorf("Error getting Spotify client: %v", err)
 		return err
@@ -18,14 +17,36 @@ func getTrack(ctx context.Context, id spotify.ID, trackChan chan<- *spotify.Full
 	client.Mu.Lock()
 	defer client.Mu.Unlock()
 
-	track, err := client.Client.GetTrack(ctx, id)
+	track, err := client.Client.GetTrack(ctx, trackId)
 	if err != nil {
 		log.Errorf("Error getting track: %v", err)
 		return err
 	}
 
 	trackChan <- track
-	close(trackChan)
+
+	return nil
+}
+
+func getTrackAudioFeatures(ctx context.Context, trackId spotify.ID, audioFeaturesChan chan<- *spotify.AudioFeatures) error {
+	client, err := sp.GetSpotifyClient(ctx)
+	if err != nil {
+		log.Errorf("Error getting Spotify client: %v", err)
+		return err
+	}
+
+	client.Mu.Lock()
+	defer client.Mu.Unlock()
+
+	audioFeatures, err := client.Client.GetAudioFeatures(ctx, trackId)
+	if err != nil {
+		log.Errorf("Error getting audio features: %v", err)
+		return err
+	}
+
+	for _, audioFeature := range audioFeatures {
+		audioFeaturesChan <- audioFeature
+	}
 
 	return nil
 }
