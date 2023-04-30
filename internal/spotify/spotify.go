@@ -15,8 +15,8 @@ var (
 )
 
 type Client struct {
-	client *spotify.Client
-	mu     sync.Mutex
+	Client *spotify.Client
+	Mu     sync.Mutex
 }
 
 func GetSpotifyClient() (*Client, error) {
@@ -48,7 +48,7 @@ func GetSpotifyClient() (*Client, error) {
 
 	httpClient := spotifyauth.New().Client(ctx, token)
 	client := spotify.New(httpClient)
-	instance = &Client{client: client}
+	instance = &Client{Client: client}
 
 	return instance, nil
 }
