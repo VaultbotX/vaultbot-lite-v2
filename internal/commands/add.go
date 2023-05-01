@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
-	"github.com/tbrittain/vaultbot-lite/internal/spotify/commands"
-	"github.com/tbrittain/vaultbot-lite/internal/types"
+	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/database"
+	"github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/zmb3/spotify/v2"
 	"sync"
 )
@@ -26,22 +28,10 @@ func AddTrack(ctx context.Context, trackId string) error {
 		}
 	}(&wg, errorChan)
 
-	var track *spotify.FullTrack
-	var ok bool
-
 	wg.Wait()
 
-	err := <-errorChan
-	if err != nil {
-		return err
-	}
-
-	track = <-trackChan
-	close(trackChan)
-	if track == nil {
-		return types.ErrNoTrackExists
-	}
-
+	var track *spotify.FullTrack
+	var ok bool
 	select {
 	case err := <-errorChan:
 		return err
@@ -70,7 +60,6 @@ func AddTrack(ctx context.Context, trackId string) error {
 
 		err := commands.GetArtists(ctx, artistIds, artistChan)
 		if err != nil {
-			close(artistChan)
 			errorChan <- err
 		}
 	}(&wg, artistChan)
@@ -79,7 +68,6 @@ func AddTrack(ctx context.Context, trackId string) error {
 		defer wg.Done()
 		err := commands.GetTrackAudioFeatures(ctx, convertedTrackId, audioFeaturesChan)
 		if err != nil {
-			close(audioFeaturesChan)
 			errorChan2 <- err
 		}
 	}(&wg, audioFeaturesChan)
@@ -88,8 +76,10 @@ func AddTrack(ctx context.Context, trackId string) error {
 
 	select {
 	case err := <-errorChan:
+		close(artistChan)
 		return err
 	case err := <-errorChan2:
+		close(audioFeaturesChan)
 		return err
 	default:
 		break
@@ -99,18 +89,36 @@ func AddTrack(ctx context.Context, trackId string) error {
 	for artist := range artistChan {
 		artists = append(artists, artist)
 	}
+	close(artistChan)
 
 	var audioFeatures []*spotify.AudioFeatures
 	for audioFeature := range audioFeaturesChan {
 		audioFeatures = append(audioFeatures, audioFeature)
 	}
+	close(audioFeaturesChan)
 
 	// 3. Add to playlist
-	// commands.AddTracksToPlaylist()
+	err := commands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
+	if err != nil {
+		log.Errorf("Error adding track to playlist: %v", err)
+		return types.ErrCouldNotAddToPlaylist
+	}
 
 	// 4. Add to databases
+	err = database.AddTrackToDatabase()
+	if err != nil {
+		log.Errorf("Error adding track to database: %v", err)
 
-	// If failure during step 4, rollback adding to playlist
+		log.Debug("Attempting to remove track from playlist")
+
+		err2 := commands.RemoveTracksFromPlaylist(ctx, []spotify.ID{track.ID})
+		if err2 != nil {
+			log.Errorf("Error removing track from playlist: %v", err2)
+			return types.ErrCouldNotRemoveFromPlaylist
+		}
+
+		return types.ErrCouldNotAddToDatabase
+	}
 
 	return nil
 }

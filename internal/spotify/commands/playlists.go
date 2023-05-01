@@ -2,11 +2,11 @@ package commands
 
 import (
 	"context"
-	sp "github.com/tbrittain/vaultbot-lite/internal/spotify"
+	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/zmb3/spotify/v2"
 )
 
-func GetPlaylistTracks(ctx context.Context, playlistId spotify.ID, trackChan chan<- *spotify.FullTrack) error {
+func GetPlaylistTracks(ctx context.Context, trackChan chan<- *spotify.FullTrack) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err
@@ -15,7 +15,7 @@ func GetPlaylistTracks(ctx context.Context, playlistId spotify.ID, trackChan cha
 	client.Mu.Lock()
 	defer client.Mu.Unlock()
 
-	playlistItems, err := client.Client.GetPlaylistItems(ctx, playlistId)
+	playlistItems, err := client.Client.GetPlaylistItems(ctx, client.DynamicPlaylistId)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func GetPlaylistTracks(ctx context.Context, playlistId spotify.ID, trackChan cha
 	return nil
 }
 
-func AddTracksToPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []spotify.ID) error {
+func AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func AddTracksToPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []
 	client.Mu.Lock()
 	defer client.Mu.Unlock()
 
-	_, err = client.Client.AddTracksToPlaylist(ctx, playlistId, trackIds...)
+	_, err = client.Client.AddTracksToPlaylist(ctx, client.DynamicPlaylistId, trackIds...)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func AddTracksToPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []
 	return nil
 }
 
-func RemoveTracksFromPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []spotify.ID) error {
+func RemoveTracksFromPlaylist(ctx context.Context, trackIds []spotify.ID) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func RemoveTracksFromPlaylist(ctx context.Context, playlistId spotify.ID, trackI
 	client.Mu.Lock()
 	defer client.Mu.Unlock()
 
-	_, err = client.Client.RemoveTracksFromPlaylist(ctx, playlistId, trackIds...)
+	_, err = client.Client.RemoveTracksFromPlaylist(ctx, client.DynamicPlaylistId, trackIds...)
 	if err != nil {
 		return err
 	}

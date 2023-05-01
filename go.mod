@@ -1,4 +1,4 @@
-module github.com/tbrittain/vaultbot-lite
+module github.com/vaultbotx/vaultbot-lite
 
 go 1.20
 
