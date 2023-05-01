@@ -6,7 +6,7 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-func getPlaylistTracks(ctx context.Context, playlistId spotify.ID, trackChan chan<- *spotify.FullTrack) error {
+func GetPlaylistTracks(ctx context.Context, playlistId spotify.ID, trackChan chan<- *spotify.FullTrack) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func getPlaylistTracks(ctx context.Context, playlistId spotify.ID, trackChan cha
 	return nil
 }
 
-func addTracksToPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []spotify.ID) error {
+func AddTracksToPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []spotify.ID) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func addTracksToPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []
 	return nil
 }
 
-func remoteTracksFromPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []spotify.ID) error {
+func RemoveTracksFromPlaylist(ctx context.Context, playlistId spotify.ID, trackIds []spotify.ID) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err
