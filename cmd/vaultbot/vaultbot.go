@@ -1,6 +1,6 @@
 package main
 
-import "github.com/tbrittain/vaultbot-lite/internal/discord"
+import "github.com/vaultbotx/vaultbot-lite/internal/discord"
 
 func main() {
 	discord.Run()

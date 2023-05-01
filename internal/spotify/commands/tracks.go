@@ -3,7 +3,7 @@ package commands
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
-	sp "github.com/tbrittain/vaultbot-lite/internal/spotify"
+	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/zmb3/spotify/v2"
 )
 
