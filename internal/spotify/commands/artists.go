@@ -6,7 +6,7 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-func getArtists(ctx context.Context, artistIds []spotify.ID, artistChan chan<- *spotify.FullArtist) error {
+func GetArtists(ctx context.Context, artistIds []spotify.ID, artistChan chan<- *spotify.FullArtist) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err

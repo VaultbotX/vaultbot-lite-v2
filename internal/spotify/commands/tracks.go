@@ -7,7 +7,7 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-func getTrack(ctx context.Context, trackId spotify.ID, trackChan chan<- *spotify.FullTrack) error {
+func GetTrack(ctx context.Context, trackId spotify.ID, trackChan chan<- *spotify.FullTrack) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		log.Errorf("Error getting Spotify client: %v", err)
@@ -28,7 +28,7 @@ func getTrack(ctx context.Context, trackId spotify.ID, trackChan chan<- *spotify
 	return nil
 }
 
-func getTrackAudioFeatures(ctx context.Context, trackId spotify.ID, audioFeaturesChan chan<- *spotify.AudioFeatures) error {
+func GetTrackAudioFeatures(ctx context.Context, trackId spotify.ID, audioFeaturesChan chan<- *spotify.AudioFeatures) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		log.Errorf("Error getting Spotify client: %v", err)
