@@ -29,7 +29,6 @@ func Run() {
 	} else {
 		log.SetLevel(log.InfoLevel)
 		log.Info("Starting in production mode")
-		log.Fatal("Production environment not yet configured")
 	}
 
 	tokenPresent := true
