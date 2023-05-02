@@ -37,11 +37,14 @@ services:
     container_name: vaultbot-discord
     build: .
     environment:
+      ENVIRONMENT: "docker"
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
       SPOTIFY_PLAYLIST_ID: ${SPOTIFY_PLAYLIST_ID}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
 volumes:
   neo4j_data:

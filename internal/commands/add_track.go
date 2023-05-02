@@ -4,6 +4,7 @@ import (
 	"context"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/database"
+	re "github.com/vaultbotx/vaultbot-lite/internal/database/redis"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/zmb3/spotify/v2"
@@ -11,6 +12,18 @@ import (
 )
 
 func AddTrack(ctx context.Context, trackId string) error {
+	// 0. Check the redis cache to see if the track exists
+	existingTrack, err := re.Get(ctx, trackId)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	if existingTrack != nil {
+		log.Info("Track already exists in database")
+		return types.ErrTrackAlreadyInPlaylist
+	}
+
 	// 1. Attempt to get the track from Spotify
 	convertedTrackId := spotify.ID(trackId)
 
@@ -98,14 +111,14 @@ func AddTrack(ctx context.Context, trackId string) error {
 	close(audioFeaturesChan)
 
 	// 3. Add to playlist
-	err := commands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
+	err = commands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
 	if err != nil {
 		log.Errorf("Error adding track to playlist: %v", err)
 		return types.ErrCouldNotAddToPlaylist
 	}
 
 	// 4. Add to databases
-	err = database.AddTrackToDatabase()
+	err = database.AddTrackToDatabase(track, artists, audioFeatures)
 	if err != nil {
 		log.Errorf("Error adding track to database: %v", err)
 
