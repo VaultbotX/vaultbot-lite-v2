@@ -2,12 +2,14 @@ package commands
 
 import (
 	"context"
+	log "github.com/sirupsen/logrus"
 	re "github.com/vaultbotx/vaultbot-lite/internal/database/redis"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"time"
 )
 
 func PurgeTracks(ctx context.Context) error {
+	log.Debug("Purging tracks")
 	errChan := make(chan error)
 	trackChan := make(chan *types.CacheTrack)
 
@@ -38,6 +40,7 @@ func PurgeTracks(ctx context.Context) error {
 			expiredTracks = append(expiredTracks, track.TrackId)
 		}
 	}
+	log.Debug("Found ", len(expiredTracks), " expired tracks")
 
 	err = RemoveTracks(ctx, expiredTracks)
 	if err != nil {

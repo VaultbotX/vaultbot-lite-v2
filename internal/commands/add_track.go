@@ -13,6 +13,7 @@ import (
 )
 
 func AddTrack(ctx context.Context, trackId string) error {
+	log.Debugf("Attempting to add track %v to playlist", trackId)
 	// 0. Parse the track id
 	convertedTrackId := sp.ParseTrackId(trackId)
 	if convertedTrackId == nil {
@@ -27,7 +28,7 @@ func AddTrack(ctx context.Context, trackId string) error {
 	}
 
 	if existingTrack != nil {
-		log.Info("Track already exists in database")
+		log.Debugf("Track %v already exists in database", convertedTrackId.String())
 		return types.ErrTrackAlreadyInPlaylist
 	}
 
@@ -55,14 +56,17 @@ func AddTrack(ctx context.Context, trackId string) error {
 		return err
 	case track, ok = <-trackChan:
 		if track == nil {
+			log.Debugf("Track %v does not exist", convertedTrackId.String())
 			return types.ErrNoTrackExists
 		}
 
 		if !ok {
 			close(trackChan)
 		}
+		log.Debugf("Track %v exists", convertedTrackId.String())
 	}
 
+	log.Debugf("Getting artists and audio features for track %v", convertedTrackId.String())
 	// 3. If exists, pull the artists and song features
 	artistChan := make(chan *spotify.FullArtist)
 	audioFeaturesChan := make(chan *spotify.AudioFeatures)
@@ -95,9 +99,11 @@ func AddTrack(ctx context.Context, trackId string) error {
 	select {
 	case err := <-errorChan:
 		close(artistChan)
+		log.Errorf("Error getting artists: %v", err)
 		return err
 	case err := <-errorChan2:
 		close(audioFeaturesChan)
+		log.Errorf("Error getting audio features: %v", err)
 		return err
 	default:
 		break
@@ -114,7 +120,9 @@ func AddTrack(ctx context.Context, trackId string) error {
 		audioFeatures = append(audioFeatures, audioFeature)
 	}
 	close(audioFeaturesChan)
+	log.Debugf("Finished getting artists and audio features for track %v", convertedTrackId.String())
 
+	log.Debugf("Adding track %v to playlist", convertedTrackId.String())
 	// 4. Add to playlist
 	err = spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
 	if err != nil {
@@ -122,12 +130,13 @@ func AddTrack(ctx context.Context, trackId string) error {
 		return types.ErrCouldNotAddToPlaylist
 	}
 
+	log.Debugf("Adding track %v to database", convertedTrackId.String())
 	// 5. Add to databases
 	err = database.AddTrackToDatabase(ctx, track, artists, audioFeatures)
 	if err != nil {
 		log.Errorf("Error adding track to database: %v", err)
 
-		log.Debug("Attempting to remove track from playlist")
+		log.Debugf("Attempting to rollback adding track %v to playlist", convertedTrackId.String())
 
 		err2 := spcommands.RemoveTracksFromPlaylist(ctx, []spotify.ID{track.ID})
 		if err2 != nil {
