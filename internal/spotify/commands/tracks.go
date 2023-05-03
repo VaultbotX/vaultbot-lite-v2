@@ -17,6 +17,7 @@ func GetTrack(ctx context.Context, trackId spotify.ID, trackChan chan<- *spotify
 	client.Mu.Lock()
 	defer client.Mu.Unlock()
 
+	// TODO: this err may be not nil if the track is not found, need to test this
 	track, err := client.Client.GetTrack(ctx, trackId)
 	if err != nil {
 		log.Errorf("Error getting track: %v", err)
@@ -28,7 +29,8 @@ func GetTrack(ctx context.Context, trackId spotify.ID, trackChan chan<- *spotify
 	return nil
 }
 
-func GetTrackAudioFeatures(ctx context.Context, trackId spotify.ID, audioFeaturesChan chan<- *spotify.AudioFeatures) error {
+func GetTrackAudioFeatures(ctx context.Context, trackId spotify.ID,
+	audioFeaturesChan chan<- *spotify.AudioFeatures) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		log.Errorf("Error getting Spotify client: %v", err)

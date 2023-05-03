@@ -43,6 +43,10 @@ func Flush(ctx context.Context) error {
 	return getClient().FlushAll(ctx).Err()
 }
 
+func RemoveMulti(ctx context.Context, keys []string) error {
+	return getClient().Del(ctx, keys...).Err()
+}
+
 func Set(ctx context.Context, track *types.CacheTrack) error {
 	addedAt := track.AddedAt.Format(timeFormat)
 	return getClient().Set(ctx, track.TrackId, addedAt, 0).Err()
