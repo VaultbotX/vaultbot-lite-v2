@@ -2,6 +2,8 @@ package types
 
 import "errors"
 
+var ErrInvalidTrackId = errors.New("spotify: invalid track id")
+
 var ErrTrackAlreadyInPlaylist = errors.New("spotify: track already exists in playlist")
 
 var ErrNoTrackExists = errors.New("spotify: no track exists")

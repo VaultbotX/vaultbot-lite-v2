@@ -1,12 +1,26 @@
 package commands
 
-import "context"
+import (
+	"context"
+	re "github.com/vaultbotx/vaultbot-lite/internal/database/redis"
+	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
+	"github.com/zmb3/spotify/v2"
+)
 
 func RemoveTracks(ctx context.Context, trackIds []string) error {
-	// 1. Remove tracks from playlist
-	// TODO
+	spotifyIds := make([]spotify.ID, len(trackIds))
+	for i, trackId := range trackIds {
+		spotifyIds[i] = spotify.ID(trackId)
+	}
+	err := sp.RemoveTracksFromPlaylist(ctx, spotifyIds)
+	if err != nil {
+		return err
+	}
 
-	// 2. Remove track from database(s) - practically speaking, this will just be a redis cache
+	err = re.RemoveMulti(ctx, trackIds)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
