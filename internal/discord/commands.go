@@ -1,10 +1,36 @@
 package discord
 
 import (
+	"context"
+	"fmt"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
+	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"time"
 )
+
+func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	trackId := i.ApplicationCommandData().Options[0].StringValue()
+	track, err := internalcommands.AddTrack(context.Background(), trackId, types.GetFieldsFromInteraction(i))
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	trackDetails := fmt.Sprintf("%s by %s", track.Name, track.Artists[0].Name)
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Added %s to the playlist!", trackDetails),
+		},
+	})
+
+	if err != nil {
+		log.Error(err)
+		return
+	}
+}
 
 func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
