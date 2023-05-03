@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"context"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
@@ -60,6 +61,8 @@ func Run() {
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Infof("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
+
+	RunPurge(context.Background())
 
 	err = s.Open()
 	if err != nil {
