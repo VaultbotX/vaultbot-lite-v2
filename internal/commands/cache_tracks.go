@@ -11,9 +11,9 @@ import (
 
 func CacheTracks(ctx context.Context) error {
 	errorChan := make(chan error)
-	trackChan := make(chan *spotify.FullTrack)
+	playlistItemChan := make(chan *spotify.PlaylistItem)
 	go func(c chan<- error) {
-		err := commands.GetPlaylistTracks(ctx, trackChan)
+		err := commands.GetPlaylistTracks(ctx, playlistItemChan)
 		if err != nil {
 			c <- err
 		}
@@ -25,17 +25,23 @@ func CacheTracks(ctx context.Context) error {
 		return err
 	}
 
-	var fullTracks []*spotify.FullTrack
-	for track := range trackChan {
-		fullTracks = append(fullTracks, track)
+	var playlistItems []*spotify.PlaylistItem
+	for item := range playlistItemChan {
+		playlistItems = append(playlistItems, item)
 	}
-	close(trackChan)
+	close(playlistItemChan)
 
-	tracks := make([]types.CacheTrack, len(fullTracks))
-	for i, track := range fullTracks {
-		tracks[i] = types.CacheTrack{
-			TrackId: track.ID.String(),
-			AddedAt: time.Now().UTC(),
+	tracks := make([]*types.CacheTrack, len(playlistItems))
+	for i, track := range playlistItems {
+		var addedAt time.Time
+		addedAt, err = time.Parse(spotify.TimestampLayout, track.AddedAt)
+		if err != nil {
+			return err
+		}
+
+		tracks[i] = &types.CacheTrack{
+			TrackId: track.Track.Track.ID.String(),
+			AddedAt: addedAt,
 		}
 	}
 
@@ -44,12 +50,7 @@ func CacheTracks(ctx context.Context) error {
 		return err
 	}
 
-	trackMap := map[string]string{}
-	for _, track := range tracks {
-		trackMap[track.TrackId] = track.AddedAt.Format(time.RFC3339)
-	}
-
-	err = re.SetMulti(ctx, trackMap)
+	err = re.SetMulti(ctx, tracks)
 	if err != nil {
 		return err
 	}

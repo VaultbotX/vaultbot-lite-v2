@@ -4,11 +4,14 @@ import (
 	"context"
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"os"
+	"time"
 )
 
 var (
-	instance *redis.Client
+	instance   *redis.Client
+	timeFormat = time.RFC3339
 )
 
 func getClient() *redis.Client {
@@ -40,12 +43,17 @@ func Flush(ctx context.Context) error {
 	return getClient().FlushAll(ctx).Err()
 }
 
-func Set(ctx context.Context, key string, value string) error {
-	return getClient().Set(ctx, key, value, 0).Err()
+func Set(ctx context.Context, track *types.CacheTrack) error {
+	addedAt := track.AddedAt.Format(timeFormat)
+	return getClient().Set(ctx, track.TrackId, addedAt, 0).Err()
 }
 
-func SetMulti(ctx context.Context, values map[string]string) error {
-	return getClient().MSet(ctx, values).Err()
+func SetMulti(ctx context.Context, tracks []*types.CacheTrack) error {
+	trackMap := map[string]string{}
+	for _, track := range tracks {
+		trackMap[track.TrackId] = track.AddedAt.Format(timeFormat)
+	}
+	return getClient().MSet(ctx, trackMap).Err()
 }
 
 func Get(ctx context.Context, key string) (*string, error) {
@@ -58,4 +66,43 @@ func Get(ctx context.Context, key string) (*string, error) {
 	}
 
 	return &result, nil
+}
+
+func GetAll(ctx context.Context, cacheTrackChan chan<- *types.CacheTrack) error {
+	var cursor uint64
+	client := getClient()
+	for {
+		var keys []string
+		var err error
+		keys, cursor, err = client.Scan(ctx, cursor, "*", 10).Result()
+		if err != nil {
+			return err
+		}
+
+		for _, key := range keys {
+			hash, err := client.HGetAll(ctx, key).Result()
+			if err != nil {
+				return err
+			}
+
+			for field, value := range hash {
+				time, err := time.Parse(timeFormat, value)
+				if err != nil {
+					return err
+				}
+
+				track := types.CacheTrack{
+					TrackId: field,
+					AddedAt: time,
+				}
+				cacheTrackChan <- &track
+			}
+		}
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return nil
 }

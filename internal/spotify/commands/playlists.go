@@ -6,7 +6,9 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-func GetPlaylistTracks(ctx context.Context, trackChan chan<- *spotify.FullTrack) error {
+// GetPlaylistTracks gets all tracks from the dynamic playlist. It returns them as *spotify.PlaylistItems,
+// which includes information about when the track was added to the playlist.
+func GetPlaylistTracks(ctx context.Context, playlistItemChan chan<- *spotify.PlaylistItem) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err
@@ -21,7 +23,7 @@ func GetPlaylistTracks(ctx context.Context, trackChan chan<- *spotify.FullTrack)
 	}
 
 	for _, playlistItem := range playlistItems.Items {
-		trackChan <- playlistItem.Track.Track
+		playlistItemChan <- &playlistItem
 	}
 
 	for page := 1; ; page++ {
@@ -34,7 +36,7 @@ func GetPlaylistTracks(ctx context.Context, trackChan chan<- *spotify.FullTrack)
 		}
 
 		for _, playlistItem := range playlistItems.Items {
-			trackChan <- playlistItem.Track.Track
+			playlistItemChan <- &playlistItem
 		}
 	}
 
