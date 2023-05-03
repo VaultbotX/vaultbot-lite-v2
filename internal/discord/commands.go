@@ -10,11 +10,15 @@ import (
 	"time"
 )
 
+// TODO: Hook this up and be sure to include the slash command option
 func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	trackId := i.ApplicationCommandData().Options[0].StringValue()
-	track, err := internalcommands.AddTrack(context.Background(), trackId, types.GetFieldsFromInteraction(i))
+
+	meta := types.GetFieldsFromInteraction(i)
+	track, err := internalcommands.AddTrack(context.Background(), trackId, meta)
+	// TODO: Handle all of the different error types here
 	if err != nil {
-		log.Error(err)
+		log.WithFields(meta).Error(err)
 		return
 	}
 
@@ -27,7 +31,7 @@ func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 
 	if err != nil {
-		log.Error(err)
+		log.WithFields(meta).Error(err)
 		return
 	}
 }
