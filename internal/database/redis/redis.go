@@ -90,14 +90,14 @@ func GetAll(ctx context.Context, cacheTrackChan chan<- *types.CacheTrack) error 
 			}
 
 			for field, value := range hash {
-				time, err := time.Parse(timeFormat, value)
+				parsedTime, err := time.Parse(timeFormat, value)
 				if err != nil {
 					return err
 				}
 
 				track := types.CacheTrack{
 					TrackId: field,
-					AddedAt: time,
+					AddedAt: parsedTime,
 				}
 				cacheTrackChan <- &track
 			}

@@ -18,5 +18,9 @@ func AddTrackToDatabase(ctx context.Context, track *spotify.FullTrack, artist []
 		return err
 	}
 
+	// TODO
+	// 2. Add to Neo4j
+
+	// 3. Add to Mongo
 	return nil
 }

@@ -21,22 +21,30 @@ func CacheTracks(ctx context.Context) error {
 		}
 	}(errorChan)
 
-	err := <-errorChan
-	close(errorChan)
-	if err != nil {
-		return err
-	}
-
 	var playlistItems []*spotify.PlaylistItem
-	for item := range playlistItemChan {
-		playlistItems = append(playlistItems, item)
+	done := false
+	for !done {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-errorChan:
+			close(errorChan)
+			if err != nil {
+				return err
+			}
+			break
+		case track, ok := <-playlistItemChan:
+			if !ok {
+				done = true
+				break
+			}
+			playlistItems = append(playlistItems, track)
+		}
 	}
-	close(playlistItemChan)
 
 	tracks := make([]*types.CacheTrack, len(playlistItems))
 	for i, track := range playlistItems {
-		var addedAt time.Time
-		addedAt, err = time.Parse(spotify.TimestampLayout, track.AddedAt)
+		addedAt, err := time.Parse(spotify.TimestampLayout, track.AddedAt)
 		if err != nil {
 			return err
 		}
@@ -49,7 +57,7 @@ func CacheTracks(ctx context.Context) error {
 	log.Debug("Found ", len(tracks), " tracks in playlist")
 
 	log.Debug("Flushing cache of existing tracks")
-	err = re.Flush(ctx)
+	err := re.Flush(ctx)
 	if err != nil {
 		return err
 	}

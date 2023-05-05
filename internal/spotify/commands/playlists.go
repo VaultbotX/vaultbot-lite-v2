@@ -40,6 +40,8 @@ func GetPlaylistTracks(ctx context.Context, playlistItemChan chan<- *spotify.Pla
 		}
 	}
 
+	close(playlistItemChan)
+
 	return nil
 }
 
