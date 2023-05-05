@@ -1,8 +1,11 @@
 package types
 
-import "time"
+import (
+	"github.com/zmb3/spotify/v2"
+	"time"
+)
 
 type CacheTrack struct {
-	TrackId string
+	TrackId spotify.ID
 	AddedAt time.Time
 }
