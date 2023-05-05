@@ -4,7 +4,6 @@ import (
 	"context"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/database"
-	re "github.com/vaultbotx/vaultbot-lite/internal/database/redis"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -20,13 +19,8 @@ func AddTrack(ctx context.Context, trackId string, meta log.Fields) (*spotify.Fu
 		return nil, types.ErrInvalidTrackId
 	}
 
-	// 1. Check the redis cache to see if the track exists
-	existingTrack, err := re.Get(ctx, convertedTrackId.String())
-	if err != nil {
-		log.WithFields(meta).Error(err)
-		return nil, err
-	}
-
+	// 1. Check the cache to see if the track exists
+	existingTrack := database.Cache.Get(*convertedTrackId)
 	if existingTrack != nil {
 		log.WithFields(meta).Debugf("Track %v already exists in database", convertedTrackId.String())
 		return nil, types.ErrTrackAlreadyInPlaylist
@@ -124,7 +118,7 @@ func AddTrack(ctx context.Context, trackId string, meta log.Fields) (*spotify.Fu
 
 	log.WithFields(meta).Debugf("Adding track %v to playlist", convertedTrackId.String())
 	// 4. Add to playlist
-	err = spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
+	err := spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
 	if err != nil {
 		log.WithFields(meta).Errorf("Error adding track to playlist: %v", err)
 		return nil, types.ErrCouldNotAddToPlaylist

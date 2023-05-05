@@ -3,37 +3,17 @@ package commands
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
-	re "github.com/vaultbotx/vaultbot-lite/internal/database/redis"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
+	"github.com/vaultbotx/vaultbot-lite/internal/database"
+	"github.com/zmb3/spotify/v2"
 	"time"
 )
 
 func PurgeTracks(ctx context.Context) error {
 	log.Debug("Purging tracks")
-	errChan := make(chan error)
-	trackChan := make(chan *types.CacheTrack)
 
-	go func(c chan<- error) {
-		err := re.GetAll(ctx, trackChan)
-		if err != nil {
-			c <- err
-		}
+	tracks := database.Cache.GetAll()
 
-		close(c)
-	}(errChan)
-
-	err := <-errChan
-	if err != nil {
-		return err
-	}
-
-	var tracks []*types.CacheTrack
-	for track := range trackChan {
-		tracks = append(tracks, track)
-	}
-	close(trackChan)
-
-	var expiredTracks []string
+	var expiredTracks []spotify.ID
 	now := time.Now().UTC()
 	for _, track := range tracks {
 		if track.AddedAt.Before(now.AddDate(0, 0, -14)) {
@@ -42,7 +22,7 @@ func PurgeTracks(ctx context.Context) error {
 	}
 	log.Debug("Found ", len(expiredTracks), " expired tracks")
 
-	err = RemoveTracks(ctx, expiredTracks)
+	err := RemoveTracks(ctx, expiredTracks)
 	if err != nil {
 		return err
 	}

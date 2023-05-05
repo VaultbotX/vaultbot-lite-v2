@@ -3,7 +3,7 @@ package commands
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
-	re "github.com/vaultbotx/vaultbot-lite/internal/database/redis"
+	"github.com/vaultbotx/vaultbot-lite/internal/database"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/zmb3/spotify/v2"
@@ -50,23 +50,13 @@ func CacheTracks(ctx context.Context) error {
 		}
 
 		tracks[i] = &types.CacheTrack{
-			TrackId: track.Track.Track.ID.String(),
+			TrackId: track.Track.Track.ID,
 			AddedAt: addedAt,
 		}
 	}
 	log.Debug("Found ", len(tracks), " tracks in playlist")
-
-	log.Debug("Flushing cache of existing tracks")
-	err := re.Flush(ctx)
-	if err != nil {
-		return err
-	}
-
 	log.Debug("Setting cache with new tracks")
-	err = re.SetMulti(ctx, tracks)
-	if err != nil {
-		return err
-	}
+	database.Cache.SetMulti(tracks)
 
 	return nil
 }
