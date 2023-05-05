@@ -8,6 +8,7 @@ import (
 	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
 	"os"
 	"os/signal"
+	"time"
 )
 
 var (
@@ -24,9 +25,9 @@ func Run() {
 		log.SetLevel(log.DebugLevel)
 		log.Info("Starting in development mode")
 
-		err := godotenv.Load()
+		err := godotenv.Load("dev.env")
 		if err != nil {
-			log.Fatal("Error loading .env file")
+			log.Fatal("Error loading dev.env file")
 		}
 	} else {
 		log.SetLevel(log.InfoLevel)
@@ -63,12 +64,13 @@ func Run() {
 		log.Infof("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	err = internalcommands.CacheTracks(ctx)
 	if err != nil {
 		log.Fatalf("Cannot cache playlist tracks: %v", err)
 	}
 	RunPurge(ctx)
+	cancel()
 
 	err = s.Open()
 	if err != nil {
