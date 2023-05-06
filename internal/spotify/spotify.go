@@ -59,11 +59,6 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 
 	spotifyTokenString, spotifyTokenStringPresent := os.LookupEnv("SPOTIFY_TOKEN")
 	if spotifyTokenStringPresent {
-		// https://developer.spotify.com/documentation/web-api/tutorials/code-flow
-		// TODO: Here, we will attempt to get an existing token and use it (allowing it to be refreshed if necessary)
-		//  If that fails, we will need to open a browser window to get a new token
-		// This step will need to occur while running the application locally, and hopefully should only need
-		// to happen once
 		token, err := utils.ParseTokenString(spotifyTokenString)
 		if err != nil {
 			log.Fatalf("Unable to parse Spotify token from environment variable: %s", err)

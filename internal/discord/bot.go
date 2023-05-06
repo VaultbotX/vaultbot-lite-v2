@@ -6,6 +6,7 @@ import (
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
+	"io"
 	"os"
 	"os/signal"
 	"time"
@@ -87,9 +88,32 @@ func Run() {
 	log.Info("Adding commands...")
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
 	for i, v := range commands {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, TestGuildId, v)
-		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+		cmd, err2 := s.ApplicationCommandCreate(s.State.User.ID, TestGuildId, v)
+		if err2 != nil {
+			if restErr, ok := err2.(*discordgo.RESTError); ok {
+				message := ""
+				if restErr.Message != nil {
+					message = restErr.Message.Message
+				}
+
+				bodyString := ""
+				body, err3 := restErr.Request.GetBody()
+				if err3 == nil {
+					bodyBytes, err4 := io.ReadAll(body)
+					if err4 == nil {
+						bodyString = string(bodyBytes)
+					}
+				}
+
+				log.WithFields(log.Fields{
+					"command":         v.Name,
+					"responseMessage": message,
+					"requestBody":     bodyString,
+				}).Fatalf("Request to create application command failed with response code %d",
+					restErr.Response.StatusCode)
+			}
+
+			log.Fatalf("Cannot create '%v' command: %v", v.Name, err2)
 		}
 		registeredCommands[i] = cmd
 	}
@@ -101,7 +125,7 @@ func Run() {
 	for _, v := range registeredCommands {
 		err := s.ApplicationCommandDelete(s.State.User.ID, TestGuildId, v.ID)
 		if err != nil {
-			log.Panicf("Cannot delete '%v' command: %v", v.Name, err)
+			log.Fatalf("Cannot delete '%v' command: %v", v.Name, err)
 		}
 	}
 
