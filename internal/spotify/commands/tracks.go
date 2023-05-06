@@ -25,6 +25,7 @@ func GetTrack(ctx context.Context, trackId spotify.ID, trackChan chan<- *spotify
 	}
 
 	trackChan <- track
+	close(trackChan)
 
 	return nil
 }
@@ -49,6 +50,7 @@ func GetTrackAudioFeatures(ctx context.Context, trackId spotify.ID,
 	for _, audioFeature := range audioFeatures {
 		audioFeaturesChan <- audioFeature
 	}
+	close(audioFeaturesChan)
 
 	return nil
 }

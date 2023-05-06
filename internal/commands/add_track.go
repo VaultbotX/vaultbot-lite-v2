@@ -8,7 +8,6 @@ import (
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/zmb3/spotify/v2"
-	"sync"
 )
 
 func AddTrack(ctx context.Context, trackId string, meta log.Fields) (*spotify.FullTrack, error) {
@@ -29,35 +28,30 @@ func AddTrack(ctx context.Context, trackId string, meta log.Fields) (*spotify.Fu
 	// 2. Attempt to get the track from Spotify
 	trackChan := make(chan *spotify.FullTrack)
 	errorChan := make(chan error)
-	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func(g *sync.WaitGroup, c chan<- error) {
-		defer g.Done()
+	go func(c chan<- error) {
 		err := spcommands.GetTrack(ctx, *convertedTrackId, trackChan)
 		if err != nil {
 			close(trackChan)
 			c <- err
 		}
-	}(&wg, errorChan)
-
-	wg.Wait()
+	}(errorChan)
 
 	var track *spotify.FullTrack
-	var ok bool
-	select {
-	case err := <-errorChan:
-		return nil, err
-	case track, ok = <-trackChan:
-		if track == nil {
-			log.WithFields(meta).Debugf("Track %v does not exist", convertedTrackId.String())
-			return nil, types.ErrNoTrackExists
-		}
+	done := false
+	for !done {
+		select {
+		case err := <-errorChan:
+			return nil, err
+		case track = <-trackChan:
+			if track == nil {
+				log.WithFields(meta).Debugf("Track %v does not exist", convertedTrackId.String())
+				return nil, types.ErrNoTrackExists
+			}
 
-		if !ok {
-			close(trackChan)
+			done = true
+			log.WithFields(meta).Debugf("Track %v exists", convertedTrackId.String())
 		}
-		log.WithFields(meta).Debugf("Track %v exists", convertedTrackId.String())
 	}
 
 	log.WithFields(meta).Debugf("Getting artists and audio features for track %v", convertedTrackId.String())
@@ -66,9 +60,7 @@ func AddTrack(ctx context.Context, trackId string, meta log.Fields) (*spotify.Fu
 	audioFeaturesChan := make(chan *spotify.AudioFeatures)
 	errorChan2 := make(chan error)
 
-	wg.Add(2)
-	go func(wg *sync.WaitGroup, artistChan chan<- *spotify.FullArtist) {
-		defer wg.Done()
+	go func(artistChan chan<- *spotify.FullArtist) {
 		artistIds := make([]spotify.ID, len(track.Artists))
 		for i, artist := range track.Artists {
 			artistIds[i] = artist.ID
@@ -78,44 +70,48 @@ func AddTrack(ctx context.Context, trackId string, meta log.Fields) (*spotify.Fu
 		if err != nil {
 			errorChan <- err
 		}
-	}(&wg, artistChan)
+	}(artistChan)
 
-	go func(wg *sync.WaitGroup, audioFeaturesChan chan<- *spotify.AudioFeatures) {
-		defer wg.Done()
+	go func(audioFeaturesChan chan<- *spotify.AudioFeatures) {
 		err := spcommands.GetTrackAudioFeatures(ctx, *convertedTrackId, audioFeaturesChan)
 		if err != nil {
 			errorChan2 <- err
 		}
-	}(&wg, audioFeaturesChan)
-
-	wg.Wait()
-
-	select {
-	case err := <-errorChan:
-		close(artistChan)
-		log.WithFields(meta).Errorf("Error getting artists: %v", err)
-		return nil, err
-	case err := <-errorChan2:
-		close(audioFeaturesChan)
-		log.WithFields(meta).Errorf("Error getting audio features: %v", err)
-		return nil, err
-	default:
-		break
-	}
+	}(audioFeaturesChan)
 
 	var artists []*spotify.FullArtist
-	for artist := range artistChan {
-		artists = append(artists, artist)
-	}
-	close(artistChan)
-
 	var audioFeatures []*spotify.AudioFeatures
-	for audioFeature := range audioFeaturesChan {
-		audioFeatures = append(audioFeatures, audioFeature)
-	}
-	close(audioFeaturesChan)
-	log.WithFields(meta).Debugf("Finished getting artists and audio features for track %v", convertedTrackId.String())
+	artistsDone, audioFeaturesDone := false, false
+	for !artistsDone || !audioFeaturesDone {
+		select {
+		case err := <-errorChan:
+			close(artistChan)
+			log.WithFields(meta).Errorf("Error getting artists: %v", err)
+			return nil, err
+		case err := <-errorChan2:
+			close(audioFeaturesChan)
+			log.WithFields(meta).Errorf("Error getting audio features: %v", err)
+			return nil, err
+		case artist, ok := <-artistChan:
+			if artist != nil {
+				artists = append(artists, artist)
+			}
 
+			if !ok {
+				artistsDone = true
+			}
+		case audioFeature, ok := <-audioFeaturesChan:
+			if audioFeature != nil {
+				audioFeatures = append(audioFeatures, audioFeature)
+			}
+
+			if !ok {
+				audioFeaturesDone = true
+			}
+		}
+	}
+
+	log.WithFields(meta).Debugf("Finished getting artists and audio features for track %v", convertedTrackId.String())
 	log.WithFields(meta).Debugf("Adding track %v to playlist", convertedTrackId.String())
 	// 4. Add to playlist
 	err := spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
