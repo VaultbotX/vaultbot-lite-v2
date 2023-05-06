@@ -8,13 +8,17 @@ import (
 	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
+	"time"
 )
 
 func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	trackId := i.ApplicationCommandData().Options[0].StringValue()
 
 	meta := utils.GetFieldsFromInteraction(i)
-	track, err := internalcommands.AddTrack(context.Background(), trackId, meta)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	track, err := internalcommands.AddTrack(ctx, trackId, meta)
+	cancel()
+
 	if err != nil {
 		if err == types.ErrInvalidTrackId {
 			err2 := respond(s, i, "Invalid track ID")
@@ -41,11 +45,12 @@ func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 
 		log.WithFields(meta).Error(err)
+		respond(s, i, "An error occurred. Please try again later")
 		return
 	}
 
 	trackDetails := fmt.Sprintf("%s by %s", track.Name, track.Artists[0].Name)
-	err = respond(s, i, fmt.Sprintf("Added %s to the playlist", trackDetails))
+	err = respond(s, i, fmt.Sprintf("Added %s to the playlist!", trackDetails))
 	if err != nil {
 		log.WithFields(meta).Error(err)
 		return
@@ -68,7 +73,7 @@ var (
 			Description: "Add a track to the playlist",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Name:        "trackId",
+					Name:        "track-id",
 					Description: "The Spotify track ID, URI, or URL",
 					Type:        discordgo.ApplicationCommandOptionString,
 					Required:    true,
@@ -76,6 +81,7 @@ var (
 			},
 		},
 	}
+
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"add-track": addTrack,
 	}
