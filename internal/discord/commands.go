@@ -7,12 +7,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
+	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 )
 
 func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	trackId := i.ApplicationCommandData().Options[0].StringValue()
 
-	meta := types.GetFieldsFromInteraction(i)
+	meta := utils.GetFieldsFromInteraction(i)
 	track, err := internalcommands.AddTrack(context.Background(), trackId, meta)
 	if err != nil {
 		if err == types.ErrInvalidTrackId {
