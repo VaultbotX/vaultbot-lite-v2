@@ -6,6 +6,8 @@ import (
 )
 
 var alphanumericRegex = regexp.MustCompile(`^[a-zA-Z0-9]{1,50}$`)
+var spotifyUriRegex = regexp.MustCompile(`spotify:track:(\w+)`)
+var spotifyUrlRegex = regexp.MustCompile(`https://open.spotify.com/track/(\w+)`)
 
 // ParseTrackId parses a string and returns a spotify ID for a Spotify URL, URI, or track ID.
 func ParseTrackId(text string) *spotify.ID {
@@ -14,11 +16,20 @@ func ParseTrackId(text string) *spotify.ID {
 		return &match
 	}
 
-	match := alphanumericRegex.FindAllStringSubmatch(text, -1)
-	if len(match) > 0 {
-		// assume the first match is the track id
-		firstMatch := spotify.ID(match[0][0])
-		return &firstMatch
+	if spotifyUriRegex.MatchString(text) {
+		match := spotifyUriRegex.FindStringSubmatch(text)
+		if len(match) > 0 {
+			firstMatch := spotify.ID(match[1])
+			return &firstMatch
+		}
+	}
+
+	if spotifyUrlRegex.MatchString(text) {
+		match := spotifyUrlRegex.FindStringSubmatch(text)
+		if len(match) > 0 {
+			firstMatch := spotify.ID(match[1])
+			return &firstMatch
+		}
 	}
 
 	return nil
