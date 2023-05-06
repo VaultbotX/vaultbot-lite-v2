@@ -64,12 +64,12 @@ func Run() {
 		log.Infof("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	err = internalcommands.CacheTracks(ctx)
 	if err != nil {
 		log.Fatalf("Cannot cache playlist tracks: %v", err)
 	}
-	RunPurge(ctx)
+	RunPurge()
 	cancel()
 
 	err = s.Open()

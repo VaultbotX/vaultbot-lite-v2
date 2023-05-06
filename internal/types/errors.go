@@ -13,3 +13,5 @@ var ErrCouldNotAddToPlaylist = errors.New("spotify: could not add track to playl
 var ErrCouldNotAddToDatabase = errors.New("spotify: could not add track to database")
 
 var ErrCouldNotRemoveFromPlaylist = errors.New("spotify: could not remove track from playlist")
+
+var ErrUnsupportedOSForBrowser = errors.New("unsupported OS for browser")
