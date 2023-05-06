@@ -52,7 +52,7 @@ func ParseTokenString(tokenString string) (*oauth2.Token, error) {
 	return token, nil
 }
 
-func GenerateState() (string, error) {
+func GenerateCSRFStateString() (string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {

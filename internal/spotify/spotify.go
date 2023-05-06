@@ -59,6 +59,7 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 
 	spotifyTokenString, spotifyTokenStringPresent := os.LookupEnv("SPOTIFY_TOKEN")
 	if spotifyTokenStringPresent {
+		log.Info("Attempting to parse Spotify token from environment variable")
 		token, err := utils.ParseTokenString(spotifyTokenString)
 		if err != nil {
 			log.Fatalf("Unable to parse Spotify token from environment variable: %s", err)
@@ -73,13 +74,16 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 			Client:            client,
 		}
 
+		log.Info("Successfully parsed Spotify token from environment variable")
+
 		return instance, nil
 	}
 
 	// At this point, we were not provided an existing token, so we will need to open a browser window to get one
 	// This step will need to occur while running the application locally, and hopefully should only need
 	// to happen once
-	state, err := utils.GenerateState()
+	log.Warn("SPOTIFY_TOKEN is not set. Opening browser to authenticate with Spotify. This step must be performed locally")
+	state, err := utils.GenerateCSRFStateString()
 	if err != nil {
 		log.Fatalf("Unable to generate state for Spotify auth: %s", err)
 	}
@@ -140,6 +144,8 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 		DynamicPlaylistId: spotify.ID(playlistId),
 		Client:            client,
 	}
+
+	log.Info("Successfully retrieved new Spotify token")
 
 	return instance, nil
 }

@@ -23,6 +23,7 @@ func GetArtists(ctx context.Context, artistIds []spotify.ID, artistChan chan<- *
 	for _, artist := range artists {
 		artistChan <- artist
 	}
+	close(artistChan)
 
 	return nil
 }
