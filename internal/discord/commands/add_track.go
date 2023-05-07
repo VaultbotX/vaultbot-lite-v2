@@ -56,7 +56,11 @@ func AddTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 
 		log.WithFields(meta).Error(err)
-		respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err2 := respond(s, i, "An unexpected error occurred. Please try again later :(")
+		if err2 != nil {
+			log.WithFields(meta).Error(err2)
+			return
+		}
 		return
 	}
 
