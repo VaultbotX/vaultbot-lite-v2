@@ -15,8 +15,9 @@ func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	trackId := i.ApplicationCommandData().Options[0].StringValue()
 
 	meta := utils.GetFieldsFromInteraction(i)
+	userFields := utils.GetUserFieldsFromInteraction(i)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	track, err := internalcommands.AddTrack(ctx, trackId, meta)
+	track, err := internalcommands.AddTrack(ctx, trackId, userFields, meta)
 	cancel()
 
 	if err != nil {
