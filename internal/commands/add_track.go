@@ -10,7 +10,7 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-func AddTrack(ctx context.Context, trackId string, meta log.Fields) (*spotify.FullTrack, error) {
+func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields, meta log.Fields) (*spotify.FullTrack, error) {
 	log.WithFields(meta).Debugf("Attempting to add track %v to playlist", trackId)
 	// 0. Parse the track id
 	convertedTrackId := sp.ParseTrackId(trackId)
@@ -122,7 +122,7 @@ func AddTrack(ctx context.Context, trackId string, meta log.Fields) (*spotify.Fu
 
 	log.WithFields(meta).Debugf("Adding track %v to database", convertedTrackId.String())
 	// 5. Add to databases
-	err = database.AddTrackToDatabase(ctx, track, artists, audioFeatures)
+	err = database.AddTrackToDatabase(ctx, userFields, track, artists, audioFeatures)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error adding track to database: %v", err)
 
