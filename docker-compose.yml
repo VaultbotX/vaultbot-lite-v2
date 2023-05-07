@@ -15,10 +15,6 @@ services:
   mongo:
     image: mongo:6.0.4
     container_name: vaultbot-mongo
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
     volumes:
       - mongo_data:/data/db
     ports:
@@ -34,6 +30,7 @@ services:
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
       SPOTIFY_PLAYLIST_ID: ${SPOTIFY_PLAYLIST_ID}
+      MONGO_HOST: ${MONGO_HOST}
 
 volumes:
   neo4j_data:

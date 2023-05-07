@@ -26,9 +26,9 @@ func Run() {
 		log.SetLevel(log.DebugLevel)
 		log.Info("Starting in development mode")
 
-		err := godotenv.Load("dev.env")
+		err := godotenv.Load(".env")
 		if err != nil {
-			log.Fatal("Error loading dev.env file")
+			log.Fatal("Error loading .env file")
 		}
 	} else {
 		log.SetLevel(log.InfoLevel)
@@ -85,7 +85,7 @@ func Run() {
 		}
 	}(s)
 
-	log.Info("Adding commands...")
+	log.Info("Adding commands")
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
 	for i, v := range commands {
 		cmd, err2 := s.ApplicationCommandCreate(s.State.User.ID, TestGuildId, v)
