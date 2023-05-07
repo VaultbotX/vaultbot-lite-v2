@@ -21,32 +21,42 @@ func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	cancel()
 
 	if err != nil {
-		if err == types.ErrInvalidTrackId {
-			err2 := respond(s, i, "Invalid track ID")
+		switch err {
+		case types.ErrInvalidTrackId:
+			err2 := respond(s, i, "I can't recognize that track ID!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
-		} else if err == types.ErrTrackAlreadyInPlaylist {
-			err2 := respond(s, i, "Track is already in the playlist")
+			break
+		case types.ErrTrackAlreadyInPlaylist:
+			err2 := respond(s, i, "Track is already in the playlist!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
-		} else if err == types.ErrNoTrackExists {
-			err2 := respond(s, i, "Track does not exist")
+			break
+		case types.ErrTrackTooLong:
+			err2 := respond(s, i, "That track is too long!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
-		} else if err == types.ErrCouldNotAddToPlaylist ||
-			err == types.ErrCouldNotAddToDatabase ||
-			err == types.ErrCouldNotRemoveFromPlaylist {
-			err2 := respond(s, i, "Could not add track to playlist. Please try again later")
+		case types.ErrNoTrackExists:
+			err2 := respond(s, i, "That track does not exist!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
+			break
+		case types.ErrCouldNotAddToPlaylist:
+		case types.ErrCouldNotAddToDatabase:
+		case types.ErrCouldNotRemoveFromPlaylist:
+			err2 := respond(s, i, "Could not add track to playlist. Please try again later :(")
+			if err2 != nil {
+				log.WithFields(meta).Error(err2)
+			}
+			break
 		}
 
 		log.WithFields(meta).Error(err)
-		respond(s, i, "An error occurred. Please try again later")
+		respond(s, i, "An unexpected error occurred. Please try again later :(")
 		return
 	}
 
