@@ -4,6 +4,7 @@ import (
 	"context"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/database"
+	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/database/mongo/commands"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -52,6 +53,24 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 			done = true
 			log.WithFields(meta).Debugf("Track %v exists", convertedTrackId.String())
 		}
+	}
+
+	// 2.5 Check that the duration of the song does not exceed the maximum
+	maxDurationPreference, err := mongocommands.GetPreference(ctx, types.MaxDurationKey)
+	if err != nil {
+		return nil, err
+	}
+	var maxDuration int
+	if v, ok := maxDurationPreference.Value.(int32); ok {
+		maxDuration = int(v)
+	} else {
+		log.Warn("Max duration preference is not an int32, using default value")
+		maxDuration = types.MaxDurationKey.DefaultValue().(int)
+	}
+
+	if track.Duration > maxDuration {
+		log.WithFields(meta).Debugf("Track %v exceeds maximum duration", convertedTrackId.String())
+		return nil, types.ErrTrackTooLong
 	}
 
 	log.WithFields(meta).Debugf("Getting artists and audio features for track %v", convertedTrackId.String())
@@ -114,7 +133,7 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	log.WithFields(meta).Debugf("Finished getting artists and audio features for track %v", convertedTrackId.String())
 	log.WithFields(meta).Debugf("Adding track %v to playlist", convertedTrackId.String())
 	// 4. Add to playlist
-	err := spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
+	err = spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
 	if err != nil {
 		log.WithFields(meta).Errorf("Error adding track to playlist: %v", err)
 		return nil, types.ErrCouldNotAddToPlaylist

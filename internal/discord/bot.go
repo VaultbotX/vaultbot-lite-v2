@@ -66,11 +66,24 @@ func Run() {
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	log.Debug("Caching tracks")
 	err = internalcommands.CacheTracks(ctx)
 	if err != nil {
 		log.Fatalf("Cannot cache playlist tracks: %v", err)
 	}
+	log.Debug("Finished caching tracks")
+
+	log.Debug("Checking default preferences")
+	err = internalcommands.CheckDefaultPreferences(ctx)
+	if err != nil {
+		log.Fatalf("Cannot check default preferences: %v", err)
+	}
+	log.Debug("Finished checking default preferences")
+
+	log.Debug("Starting purge tracks cron")
 	RunPurge()
+	log.Debug("Finished starting purge tracks cron")
+
 	cancel()
 
 	err = s.Open()
@@ -85,7 +98,7 @@ func Run() {
 		}
 	}(s)
 
-	log.Info("Adding commands")
+	log.Info("Adding Discord commands")
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
 	for i, v := range commands {
 		cmd, err2 := s.ApplicationCommandCreate(s.State.User.ID, TestGuildId, v)
@@ -117,6 +130,7 @@ func Run() {
 		}
 		registeredCommands[i] = cmd
 	}
+	log.Info("Finished adding Discord commands")
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, os.Kill)

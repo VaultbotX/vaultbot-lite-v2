@@ -1,71 +1,20 @@
 package discord
 
 import (
-	"context"
-	"fmt"
 	"github.com/bwmarrin/discordgo"
-	log "github.com/sirupsen/logrus"
-	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
-	"github.com/vaultbotx/vaultbot-lite/internal/utils"
-	"time"
+	discordcommands "github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
 )
 
-func addTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	trackId := i.ApplicationCommandData().Options[0].StringValue()
+var (
+	// AdminPermission is the int64 representation of an admin permission.
+	// Not aware of any constants in Discordgo to represent the permission int64s
+	// https://discord-api-types.dev/api/discord-api-types-payloads/common#PermissionFlagsBits
+	// https://github.com/discordjs/discord-api-types/blob/0e6b19d2bcfe6e9806d3d20125668b3464845517/payloads/common.ts#L26
+	AdminPermission int64 = 8
 
-	meta := utils.GetFieldsFromInteraction(i)
-	userFields := utils.GetUserFieldsFromInteraction(i)
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	track, err := internalcommands.AddTrack(ctx, trackId, userFields, meta)
-	cancel()
-
-	if err != nil {
-		if err == types.ErrInvalidTrackId {
-			err2 := respond(s, i, "Invalid track ID")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
-		} else if err == types.ErrTrackAlreadyInPlaylist {
-			err2 := respond(s, i, "Track is already in the playlist")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
-		} else if err == types.ErrNoTrackExists {
-			err2 := respond(s, i, "Track does not exist")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
-		} else if err == types.ErrCouldNotAddToPlaylist ||
-			err == types.ErrCouldNotAddToDatabase ||
-			err == types.ErrCouldNotRemoveFromPlaylist {
-			err2 := respond(s, i, "Could not add track to playlist. Please try again later")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
-		}
-
-		log.WithFields(meta).Error(err)
-		respond(s, i, "An error occurred. Please try again later")
-		return
-	}
-
-	trackDetails := fmt.Sprintf("%s by %s", track.Name, track.Artists[0].Name)
-	err = respond(s, i, fmt.Sprintf("Added %s to the playlist!", trackDetails))
-	if err != nil {
-		log.WithFields(meta).Error(err)
-		return
-	}
-}
-
-func respond(s *discordgo.Session, i *discordgo.InteractionCreate, response string) error {
-	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: response,
-		},
-	})
-}
+	MinSongDuration float64 = 2
+	MaxSongDuration float64 = 120
+)
 
 var (
 	commands = []*discordgo.ApplicationCommand{
@@ -81,9 +30,26 @@ var (
 				},
 			},
 		},
+		{
+			// TODO: Will likely want to make this a single command with subcommands
+			Name:        "edit-preference-track-duration",
+			Description: "Edit the track duration preference",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "track-duration",
+					Description: "The track duration in minutes",
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Required:    true,
+					MinValue:    &MinSongDuration,
+					MaxValue:    MaxSongDuration,
+				},
+			},
+			DefaultMemberPermissions: &AdminPermission,
+		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"add-track": addTrack,
+		"add-track":                      discordcommands.AddTrack,
+		"edit-preference-track-duration": discordcommands.EditPreferenceTrackDuration,
 	}
 )
