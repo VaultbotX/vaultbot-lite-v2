@@ -11,6 +11,9 @@ var (
 	// https://discord-api-types.dev/api/discord-api-types-payloads/common#PermissionFlagsBits
 	// https://github.com/discordjs/discord-api-types/blob/0e6b19d2bcfe6e9806d3d20125668b3464845517/payloads/common.ts#L26
 	AdminPermission int64 = 8
+
+	MinSongDuration float64 = 2
+	MaxSongDuration float64 = 120
 )
 
 var (
@@ -37,6 +40,8 @@ var (
 					Description: "The track duration in minutes",
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Required:    true,
+					MinValue:    &MinSongDuration,
+					MaxValue:    MaxSongDuration,
 				},
 			},
 			DefaultMemberPermissions: &AdminPermission,
