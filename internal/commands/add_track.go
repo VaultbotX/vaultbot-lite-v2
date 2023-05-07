@@ -60,7 +60,14 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	if err != nil {
 		return nil, err
 	}
-	maxDuration := maxDurationPreference.(int)
+	var maxDuration int
+	if v, ok := maxDurationPreference.Value.(int32); ok {
+		maxDuration = int(v)
+	} else {
+		log.Warn("Max duration preference is not an int32, using default value")
+		maxDuration = types.MaxDurationKey.DefaultValue().(int)
+	}
+
 	if track.Duration > maxDuration {
 		log.WithFields(meta).Debugf("Track %v exceeds maximum duration", convertedTrackId.String())
 		return nil, types.ErrTrackTooLong
