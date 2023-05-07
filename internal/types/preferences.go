@@ -6,6 +6,12 @@ const (
 	MaxDurationKey PreferenceKey = "maxDuration"
 )
 
+type Preference struct {
+	Id    string        `bson:"_id"`
+	Key   PreferenceKey `bson:"key"`
+	Value interface{}   `bson:"value"`
+}
+
 var AllPreferences = [1]PreferenceKey{MaxDurationKey}
 
 func (key PreferenceKey) DefaultValue() interface{} {

@@ -5,6 +5,7 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/database/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func SetPreference(ctx context.Context, key types.PreferenceKey, value interface{}) error {
@@ -18,7 +19,10 @@ func SetPreference(ctx context.Context, key types.PreferenceKey, value interface
 
 	filter := bson.M{"key": key}
 	update := bson.M{"$set": bson.M{"value": value}}
-	_, err = collection.UpdateOne(context.Background(), filter, update)
+
+	upsert := true
+	opts := options.UpdateOptions{Upsert: &upsert}
+	_, err = collection.UpdateOne(context.Background(), filter, update, &opts)
 	if err != nil {
 		return err
 	}

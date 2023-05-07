@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func GetPreference(ctx context.Context, key types.PreferenceKey) (interface{}, error) {
+func GetPreference(ctx context.Context, key types.PreferenceKey) (*types.Preference, error) {
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		return nil, err
@@ -18,7 +18,7 @@ func GetPreference(ctx context.Context, key types.PreferenceKey) (interface{}, e
 	collection := instance.Database(mg.DatabaseName).Collection(mg.PreferencesCollection)
 
 	filter := bson.M{"key": key}
-	var preference map[string]interface{}
+	var preference types.Preference
 	err = collection.FindOne(ctx, filter).Decode(&preference)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -27,5 +27,5 @@ func GetPreference(ctx context.Context, key types.PreferenceKey) (interface{}, e
 		return nil, err
 	}
 
-	return preference["value"], nil
+	return &preference, nil
 }

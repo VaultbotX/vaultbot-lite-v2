@@ -14,7 +14,7 @@ func CheckDefaultPreferences(ctx context.Context) error {
 
 	for _, preferenceKey := range types.AllPreferences {
 		// If the preference doesn't exist, create it
-		if _, ok := preferences[string(preferenceKey)]; !ok {
+		if _, ok := preferences[preferenceKey]; !ok {
 			err = mongocommands.SetPreference(ctx, preferenceKey, preferenceKey.DefaultValue())
 			if err != nil {
 				return err

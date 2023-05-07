@@ -5,14 +5,13 @@ import (
 	discordcommands "github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
 )
 
-func Respond(s *discordgo.Session, i *discordgo.InteractionCreate, response string) error {
-	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: response,
-		},
-	})
-}
+var (
+	// AdminPermission is the int64 representation of an admin permission.
+	// Not aware of any constants in Discordgo to represent the permission int64s
+	// https://discord-api-types.dev/api/discord-api-types-payloads/common#PermissionFlagsBits
+	// https://github.com/discordjs/discord-api-types/blob/0e6b19d2bcfe6e9806d3d20125668b3464845517/payloads/common.ts#L26
+	AdminPermission int64 = 8
+)
 
 var (
 	commands = []*discordgo.ApplicationCommand{
@@ -28,9 +27,24 @@ var (
 				},
 			},
 		},
+		{
+			// TODO: Will likely want to make this a single command with subcommands
+			Name:        "edit-preference-track-duration",
+			Description: "Edit the track duration preference",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "track-duration",
+					Description: "The track duration in minutes",
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Required:    true,
+				},
+			},
+			DefaultMemberPermissions: &AdminPermission,
+		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"add-track": discordcommands.AddTrack,
+		"add-track":                      discordcommands.AddTrack,
+		"edit-preference-track-duration": discordcommands.EditPreferenceTrackDuration,
 	}
 )
