@@ -8,7 +8,7 @@ import (
 func GetFieldsFromInteraction(interaction *discordgo.InteractionCreate) logrus.Fields {
 	return logrus.Fields{
 		"userId":   interaction.Member.User.ID,
-		"username": interaction.Member.User.Username,
+		"username": interaction.Member.User.Username + interaction.Member.User.Discriminator,
 		"guildId":  interaction.GuildID,
 	}
 }
