@@ -21,33 +21,7 @@ var (
 func Run() {
 	log.SetFormatter(&log.JSONFormatter{})
 
-	_, envPresent := os.LookupEnv("ENVIRONMENT")
-	if !envPresent {
-		log.SetLevel(log.DebugLevel)
-		log.Info("Starting in development mode")
-
-		err := godotenv.Load(".env")
-		if err != nil {
-			log.Fatal("Error loading .env file")
-		}
-	} else {
-		log.SetLevel(log.InfoLevel)
-		log.Info("Starting in production mode")
-	}
-
-	tokenPresent := true
-	BotToken, tokenPresent = os.LookupEnv("DISCORD_TOKEN")
-	if !tokenPresent {
-		log.Fatal("Missing DISCORD_TOKEN environment variable")
-	}
-
-	guildId, guildIdPresent := os.LookupEnv("DISCORD_GUILD_ID")
-	if !guildIdPresent {
-		log.Debug("DISCORD_GUILD_ID environment variable missing, commands will be registered globally")
-		TestGuildId = ""
-	} else {
-		TestGuildId = guildId
-	}
+	loadEnvVars()
 
 	var err error
 	s, err = discordgo.New("Bot " + BotToken)
@@ -65,26 +39,7 @@ func Run() {
 		log.Infof("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	log.Debug("Caching tracks")
-	err = internalcommands.CacheTracks(ctx)
-	if err != nil {
-		log.Fatalf("Cannot cache playlist tracks: %v", err)
-	}
-	log.Debug("Finished caching tracks")
-
-	log.Debug("Checking default preferences")
-	err = internalcommands.CheckDefaultPreferences(ctx)
-	if err != nil {
-		log.Fatalf("Cannot check default preferences: %v", err)
-	}
-	log.Debug("Finished checking default preferences")
-
-	log.Debug("Starting purge tracks cron")
-	RunPurge()
-	log.Debug("Finished starting purge tracks cron")
-
-	cancel()
+	startBackgroundTasks()
 
 	err = s.Open()
 	if err != nil {
@@ -98,6 +53,23 @@ func Run() {
 		}
 	}(s)
 
+	registeredCommands := addDiscordCommands()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, os.Kill)
+	<-stop
+
+	for _, v := range registeredCommands {
+		err := s.ApplicationCommandDelete(s.State.User.ID, TestGuildId, v.ID)
+		if err != nil {
+			log.Fatalf("Cannot delete '%v' command: %v", v.Name, err)
+		}
+	}
+
+	log.Info("Gracefully shutting down.")
+}
+
+func addDiscordCommands() []*discordgo.ApplicationCommand {
 	log.Info("Adding Discord commands")
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
 	for i, v := range commands {
@@ -131,17 +103,58 @@ func Run() {
 		registeredCommands[i] = cmd
 	}
 	log.Info("Finished adding Discord commands")
+	return registeredCommands
+}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, os.Kill)
-	<-stop
+func startBackgroundTasks() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	log.Debug("Caching tracks")
+	err := internalcommands.CacheTracks(ctx)
+	if err != nil {
+		log.Fatalf("Cannot cache playlist tracks: %v", err)
+	}
+	log.Debug("Finished caching tracks")
 
-	for _, v := range registeredCommands {
-		err := s.ApplicationCommandDelete(s.State.User.ID, TestGuildId, v.ID)
+	log.Debug("Checking default preferences")
+	err = internalcommands.CheckDefaultPreferences(ctx)
+	if err != nil {
+		log.Fatalf("Cannot check default preferences: %v", err)
+	}
+	log.Debug("Finished checking default preferences")
+
+	log.Debug("Starting purge tracks cron")
+	RunPurge()
+	log.Debug("Finished starting purge tracks cron")
+
+	cancel()
+}
+
+func loadEnvVars() {
+	_, envPresent := os.LookupEnv("ENVIRONMENT")
+	if !envPresent {
+		log.SetLevel(log.DebugLevel)
+		log.Info("Starting in development mode")
+
+		err := godotenv.Load(".env")
 		if err != nil {
-			log.Fatalf("Cannot delete '%v' command: %v", v.Name, err)
+			log.Fatal("Error loading .env file")
 		}
+	} else {
+		log.SetLevel(log.InfoLevel)
+		log.Info("Starting in production mode")
 	}
 
-	log.Info("Gracefully shutting down.")
+	tokenPresent := true
+	BotToken, tokenPresent = os.LookupEnv("DISCORD_TOKEN")
+	if !tokenPresent {
+		log.Fatal("Missing DISCORD_TOKEN environment variable")
+	}
+
+	guildId, guildIdPresent := os.LookupEnv("DISCORD_GUILD_ID")
+	if !guildIdPresent {
+		log.Debug("DISCORD_GUILD_ID environment variable missing, commands will be registered globally")
+		TestGuildId = ""
+	} else {
+		TestGuildId = guildId
+	}
 }
