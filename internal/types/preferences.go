@@ -5,6 +5,7 @@ type PreferenceKey string
 const (
 	MaxDurationKey    PreferenceKey = "maxDuration"
 	PurgeFrequencyKey PreferenceKey = "purgeFrequency"
+	MaxTrackAgeKey    PreferenceKey = "maxTrackAge"
 )
 
 type Preference struct {
@@ -13,7 +14,11 @@ type Preference struct {
 	Value interface{}   `bson:"value"`
 }
 
-var AllPreferences = [2]PreferenceKey{MaxDurationKey, PurgeFrequencyKey}
+var AllPreferences = [3]PreferenceKey{
+	MaxDurationKey,
+	PurgeFrequencyKey,
+	MaxTrackAgeKey,
+}
 
 func (key PreferenceKey) DefaultValue() interface{} {
 	switch key {
@@ -23,6 +28,9 @@ func (key PreferenceKey) DefaultValue() interface{} {
 	case PurgeFrequencyKey:
 		// 12 hours in MS
 		return 12 * 60 * 60 * 1000
+	case MaxTrackAgeKey:
+		// 2 weeks in MS
+		return 2 * 7 * 24 * 60 * 60 * 1000
 	default:
 		return nil
 	}

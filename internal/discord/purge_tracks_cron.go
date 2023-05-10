@@ -11,10 +11,10 @@ import (
 var job *gocron.Job
 
 func RunPurge() {
-	s := gocron.NewScheduler(time.UTC)
+	scheduler := gocron.NewScheduler(time.UTC)
 	pref, err := internalcommands.GetPurgeFrequencyPreference()
 	duration := time.Duration(pref.Value.(int))
-	job, err = s.Every(duration).Milliseconds().Do(purgeTracks)
+	job, err = scheduler.Every(duration).Milliseconds().Do(purgeTracks)
 	if err != nil {
 		log.Fatalf("Failed to schedule purge tracks: %v", err)
 	}
@@ -35,12 +35,14 @@ func RunPurge() {
 		}
 	}()
 
+	scheduler.StartAsync()
+
 	for {
 		select {
 		case duration := <-frequencyChange:
 			log.Infof("Updating purge frequency to %v", duration)
-			s.Remove(job)
-			job, err = s.Every(duration).Milliseconds().Do(purgeTracks)
+			scheduler.Remove(job)
+			job, err = scheduler.Every(duration).Milliseconds().Do(purgeTracks)
 			if err != nil {
 				log.Fatalf("Failed to schedule purge tracks: %v", err)
 			}
@@ -48,8 +50,6 @@ func RunPurge() {
 
 		time.Sleep(5 * time.Minute)
 	}
-
-	s.StartAsync()
 }
 
 func purgeTracks() func() {

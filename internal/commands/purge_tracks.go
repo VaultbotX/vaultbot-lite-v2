@@ -16,6 +16,7 @@ func PurgeTracks(ctx context.Context) error {
 	var expiredTracks []spotify.ID
 	now := time.Now().UTC()
 	for _, track := range tracks {
+		// TODO: Make this configurable
 		if track.AddedAt.Before(now.AddDate(0, 0, -14)) {
 			expiredTracks = append(expiredTracks, track.TrackId)
 		}
