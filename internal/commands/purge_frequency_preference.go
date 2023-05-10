@@ -17,3 +17,14 @@ func GetPurgeFrequencyPreference() (*types.Preference, error) {
 
 	return pref, nil
 }
+
+func SetPurgeFrequencyPreference(durationInMilliseconds int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	err := mongocommands.SetPreference(ctx, types.PurgeFrequencyKey, durationInMilliseconds)
+	cancel()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
