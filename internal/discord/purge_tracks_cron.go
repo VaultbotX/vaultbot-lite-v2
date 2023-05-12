@@ -16,7 +16,7 @@ func RunPurge() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	duration := time.Duration(pref.Value.(int32))
+	duration := time.Duration(pref.Value.(int32)) * time.Millisecond
 	log.Infof("Scheduling purge tracks every %v", duration)
 	job, err = scheduler.Every(duration).Do(purgeTracks)
 	if err != nil {
@@ -33,7 +33,7 @@ func RunPurge() {
 				log.Fatal(err)
 			}
 
-			newDuration := time.Duration(pref.Value.(int32))
+			newDuration := time.Duration(pref.Value.(int32)) * time.Millisecond
 			if newDuration != duration {
 				frequencyChange <- newDuration
 			}
@@ -44,19 +44,21 @@ func RunPurge() {
 
 	scheduler.StartAsync()
 
-	for {
-		select {
-		case newDuration := <-frequencyChange:
-			log.Infof("Updating purge frequency to %v", duration)
-			scheduler.Remove(job)
-			job, err = scheduler.Every(newDuration).Do(purgeTracks)
-			if err != nil {
-				log.Fatalf("Failed to schedule purge tracks: %v", err)
+	go func() {
+		for {
+			select {
+			case newDuration := <-frequencyChange:
+				log.Infof("Updating purge frequency to %v", duration)
+				scheduler.Remove(job)
+				job, err = scheduler.Every(newDuration).Do(purgeTracks)
+				if err != nil {
+					log.Fatalf("Failed to schedule purge tracks: %v", err)
+				}
 			}
-		}
 
-		time.Sleep(5 * time.Minute)
-	}
+			time.Sleep(5 * time.Minute)
+		}
+	}()
 }
 
 func purgeTracks() {
