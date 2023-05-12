@@ -14,6 +14,12 @@ var (
 
 	MinSongDuration float64 = 2
 	MaxSongDuration float64 = 120
+
+	MinPurgeFrequency float64 = 1
+	MaxPurgeFrequency float64 = 7
+
+	MinTrackAge float64 = 1
+	MaxTrackAge float64 = 31
 )
 
 var (
@@ -31,17 +37,32 @@ var (
 			},
 		},
 		{
-			// TODO: Will likely want to make this a single command with subcommands
-			Name:        "edit-preference-track-duration",
-			Description: "Edit the track duration preference",
+			Name:        "edit-preferences",
+			Description: "Edit preferences",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Name:        "track-duration",
+					Name:        "max-track-duration",
 					Description: "The track duration in minutes",
 					Type:        discordgo.ApplicationCommandOptionInteger,
-					Required:    true,
+					Required:    false,
 					MinValue:    &MinSongDuration,
 					MaxValue:    MaxSongDuration,
+				},
+				{
+					Name:        "purge-frequency",
+					Description: "How often to purge the playlist in days",
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Required:    false,
+					MinValue:    &MinPurgeFrequency,
+					MaxValue:    MaxPurgeFrequency,
+				},
+				{
+					Name:        "max-track-age",
+					Description: "The maximum age of a track in days",
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Required:    false,
+					MinValue:    &MinTrackAge,
+					MaxValue:    MaxTrackAge,
 				},
 			},
 			DefaultMemberPermissions: &AdminPermission,
@@ -49,7 +70,7 @@ var (
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"add-track":                      discordcommands.AddTrack,
-		"edit-preference-track-duration": discordcommands.EditPreferenceTrackDuration,
+		"add-track":        discordcommands.AddTrack,
+		"edit-preferences": discordcommands.EditPreferences,
 	}
 )

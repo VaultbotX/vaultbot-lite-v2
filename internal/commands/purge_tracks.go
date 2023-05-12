@@ -9,20 +9,24 @@ import (
 )
 
 func PurgeTracks(ctx context.Context) error {
-	log.Debug("Purging tracks")
-
 	tracks := database.Cache.GetAll()
+	pref, err := GetMaxTrackAgePreference()
+	if err != nil {
+		return err
+	}
 
+	maxTrackAge := time.Duration(pref.Value.(int32)) * time.Millisecond
+	oldestAllowed := time.Now().UTC().Add(-maxTrackAge)
+	log.Debugf("Threshold: %s", oldestAllowed)
 	var expiredTracks []spotify.ID
-	now := time.Now().UTC()
 	for _, track := range tracks {
-		if track.AddedAt.Before(now.AddDate(0, 0, -14)) {
+		if track.AddedAt.Before(oldestAllowed) {
 			expiredTracks = append(expiredTracks, track.TrackId)
 		}
 	}
-	log.Debug("Found ", len(expiredTracks), " expired tracks")
+	log.Debugf("Found %d expired tracks", len(expiredTracks))
 
-	err := RemoveTracks(ctx, expiredTracks)
+	err = RemoveTracks(ctx, expiredTracks)
 	if err != nil {
 		return err
 	}

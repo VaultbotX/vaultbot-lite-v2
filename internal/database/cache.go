@@ -44,12 +44,6 @@ func (c *trackCache) SetMulti(tracks []*types.CacheTrack) {
 	}
 }
 
-func (c *trackCache) Delete(key spotify.ID) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.data, key)
-}
-
 func (c *trackCache) GetAll() []*types.CacheTrack {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
