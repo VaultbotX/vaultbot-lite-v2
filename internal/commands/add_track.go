@@ -4,7 +4,6 @@ import (
 	"context"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/database"
-	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/database/mongo/commands"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -56,7 +55,7 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	}
 
 	// 2.5 Check that the duration of the song does not exceed the maximum
-	maxDurationPreference, err := mongocommands.GetPreference(ctx, types.MaxDurationKey)
+	maxDurationPreference, err := GetMaxSongDurationPreference()
 	if err != nil {
 		return nil, err
 	}

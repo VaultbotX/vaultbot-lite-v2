@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-var job *gocron.Job
+var (
+	job      *gocron.Job
+	duration time.Duration
+)
 
 func RunPurge() {
 	scheduler := gocron.NewScheduler(time.UTC)
@@ -16,7 +19,7 @@ func RunPurge() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	duration := time.Duration(pref.Value.(int32)) * time.Millisecond
+	duration = time.Duration(pref.Value.(int32)) * time.Millisecond
 	log.Infof("Scheduling purge tracks every %v", duration)
 	job, err = scheduler.Every(duration).Do(purgeTracks)
 	if err != nil {
@@ -37,6 +40,7 @@ func RunPurge() {
 			if newDuration != duration {
 				frequencyChange <- newDuration
 			}
+			duration = newDuration
 
 			time.Sleep(5 * time.Minute)
 		}
