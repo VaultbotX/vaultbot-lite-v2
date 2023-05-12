@@ -21,7 +21,7 @@ func EditPreferences(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		editPreferenceMaxTrackAge(s, i, selectedOption, meta)
 	default:
 		log.WithFields(meta).Errorf("Unknown preference option: %s", selectedOption.Name)
-		respond(s, i, "Unknown preference option")
+		respond(s, i, "Exactly one option must be provided!")
 	}
 }
 
@@ -45,8 +45,8 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 
 func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.InteractionCreate,
 	option *discordgo.ApplicationCommandInteractionDataOption, meta log.Fields) {
-	frequencyInMinutes := option.IntValue()
-	frequencyInMilliseconds := int(frequencyInMinutes * 60 * 1000)
+	frequencyInDays := option.IntValue()
+	frequencyInMilliseconds := int(frequencyInDays * 24 * 60 * 60 * 1000)
 
 	log.WithFields(meta).Infof("Setting purge frequency preference to %d", frequencyInMilliseconds)
 	err := commands.SetPurgeFrequencyPreference(frequencyInMilliseconds)
@@ -57,7 +57,7 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	}
 
 	log.WithFields(meta).Infof("Purge frequency preference set to %d", frequencyInMilliseconds)
-	response := fmt.Sprintf("Purge frequency preference set to %d minutes", frequencyInMinutes)
+	response := fmt.Sprintf("Purge frequency preference set to %d days", frequencyInDays)
 	respond(s, i, response)
 }
 
