@@ -17,6 +17,7 @@ const (
 	DatabaseName          = "vaultbot"
 	PreferencesCollection = "preferences"
 	AddedTracksCollection = "addedTracks"
+	BlacklistCollection   = "blacklist"
 )
 
 func GetMongoClient(ctx context.Context) (*mongo.Client, error) {
