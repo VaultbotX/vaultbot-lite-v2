@@ -4,6 +4,7 @@ import (
 	"context"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/database"
+	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/database/mongo/commands"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -51,6 +52,34 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 
 			done = true
 			log.WithFields(meta).Debugf("Track %v exists", convertedTrackId.String())
+		}
+	}
+
+	// 2.1 Check that the track is not blacklisted
+	trackBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, mongocommands.Track, track.ID.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if trackBlacklisted {
+		log.WithFields(meta).Debugf("Track %v is blacklisted", track.Name)
+		artistNames := make([]string, len(track.Artists))
+		for i, artist := range track.Artists {
+			artistNames[i] = artist.Name
+		}
+		return nil, &types.ErrTrackBlacklisted{TrackName: track.Name, ArtistNames: artistNames}
+	}
+
+	// 2.2 Check each of the artists and ensure that none of them are blacklisted
+	for _, artist := range track.Artists {
+		artistBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, mongocommands.Artist, artist.ID.String())
+		if err != nil {
+			return nil, err
+		}
+
+		if artistBlacklisted {
+			log.WithFields(meta).Debugf("Artist %v is blacklisted", artist.ID.String())
+			return nil, &types.ErrArtistBlacklisted{ArtistName: artist.Name}
 		}
 	}
 
@@ -130,6 +159,21 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	}
 
 	log.WithFields(meta).Debugf("Finished getting artists and audio features for track %v", convertedTrackId.String())
+	// 2.3 Check each of the genres for each artist and ensure that none of them are blacklisted
+	for _, artist := range artists {
+		for _, genre := range artist.Genres {
+			genreBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, mongocommands.Genre, genre)
+			if err != nil {
+				return nil, err
+			}
+
+			if genreBlacklisted {
+				log.WithFields(meta).Debugf("Genre %v for artist %v is blacklisted", genre, artist.Name)
+				return nil, &types.ErrGenreBlacklisted{GenreName: genre, ArtistName: artist.Name}
+			}
+		}
+	}
+
 	log.WithFields(meta).Debugf("Adding track %v to playlist", convertedTrackId.String())
 	// 4. Add to playlist
 	err = spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
