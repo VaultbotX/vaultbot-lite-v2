@@ -55,50 +55,14 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 		}
 	}
 
-	// 2.1 Check that the track is not blacklisted
-	trackBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, mongocommands.Track, track.ID.String())
+	err := handleTrackOrArtistBlacklisted(ctx, track, meta)
 	if err != nil {
 		return nil, err
 	}
 
-	if trackBlacklisted {
-		log.WithFields(meta).Debugf("Track %v is blacklisted", track.Name)
-		artistNames := make([]string, len(track.Artists))
-		for i, artist := range track.Artists {
-			artistNames[i] = artist.Name
-		}
-		return nil, &types.ErrTrackBlacklisted{TrackName: track.Name, ArtistNames: artistNames}
-	}
-
-	// 2.2 Check each of the artists and ensure that none of them are blacklisted
-	for _, artist := range track.Artists {
-		artistBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, mongocommands.Artist, artist.ID.String())
-		if err != nil {
-			return nil, err
-		}
-
-		if artistBlacklisted {
-			log.WithFields(meta).Debugf("Artist %v is blacklisted", artist.ID.String())
-			return nil, &types.ErrArtistBlacklisted{ArtistName: artist.Name}
-		}
-	}
-
-	// 2.5 Check that the duration of the song does not exceed the maximum
-	maxDurationPreference, err := GetMaxSongDurationPreference()
+	err = handleMaxDuration(err, track, meta, convertedTrackId)
 	if err != nil {
 		return nil, err
-	}
-	var maxDuration int
-	if v, ok := maxDurationPreference.Value.(int32); ok {
-		maxDuration = int(v)
-	} else {
-		log.Warn("Max duration preference is not an int32, using default value")
-		maxDuration = types.MaxDurationKey.DefaultValue().(int)
-	}
-
-	if track.Duration > maxDuration {
-		log.WithFields(meta).Debugf("Track %v exceeds maximum duration", convertedTrackId.String())
-		return nil, types.ErrTrackTooLong
 	}
 
 	log.WithFields(meta).Debugf("Getting artists and audio features for track %v", convertedTrackId.String())
@@ -192,7 +156,7 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 
 		err2 := spcommands.RemoveTracksFromPlaylist(ctx, []spotify.ID{track.ID})
 		if err2 != nil {
-			log.WithFields(meta).Errorf("Error removing track from playlist: %v", err2)
+			log.WithFields(meta).Errorf("Error removing track from playlist during rollback: %v", err2)
 			return nil, types.ErrCouldNotRemoveFromPlaylist
 		}
 
@@ -200,4 +164,58 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	}
 
 	return track, nil
+}
+
+func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, convertedTrackId *spotify.ID) error {
+	// 2.5 Check that the duration of the song does not exceed the maximum
+	maxDurationPreference, err := GetMaxSongDurationPreference()
+	if err != nil {
+		return err
+	}
+	var maxDuration int
+	if v, ok := maxDurationPreference.Value.(int32); ok {
+		maxDuration = int(v)
+	} else {
+		log.Warn("Max duration preference is not an int32, using default value")
+		maxDuration = types.MaxDurationKey.DefaultValue().(int)
+	}
+
+	if track.Duration > maxDuration {
+		log.WithFields(meta).Debugf("Track %v exceeds maximum duration", convertedTrackId.String())
+		return types.ErrTrackTooLong
+	}
+
+	return nil
+}
+
+func handleTrackOrArtistBlacklisted(ctx context.Context, track *spotify.FullTrack, meta log.Fields) error {
+	// 2.1 Check that the track is not blacklisted
+	trackBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, mongocommands.Track, track.ID.String())
+	if err != nil {
+		return err
+	}
+
+	if trackBlacklisted {
+		log.WithFields(meta).Debugf("Track %v is blacklisted", track.Name)
+		artistNames := make([]string, len(track.Artists))
+		for i, artist := range track.Artists {
+			artistNames[i] = artist.Name
+		}
+		return &types.ErrTrackBlacklisted{TrackName: track.Name, ArtistNames: artistNames}
+	}
+
+	// 2.2 Check each of the artists and ensure that none of them are blacklisted
+	for _, artist := range track.Artists {
+		artistBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, mongocommands.Artist, artist.ID.String())
+		if err != nil {
+			return err
+		}
+
+		if artistBlacklisted {
+			log.WithFields(meta).Debugf("Artist %v is blacklisted", artist.ID.String())
+			return &types.ErrArtistBlacklisted{ArtistName: artist.Name}
+		}
+	}
+
+	return nil
 }

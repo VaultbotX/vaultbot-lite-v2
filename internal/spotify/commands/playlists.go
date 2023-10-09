@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/zmb3/spotify/v2"
 )
@@ -28,7 +29,7 @@ func GetPlaylistTracks(ctx context.Context, playlistItemChan chan<- *spotify.Pla
 
 	for page := 1; ; page++ {
 		err = client.Client.NextPage(ctx, playlistItems)
-		if err == spotify.ErrNoMorePages {
+		if errors.Is(err, spotify.ErrNoMorePages) {
 			break
 		}
 		if err != nil {
