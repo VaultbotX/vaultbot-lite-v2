@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/database/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/database/mongo/types"
 	internaltypes "github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -34,24 +35,30 @@ func Blacklist(ctx context.Context, blacklistType BlacklistType, id string,
 			TrackId:           id,
 			BlockedById:       userFields.UserId,
 			BlockedByUsername: userFields.Username,
-			GuildId:           userFields.GuildId,
-			Timestamp:         time.Unix(),
+			CommonFields: types.CommonFields{
+				GuildId:   userFields.GuildId,
+				Timestamp: time.Unix(),
+			},
 		}
 	case Artist:
 		blacklistedItem = types.BlacklistedArtist{
 			ArtistId:          id,
 			BlockedById:       userFields.UserId,
 			BlockedByUsername: userFields.Username,
-			GuildId:           userFields.GuildId,
-			Timestamp:         time.Unix(),
+			CommonFields: types.CommonFields{
+				GuildId:   userFields.GuildId,
+				Timestamp: time.Unix(),
+			},
 		}
 	case Genre:
 		blacklistedItem = types.BlacklistedGenre{
 			GenreName:         id,
 			BlockedById:       userFields.UserId,
 			BlockedByUsername: userFields.Username,
-			GuildId:           userFields.GuildId,
-			Timestamp:         time.Unix(),
+			CommonFields: types.CommonFields{
+				GuildId:   userFields.GuildId,
+				Timestamp: time.Unix(),
+			},
 		}
 	}
 
@@ -117,7 +124,7 @@ func CheckBlacklistItem(ctx context.Context, blacklistType BlacklistType, id str
 	result := collection.FindOne(ctx, filter)
 	err = result.Err()
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return false, nil
 		}
 
