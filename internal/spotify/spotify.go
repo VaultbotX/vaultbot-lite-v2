@@ -2,6 +2,7 @@ package spotify
 
 import (
 	"context"
+	"errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
@@ -17,6 +18,9 @@ var (
 )
 
 const (
+	// redirectUri should be the same as is set in the Spotify Developer Dashboard for the application.
+	// Typically, this is only used for the initial authentication when the application is running locally
+	// and the user is redirected to the Spotify login page.
 	redirectUri = "http://localhost:8080/callback"
 )
 
@@ -80,8 +84,7 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 	}
 
 	// At this point, we were not provided an existing token, so we will need to open a browser window to get one
-	// This step will need to occur while running the application locally, and hopefully should only need
-	// to happen once
+	// This step will need to occur while running the application locally, and should only need to happen once
 	log.Warn("SPOTIFY_TOKEN is not set. Opening browser to authenticate with Spotify. This step must be performed locally")
 	state, err := utils.GenerateCSRFStateString()
 	if err != nil {
@@ -106,6 +109,7 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 	})
 
 	go func() {
+		// The port here must match the redirectUri port
 		err := http.ListenAndServe(":8080", nil)
 		if err != nil {
 			log.Fatal(err)
@@ -116,7 +120,7 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 	url := authenticator.AuthURL(state)
 	err = utils.OpenBrowser(url)
 	if err != nil {
-		if err == types.ErrUnsupportedOSForBrowser {
+		if errors.Is(err, types.ErrUnsupportedOSForBrowser) {
 			log.Warnf("Unable to automatically open browser. Please log in to Spotify by visiting "+
 				"the following page in your browser: %s", url)
 		} else {
@@ -133,7 +137,7 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 	if err != nil {
 		log.Fatalf("Unable to get token after completing Spotify client setup. This should not happen: %v", err)
 	}
-	// write the token to a text file
+
 	err = utils.WriteTokenToFile(token)
 	if err != nil {
 		log.Fatalf("Unable to write token to file: %v", err)
