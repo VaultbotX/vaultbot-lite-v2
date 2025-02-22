@@ -12,6 +12,14 @@ import (
 )
 
 func Blacklist(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	blacklist(s, i, true)
+}
+
+func Unblacklist(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	blacklist(s, i, false)
+}
+
+func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist bool) {
 	meta := utils.GetFieldsFromInteraction(i)
 	err := CheckUserPermissions(s, i)
 	if err != nil {
@@ -30,7 +38,11 @@ func Blacklist(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 
 	curried := func(blacklistType types.BlacklistType) error {
-		return commands.Blacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
+		if isBlacklist {
+			return commands.Blacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
+		}
+
+		return commands.Unblacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
 	}
 
 	switch selectedOption.Name {
@@ -54,5 +66,5 @@ func Blacklist(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	respond(s, i, "Item blacklisted!")
+	respond(s, i, "Done!")
 }

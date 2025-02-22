@@ -15,7 +15,7 @@ var (
 	ErrBlacklistItemAlreadyExists = errors.New("spotify: blacklist item already exists")
 )
 
-// TODO: handle these errors
+// ErrTrackBlacklisted TODO: handle these errors
 type ErrTrackBlacklisted struct {
 	TrackName   string
 	ArtistNames []string
