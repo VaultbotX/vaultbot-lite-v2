@@ -180,7 +180,7 @@ func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, con
 		maxDuration = types.MaxDurationKey.DefaultValue().(int)
 	}
 
-	if track.Duration > maxDuration {
+	if int(track.Duration) > maxDuration {
 		log.WithFields(meta).Debugf("Track %v exceeds maximum duration", convertedTrackId.String())
 		return types.ErrTrackTooLong
 	}
