@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/database/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"go.mongodb.org/mongo-driver/bson"
@@ -44,7 +45,7 @@ func GetPreference(ctx context.Context, key types.PreferenceKey) (*types.Prefere
 	var preference types.Preference
 	err = collection.FindOne(ctx, filter).Decode(&preference)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, err

@@ -1,16 +1,29 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 )
 
 func EditPreferences(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	selectedOption := i.ApplicationCommandData().Options[0]
 	meta := utils.GetFieldsFromInteraction(i)
+	err := CheckUserPermissions(s, i)
+	if err != nil {
+		if errors.Is(err, types.ErrUnauthorized) {
+			respond(s, i, "You are not authorized to use this command")
+			return
+		}
+
+		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
+		respond(s, i, "There was an error checking your permissions")
+		return
+	}
 
 	switch selectedOption.Name {
 	case "max-track-duration":

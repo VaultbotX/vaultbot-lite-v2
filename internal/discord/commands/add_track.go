@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
@@ -21,33 +22,33 @@ func AddTrack(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	cancel()
 
 	if err != nil {
-		switch err {
-		case types.ErrInvalidTrackId:
+		switch {
+		case errors.Is(err, types.ErrInvalidTrackId):
 			err2 := respond(s, i, "I can't recognize that track ID!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 			break
-		case types.ErrTrackAlreadyInPlaylist:
+		case errors.Is(err, types.ErrTrackAlreadyInPlaylist):
 			err2 := respond(s, i, "Track is already in the playlist!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 			break
-		case types.ErrTrackTooLong:
+		case errors.Is(err, types.ErrTrackTooLong):
 			err2 := respond(s, i, "That track is too long!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
-		case types.ErrNoTrackExists:
+		case errors.Is(err, types.ErrNoTrackExists):
 			err2 := respond(s, i, "That track does not exist!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 			break
-		case types.ErrCouldNotAddToPlaylist:
-		case types.ErrCouldNotAddToDatabase:
-		case types.ErrCouldNotRemoveFromPlaylist:
+		case errors.Is(err, types.ErrCouldNotAddToPlaylist):
+		case errors.Is(err, types.ErrCouldNotAddToDatabase):
+		case errors.Is(err, types.ErrCouldNotRemoveFromPlaylist):
 			err2 := respond(s, i, "Could not add track to playlist. Please try again later :(")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)

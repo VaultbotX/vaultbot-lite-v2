@@ -13,15 +13,14 @@ func AddTrackToDatabase(ctx context.Context, fields *types.UserFields, track *sp
 	// 1. Add to Cache
 	now := time.Now()
 
+	// TODO: use redis here
 	Cache.Set(&types.CacheTrack{
 		TrackId: track.ID,
 		AddedAt: now.UTC(),
 	})
 
-	// TODO
-	// 2. Add to Neo4j
-
-	// 3. Add to Mongo
+	// TODO: get rid of mongo dep and just use postgres
+	// 2. Add to Mongo
 	err := mongocommands.AddTrack(ctx, track.ID, fields, now)
 	if err != nil {
 		return err
