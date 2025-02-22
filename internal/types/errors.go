@@ -11,6 +11,8 @@ var (
 	ErrCouldNotAddToDatabase      = errors.New("spotify: could not add track to database")
 	ErrCouldNotRemoveFromPlaylist = errors.New("spotify: could not remove track from playlist")
 	ErrUnsupportedOSForBrowser    = errors.New("unsupported OS for browser")
+	ErrUnauthorized               = errors.New("spotify: unauthorized")
+	ErrBlacklistItemAlreadyExists = errors.New("spotify: blacklist item already exists")
 )
 
 // TODO: handle these errors

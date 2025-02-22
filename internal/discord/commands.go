@@ -50,7 +50,7 @@ var (
 				},
 				{
 					Name:        "purge-frequency",
-					Description: "How often to purge the playlist in days",
+					Description: "How often to purge the playlist (in days)",
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Required:    false,
 					MinValue:    &MinPurgeFrequency,
@@ -67,10 +67,38 @@ var (
 			},
 			DefaultMemberPermissions: &AdminPermission,
 		},
+		{
+			Name:        "blacklist",
+			Description: "Blacklist a track, artist, or genre",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "type",
+					Description: "The type of item to blacklist",
+					Type:        discordgo.ApplicationCommandOptionString,
+					Required:    true,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "track",
+							Value: "track",
+						},
+						{
+							Name:  "artist",
+							Value: "artist",
+						},
+						{
+							Name:  "genre",
+							Value: "genre",
+						},
+					},
+				},
+			},
+			DefaultMemberPermissions: &AdminPermission,
+		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"add-track":        discordcommands.AddTrack,
 		"edit-preferences": discordcommands.EditPreferences,
+		"blacklist":        discordcommands.Blacklist,
 	}
 )

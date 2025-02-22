@@ -11,15 +11,7 @@ import (
 	"time"
 )
 
-type BlacklistType int
-
-const (
-	Track BlacklistType = iota
-	Artist
-	Genre
-)
-
-func Blacklist(ctx context.Context, blacklistType BlacklistType, id string,
+func Blacklist(ctx context.Context, blacklistType internaltypes.BlacklistType, id string,
 	userFields *internaltypes.UserFields, time time.Time) error {
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
@@ -30,7 +22,7 @@ func Blacklist(ctx context.Context, blacklistType BlacklistType, id string,
 	collection := instance.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
 	var blacklistedItem interface{}
 	switch blacklistType {
-	case Track:
+	case internaltypes.Track:
 		blacklistedItem = types.BlacklistedTrack{
 			TrackId:           id,
 			BlockedById:       userFields.UserId,
@@ -40,7 +32,7 @@ func Blacklist(ctx context.Context, blacklistType BlacklistType, id string,
 				Timestamp: time.Unix(),
 			},
 		}
-	case Artist:
+	case internaltypes.Artist:
 		blacklistedItem = types.BlacklistedArtist{
 			ArtistId:          id,
 			BlockedById:       userFields.UserId,
@@ -50,7 +42,7 @@ func Blacklist(ctx context.Context, blacklistType BlacklistType, id string,
 				Timestamp: time.Unix(),
 			},
 		}
-	case Genre:
+	case internaltypes.Genre:
 		blacklistedItem = types.BlacklistedGenre{
 			GenreName:         id,
 			BlockedById:       userFields.UserId,
@@ -64,13 +56,16 @@ func Blacklist(ctx context.Context, blacklistType BlacklistType, id string,
 
 	_, err = collection.InsertOne(ctx, blacklistedItem)
 	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return internaltypes.ErrBlacklistItemAlreadyExists
+		}
 		return err
 	}
 
 	return nil
 }
 
-func Unblacklist(ctx context.Context, blacklistType BlacklistType, id string,
+func Unblacklist(ctx context.Context, blacklistType internaltypes.BlacklistType, id string,
 	userFields *internaltypes.UserFields) error {
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
@@ -82,11 +77,11 @@ func Unblacklist(ctx context.Context, blacklistType BlacklistType, id string,
 
 	var filter bson.M
 	switch blacklistType {
-	case Track:
+	case internaltypes.Track:
 		filter = bson.M{"trackId": id}
-	case Artist:
+	case internaltypes.Artist:
 		filter = bson.M{"artistId": id}
-	case Genre:
+	case internaltypes.Genre:
 		filter = bson.M{"genreName": id}
 	}
 
@@ -102,7 +97,7 @@ func Unblacklist(ctx context.Context, blacklistType BlacklistType, id string,
 	return nil
 }
 
-func CheckBlacklistItem(ctx context.Context, blacklistType BlacklistType, id string) (bool, error) {
+func CheckBlacklistItem(ctx context.Context, blacklistType internaltypes.BlacklistType, id string) (bool, error) {
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		return false, err
@@ -113,11 +108,11 @@ func CheckBlacklistItem(ctx context.Context, blacklistType BlacklistType, id str
 
 	var filter bson.M
 	switch blacklistType {
-	case Track:
+	case internaltypes.Track:
 		filter = bson.M{"trackId": id}
-	case Artist:
+	case internaltypes.Artist:
 		filter = bson.M{"artistId": id}
-	case Genre:
+	case internaltypes.Genre:
 		filter = bson.M{"genreName": id}
 	}
 
