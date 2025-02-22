@@ -25,6 +25,10 @@ var (
 var (
 	commands = []*discordgo.ApplicationCommand{
 		{
+			Name:        "ping",
+			Description: "Ping the bot",
+		},
+		{
 			Name:        "add-track",
 			Description: "Add a track to the playlist",
 			Options: []*discordgo.ApplicationCommandOption{
@@ -97,8 +101,17 @@ var (
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		"ping": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Pong!",
+				},
+			})
+		},
 		"add-track":        discordcommands.AddTrack,
 		"edit-preferences": discordcommands.EditPreferences,
 		"blacklist":        discordcommands.Blacklist,
+		"unblacklist":      discordcommands.Unblacklist,
 	}
 )
