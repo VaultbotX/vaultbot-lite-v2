@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:17.4
     container_name: vaultbot-postgres
+    restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
@@ -14,6 +15,7 @@ services:
   mongo:
     image: mongo:6.0.4
     container_name: vaultbot-mongo
+    restart: unless-stopped
     volumes:
       - mongo_data:/data/db
     ports:
