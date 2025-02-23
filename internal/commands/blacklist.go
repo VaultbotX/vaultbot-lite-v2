@@ -2,7 +2,7 @@ package commands
 
 import (
 	"context"
-	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/database/mongo/commands"
+	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/commands"
 	internaltypes "github.com/vaultbotx/vaultbot-lite/internal/types"
 	"time"
 )

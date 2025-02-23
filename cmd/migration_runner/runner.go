@@ -4,7 +4,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/database/postgres/migrations"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/migrations"
 	"os"
 )
 

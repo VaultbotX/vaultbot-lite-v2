@@ -3,7 +3,7 @@ package commands
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
-	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/database/mongo/commands"
+	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 )
 

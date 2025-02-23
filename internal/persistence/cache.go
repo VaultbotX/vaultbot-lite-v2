@@ -1,4 +1,4 @@
-package database
+package persistence
 
 import (
 	"github.com/vaultbotx/vaultbot-lite/internal/types"

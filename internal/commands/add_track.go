@@ -3,8 +3,8 @@ package commands
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/database"
-	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/database/mongo/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
+	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/commands"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -20,7 +20,7 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	}
 
 	// 1. Check the cache to see if the track exists
-	existingTrack := database.TrackCache.Get(*convertedTrackId)
+	existingTrack := persistence.TrackCache.Get(*convertedTrackId)
 	if existingTrack != nil {
 		log.WithFields(meta).Debugf("Track %v already exists in database", convertedTrackId.String())
 		return nil, types.ErrTrackAlreadyInPlaylist
@@ -148,7 +148,7 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 
 	log.WithFields(meta).Debugf("Adding track %v to database", convertedTrackId.String())
 	// 5. Add to databases
-	err = database.AddTrackToDatabase(ctx, userFields, track, artists, audioFeatures)
+	err = persistence.AddTrackToDatabase(ctx, userFields, track, artists, audioFeatures)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error adding track to database: %v", err)
 

@@ -3,7 +3,7 @@ package commands
 import (
 	"context"
 	"errors"
-	mg "github.com/vaultbotx/vaultbot-lite/internal/database/mongo"
+	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
