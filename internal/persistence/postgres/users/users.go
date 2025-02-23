@@ -1,6 +1,7 @@
 package users
 
 import (
+	"github.com/jmoiron/sqlx"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"time"
 )
@@ -12,6 +13,32 @@ type User struct {
 	CreatedAt       time.Time `db:"created_at"`
 }
 
-func AddUser(fields *types.UserFields) {
+var DefaultUser = User{}
 
+// AddUser adds a user to the database
+func AddUser(db *sqlx.DB, fields *types.UserFields) (User, error) {
+	row, err := db.NamedExec(`
+		INSERT INTO users (discord_id, discord_username) 
+		VALUES (:discord_id, :discord_username)
+		ON CONFLICT (discord_id) DO NOTHING
+	`, map[string]interface{}{
+		"discord_id":       fields.UserId,
+		"discord_username": fields.Username,
+	})
+
+	if err != nil {
+		return DefaultUser, err
+	}
+
+	id, err := row.LastInsertId()
+	if err != nil {
+		return DefaultUser, err
+	}
+
+	return User{
+		Id:              int(id),
+		DiscordId:       fields.UserId,
+		DiscordUsername: fields.Username,
+		CreatedAt:       time.Now(),
+	}, nil
 }
