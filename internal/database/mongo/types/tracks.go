@@ -6,13 +6,6 @@ type CommonFields struct {
 	Timestamp int64  `bson:"timestamp"`
 }
 
-type AddedTrack struct {
-	TrackId  string `bson:"trackId"`
-	UserId   string `bson:"userId"`
-	Username string `bson:"username"`
-	CommonFields
-}
-
 type BlacklistedTrack struct {
 	TrackId           string `bson:"trackId"`
 	BlockedById       string `bson:"blockedById"`
