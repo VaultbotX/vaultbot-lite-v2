@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-var Cache = newCache()
+// TrackCache is a very simple in-memory cache for storing track IDs that are currently in the dynamic playlist
+// Deprecated: in favor of Redis once that is implemented
+var TrackCache = newCache()
 
 type trackCache struct {
 	data map[spotify.ID]*time.Time

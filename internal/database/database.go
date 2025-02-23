@@ -10,11 +10,11 @@ import (
 
 func AddTrackToDatabase(ctx context.Context, fields *types.UserFields, track *spotify.FullTrack,
 	artist []*spotify.FullArtist, audioFeatures []*spotify.AudioFeatures) error {
-	// 1. Add to Cache
+	// 1. Add to TrackCache
 	now := time.Now()
 
 	// TODO: use redis here
-	Cache.Set(&types.CacheTrack{
+	TrackCache.Set(&types.CacheTrack{
 		TrackId: track.ID,
 		AddedAt: now.UTC(),
 	})

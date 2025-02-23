@@ -20,7 +20,7 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	}
 
 	// 1. Check the cache to see if the track exists
-	existingTrack := database.Cache.Get(*convertedTrackId)
+	existingTrack := database.TrackCache.Get(*convertedTrackId)
 	if existingTrack != nil {
 		log.WithFields(meta).Debugf("Track %v already exists in database", convertedTrackId.String())
 		return nil, types.ErrTrackAlreadyInPlaylist
@@ -187,6 +187,8 @@ func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, con
 
 	return nil
 }
+
+// TODO: handle genre blacklisting here as well
 
 func handleTrackOrArtistBlacklisted(ctx context.Context, track *spotify.FullTrack, meta log.Fields) error {
 	// 2.1 Check that the track is not blacklisted

@@ -9,7 +9,7 @@ import (
 )
 
 func PurgeTracks(ctx context.Context) error {
-	tracks := database.Cache.GetAll()
+	tracks := database.TrackCache.GetAll()
 	pref, err := GetMaxTrackAgePreference()
 	if err != nil {
 		return err

@@ -57,8 +57,11 @@ func Run() {
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, os.Kill)
+
+	// Block until a signal is received
 	<-stop
 
+	// Teardown
 	for _, v := range registeredCommands {
 		err := s.ApplicationCommandDelete(s.State.User.ID, TestGuildId, v.ID)
 		if err != nil {
