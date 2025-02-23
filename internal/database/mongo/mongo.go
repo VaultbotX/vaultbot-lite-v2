@@ -16,7 +16,6 @@ var (
 const (
 	DatabaseName          = "vaultbot"
 	PreferencesCollection = "preferences"
-	AddedTracksCollection = "addedTracks"
 	BlacklistCollection   = "blacklist"
 )
 
