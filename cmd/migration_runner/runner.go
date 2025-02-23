@@ -30,10 +30,7 @@ func main() {
 
 	log.Infof("Running migrations on %s@%s", user, host)
 
-	db, err := sqlx.Connect("postgres", "host="+host+" user="+user+" password="+password+" dbname=vaultbot sslmode=disable")
-	if err != nil {
-		panic(err)
-	}
+	db := sqlx.MustConnect("postgres", "host="+host+" user="+user+" password="+password+" dbname=vaultbot sslmode=disable")
 
 	db.MustExec(`
 		CREATE TABLE IF NOT EXISTS migrations (
