@@ -1,16 +1,15 @@
-version: "3.8"
-
 services:
-  neo4j:
-    image: neo4j:5.5.0-community
-    container_name: vaultbot-neo4j
+  postgres:
+    image: postgres:17.4
+    container_name: vaultbot-postgres
     ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - neo4j_data:/data
+      - "5432:5432"
     environment:
-      - NEO4J_AUTH=${NEO4J_AUTH}
+      POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
+      POSTGRES_DB: "vaultbot"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   mongo:
     image: mongo:6.0.4
@@ -20,18 +19,33 @@ services:
     ports:
       - "27017:27017"
 
+  migration_runner:
+    container_name: vaultbot-migration-runner
+    build: .
+    environment:
+      ENVIRONMENT: "docker"
+      POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
+      POSTGRES_HOST: "postgres"
+    depends_on:
+      - postgres
+
   vaultbot:
     container_name: vaultbot-discord
     build: .
     environment:
       ENVIRONMENT: "docker"
-      DISCORD_TOKEN: ${DISCORD_TOKEN}
-      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
-      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
-      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
-      SPOTIFY_PLAYLIST_ID: ${SPOTIFY_PLAYLIST_ID}
-      MONGO_HOST: ${MONGO_HOST}
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?Discord token is required}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:?Discord guild ID is required}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:?Spotify client ID is required}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:?Spotify client secret is required}
+      SPOTIFY_PLAYLIST_ID: ${SPOTIFY_PLAYLIST_ID:?Spotify playlist ID is required}
+      MONGO_HOST: ${MONGO_HOST:?Mongo host is required}
+    depends_on:
+      - postgres
+      - mongo
+      - migration_runner
 
 volumes:
-  neo4j_data:
+  postgres_data:
   mongo_data:
