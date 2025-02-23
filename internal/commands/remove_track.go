@@ -16,7 +16,7 @@ func RemoveTracks(ctx context.Context, trackIds []spotify.ID) error {
 	}
 
 	log.Debug("Removing ", len(trackIds), " tracks from cache")
-	database.Cache.RemoveMulti(trackIds)
+	database.TrackCache.RemoveMulti(trackIds)
 
 	return nil
 }

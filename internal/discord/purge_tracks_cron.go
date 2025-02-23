@@ -13,6 +13,9 @@ var (
 	duration time.Duration
 )
 
+// Deprecated: remove gocron in favor of https://github.com/hibiken/asynq
+// so that we can have a more reliable task scheduler backed by Redis
+// that also supports general event scheduling
 func RunPurge() {
 	scheduler := gocron.NewScheduler(time.UTC)
 	pref, err := internalcommands.GetPurgeFrequencyPreference()
