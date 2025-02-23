@@ -3,13 +3,13 @@ package commands
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/database"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"github.com/zmb3/spotify/v2"
 	"time"
 )
 
 func PurgeTracks(ctx context.Context) error {
-	tracks := database.TrackCache.GetAll()
+	tracks := persistence.TrackCache.GetAll()
 	pref, err := GetMaxTrackAgePreference()
 	if err != nil {
 		return err
