@@ -6,6 +6,7 @@ var (
 	ErrInvalidTrackId             = errors.New("spotify: invalid track id")
 	ErrTrackAlreadyInPlaylist     = errors.New("spotify: track already exists in playlist")
 	ErrNoTrackExists              = errors.New("spotify: no track exists")
+	ErrNoTrackAudioFeatures       = errors.New("spotify: no track audio features")
 	ErrTrackTooLong               = errors.New("spotify: track is too long")
 	ErrCouldNotAddToPlaylist      = errors.New("spotify: could not add track to playlist")
 	ErrCouldNotAddToDatabase      = errors.New("spotify: could not add track to database")

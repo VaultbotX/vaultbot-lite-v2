@@ -3,6 +3,7 @@ package blacklist
 import (
 	"context"
 	"errors"
+	log "github.com/sirupsen/logrus"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/types"
 	internaltypes "github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -25,7 +26,13 @@ func AddToBlacklist(ctx context.Context, blacklistType BlacklistType, id string,
 	if err != nil {
 		return err
 	}
-	defer instance.Disconnect(ctx)
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %v", err)
+			return
+		}
+	}(instance, ctx)
 
 	collection := instance.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
 	var blacklistedItem interface{}
@@ -79,7 +86,13 @@ func RemoveFromBlacklist(ctx context.Context, blacklistType BlacklistType, id st
 	if err != nil {
 		return err
 	}
-	defer instance.Disconnect(ctx)
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %v", err)
+			return
+		}
+	}(instance, ctx)
 
 	collection := instance.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
 
@@ -110,7 +123,13 @@ func CheckBlacklistItem(ctx context.Context, blacklistType BlacklistType, id str
 	if err != nil {
 		return false, err
 	}
-	defer instance.Disconnect(ctx)
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %v", err)
+			return
+		}
+	}(instance, ctx)
 
 	collection := instance.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
 
