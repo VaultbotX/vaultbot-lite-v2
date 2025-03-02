@@ -46,9 +46,12 @@ func GetTrackAudioFeatures(ctx context.Context, trackId spotify.ID,
 		return err
 	}
 
-	for _, audioFeature := range audioFeatures {
-		audioFeaturesChan <- audioFeature
+	// only push one audioFeature, and log if there are multiple since we are only expecting one
+	if len(audioFeatures) > 1 {
+		log.Warnf("There are multiple audio features for track %v, only using first one", trackId)
 	}
+
+	audioFeaturesChan <- audioFeatures[0]
 	close(audioFeaturesChan)
 
 	return nil

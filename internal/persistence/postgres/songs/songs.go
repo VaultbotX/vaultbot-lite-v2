@@ -28,8 +28,6 @@ type Song struct {
 	CreatedAt        time.Time `db:"created_at"`
 }
 
-var DefaultSong = Song{}
-
 // AddSong adds a song to the database
 func AddSong(db *sqlx.DB, track *spotify.FullTrack, audioFeatures []*spotify.AudioFeatures) (Song, error) {
 	firstAudioFeature := audioFeatures[0]
@@ -58,12 +56,12 @@ func AddSong(db *sqlx.DB, track *spotify.FullTrack, audioFeatures []*spotify.Aud
 	})
 
 	if err != nil {
-		return DefaultSong, err
+		return Song{}, err
 	}
 
 	id, err := row.LastInsertId()
 	if err != nil {
-		return DefaultSong, err
+		return Song{}, err
 	}
 
 	return Song{

@@ -12,8 +12,6 @@ type Archive struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
-var DefaultArchive = Archive{}
-
 // AddArchive adds an archive to the database
 func AddArchive(db *sqlx.DB, songId int, userId int) (Archive, error) {
 	row, err := db.NamedExec(`
@@ -26,12 +24,12 @@ func AddArchive(db *sqlx.DB, songId int, userId int) (Archive, error) {
 	})
 
 	if err != nil {
-		return DefaultArchive, err
+		return Archive{}, err
 	}
 
 	id, err := row.LastInsertId()
 	if err != nil {
-		return DefaultArchive, err
+		return Archive{}, err
 	}
 
 	return Archive{
