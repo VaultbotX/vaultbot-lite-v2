@@ -30,7 +30,7 @@ type Client struct {
 	Mu                sync.Mutex
 }
 
-func GetSpotifyClient(ctx context.Context) (*Client, error) {
+func NewSpotifyClient(ctx context.Context) (*Client, error) {
 	if instance != nil {
 		return instance, nil
 	}
