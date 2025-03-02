@@ -1,35 +1,35 @@
-package commands
+package blacklist
 
 import (
 	"context"
 	"errors"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-	blacklist2 "github.com/vaultbotx/vaultbot-lite/internal/blacklist"
+	"github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"time"
 )
 
-func Blacklist(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func BlacklistCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	blacklist(s, i, true)
 }
 
-func Unblacklist(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func UnblacklistCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	blacklist(s, i, false)
 }
 
 func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist bool) {
 	meta := utils.GetFieldsFromInteraction(i)
-	err := CheckUserPermissions(s, i)
+	err := commands.CheckUserPermissions(s, i)
 	if err != nil {
 		if errors.Is(err, types.ErrUnauthorized) {
-			respond(s, i, "You are not authorized to use this command")
+			commands.Respond(s, i, "You are not authorized to use this command")
 			return
 		}
 
 		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
-		respond(s, i, "There was an error checking your permissions")
+		commands.Respond(s, i, "There was an error checking your permissions")
 		return
 	}
 
@@ -37,34 +37,34 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 
-	curried := func(blacklistType blacklist2.BlacklistType) error {
+	curried := func(blacklistType BlacklistType) error {
 		if isBlacklist {
-			return blacklist2.Blacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
+			return Blacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
 		}
 
-		return blacklist2.Unblacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
+		return Unblacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
 	}
 
 	switch selectedOption.Name {
 	case "track":
-		err = curried(blacklist2.Track)
+		err = curried(Track)
 	case "artist":
-		err = curried(blacklist2.Artist)
+		err = curried(Artist)
 	case "genre":
-		err = curried(blacklist2.Genre)
+		err = curried(Genre)
 	}
 	cancel()
 
 	if err != nil {
 		if errors.Is(err, types.ErrBlacklistItemAlreadyExists) {
-			respond(s, i, "That item is already blacklisted!")
+			commands.Respond(s, i, "That item is already blacklisted!")
 			return
 		}
 
 		log.WithFields(meta).Errorf("Error blacklisting item: %s", err)
-		respond(s, i, "There was an error blacklisting that item")
+		commands.Respond(s, i, "There was an error blacklisting that item")
 		return
 	}
 
-	respond(s, i, "Done!")
+	commands.Respond(s, i, "Done!")
 }

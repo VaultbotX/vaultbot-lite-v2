@@ -2,7 +2,9 @@ package discord
 
 import (
 	"github.com/bwmarrin/discordgo"
-	discordcommands "github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/blacklist"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
+	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 )
 
 var (
@@ -109,9 +111,9 @@ var (
 				},
 			})
 		},
-		"add-track":        discordcommands.AddTrack,
-		"edit-preferences": discordcommands.EditPreferences,
-		"blacklist":        discordcommands.Blacklist,
-		"unblacklist":      discordcommands.Unblacklist,
+		"add-track":        tracks.AddTrackCommandHandler,
+		"edit-preferences": preferences.EditPreferencesCommandHandler,
+		"blacklist":        blacklist.BlacklistCommandHandler,
+		"unblacklist":      blacklist.UnblacklistCommandHandler,
 	}
 )
