@@ -2,6 +2,9 @@ package preferences
 
 import (
 	"context"
+	log "github.com/sirupsen/logrus"
+	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
+	"go.mongodb.org/mongo-driver/mongo"
 	"time"
 )
 
@@ -18,7 +21,21 @@ func GetPurgeFrequencyPreference() (*Preference, error) {
 
 func SetPurgeFrequencyPreference(durationInMilliseconds int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	err := SetPreference(ctx, PurgeFrequencyKey, durationInMilliseconds)
+
+	instance, err := mg.GetMongoClient(ctx)
+	if err != nil {
+		cancel()
+		return err
+	}
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %s", err)
+			return
+		}
+	}(instance, ctx)
+
+	err = SetPreference(instance, PurgeFrequencyKey, durationInMilliseconds, ctx)
 	cancel()
 	if err != nil {
 		return err
