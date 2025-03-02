@@ -1,7 +1,7 @@
 package persistence
 
 import (
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/zmb3/spotify/v2"
 	"sync"
 	"time"
@@ -32,13 +32,13 @@ func (c *trackCache) Get(key spotify.ID) *time.Time {
 	return nil
 }
 
-func (c *trackCache) Set(track *types.CacheTrack) {
+func (c *trackCache) Set(track *domain.CacheTrack) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.data[track.TrackId] = &track.AddedAt
 }
 
-func (c *trackCache) SetMulti(tracks []*types.CacheTrack) {
+func (c *trackCache) SetMulti(tracks []*domain.CacheTrack) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, track := range tracks {
@@ -46,12 +46,12 @@ func (c *trackCache) SetMulti(tracks []*types.CacheTrack) {
 	}
 }
 
-func (c *trackCache) GetAll() []*types.CacheTrack {
+func (c *trackCache) GetAll() []*domain.CacheTrack {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	var tracks []*types.CacheTrack
+	var tracks []*domain.CacheTrack
 	for trackId, addedAt := range c.data {
-		tracks = append(tracks, &types.CacheTrack{
+		tracks = append(tracks, &domain.CacheTrack{
 			TrackId: trackId,
 			AddedAt: *addedAt,
 		})

@@ -2,7 +2,7 @@ package commands
 
 import (
 	"github.com/bwmarrin/discordgo"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 )
 
 func CheckUserPermissions(s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -12,7 +12,7 @@ func CheckUserPermissions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	}
 
 	if perms&discordgo.PermissionAdministrator == 0 {
-		return types.ErrUnauthorized
+		return domain.ErrUnauthorized
 	}
 
 	return nil

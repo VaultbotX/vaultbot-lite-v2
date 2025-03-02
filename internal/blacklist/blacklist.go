@@ -9,7 +9,6 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 	"time"
@@ -19,7 +18,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 	meta := utils.GetFieldsFromInteraction(i)
 	err := commands.CheckUserPermissions(s, i)
 	if err != nil {
-		if errors.Is(err, types.ErrUnauthorized) {
+		if errors.Is(err, domain.ErrUnauthorized) {
 			err := commands.Respond(s, i, "You are not authorized to use this command")
 			if err != nil {
 				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
@@ -81,7 +80,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 	cancel()
 
 	if err != nil {
-		if errors.Is(err, types.ErrBlacklistItemAlreadyExists) {
+		if errors.Is(err, domain.ErrBlacklistItemAlreadyExists) {
 			err := commands.Respond(s, i, "That item is already blacklisted!")
 			if err != nil {
 				log.WithFields(meta).Errorf("Error responding to user: %s", err)

@@ -6,7 +6,6 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/types"
-	internaltypes "github.com/vaultbotx/vaultbot-lite/internal/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"time"
@@ -23,7 +22,7 @@ func NewBlacklistRepository(client *mongo.Client) *BlacklistRepository {
 }
 
 func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType domain.BlacklistType, id string,
-	userFields *internaltypes.UserFields, time time.Time) error {
+	userFields *domain.UserFields, time time.Time) error {
 
 	collection := r.client.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
 	var blacklistedItem interface{}
@@ -63,7 +62,7 @@ func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType 
 	_, err := collection.InsertOne(ctx, blacklistedItem)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return internaltypes.ErrBlacklistItemAlreadyExists
+			return domain.ErrBlacklistItemAlreadyExists
 		}
 		return err
 	}

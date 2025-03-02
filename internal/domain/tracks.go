@@ -1,12 +1,17 @@
 package domain
 
 import (
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/zmb3/spotify/v2"
+	"time"
 )
 
+type CacheTrack struct {
+	TrackId spotify.ID
+	AddedAt time.Time
+}
+
 type TrackRepository interface {
-	AddTrackToDatabase(fields *types.UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error
+	AddTrackToDatabase(fields *UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error
 }
 
 type TrackService struct {

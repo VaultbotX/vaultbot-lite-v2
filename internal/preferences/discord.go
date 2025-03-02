@@ -6,7 +6,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 )
 
@@ -15,7 +15,7 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 	meta := utils.GetFieldsFromInteraction(i)
 	err := commands.CheckUserPermissions(s, i)
 	if err != nil {
-		if errors.Is(err, types.ErrUnauthorized) {
+		if errors.Is(err, domain.ErrUnauthorized) {
 			err := commands.Respond(s, i, "You are not authorized to use this command")
 			if err != nil {
 				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
