@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -168,7 +169,7 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 
 func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, convertedTrackId *spotify.ID) error {
 	// 2.5 Check that the duration of the song does not exceed the maximum
-	maxDurationPreference, err := GetMaxSongDurationPreference()
+	maxDurationPreference, err := preferences.GetMaxSongDurationPreference()
 	if err != nil {
 		return err
 	}
