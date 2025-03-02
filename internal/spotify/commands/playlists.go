@@ -8,16 +8,16 @@ import (
 )
 
 type SpotifyPlaylistRepo struct {
-	client *sp.Client
+	Client *sp.Client
 }
 
 // GetPlaylistTracks gets all tracks from the dynamic playlist. It returns them as *spotify.PlaylistItems,
 // which includes information about when the track was added to the playlist.
 func (r *SpotifyPlaylistRepo) GetPlaylistTracks(playlistItemChan chan<- *spotify.PlaylistItem, ctx context.Context) error {
-	r.client.Mu.Lock()
-	defer r.client.Mu.Unlock()
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	playlistItems, err := r.client.Client.GetPlaylistItems(ctx, r.client.DynamicPlaylistId)
+	playlistItems, err := r.Client.Client.GetPlaylistItems(ctx, r.Client.DynamicPlaylistId)
 	if err != nil {
 		return err
 	}
@@ -27,7 +27,7 @@ func (r *SpotifyPlaylistRepo) GetPlaylistTracks(playlistItemChan chan<- *spotify
 	}
 
 	for page := 1; ; page++ {
-		err = r.client.Client.NextPage(ctx, playlistItems)
+		err = r.Client.Client.NextPage(ctx, playlistItems)
 		if errors.Is(err, spotify.ErrNoMorePages) {
 			break
 		}
@@ -46,10 +46,10 @@ func (r *SpotifyPlaylistRepo) GetPlaylistTracks(playlistItemChan chan<- *spotify
 }
 
 func (r *SpotifyPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error {
-	r.client.Mu.Lock()
-	defer r.client.Mu.Unlock()
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	_, err := r.client.Client.AddTracksToPlaylist(ctx, r.client.DynamicPlaylistId, trackIds...)
+	_, err := r.Client.Client.AddTracksToPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
 	if err != nil {
 		return err
 	}
@@ -58,10 +58,10 @@ func (r *SpotifyPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds 
 }
 
 func (r *SpotifyPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trackIds []spotify.ID) error {
-	r.client.Mu.Lock()
-	defer r.client.Mu.Unlock()
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	_, err := r.client.Client.RemoveTracksFromPlaylist(ctx, r.client.DynamicPlaylistId, trackIds...)
+	_, err := r.Client.Client.RemoveTracksFromPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
 	if err != nil {
 		return err
 	}

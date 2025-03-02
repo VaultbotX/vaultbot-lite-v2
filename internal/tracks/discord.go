@@ -11,6 +11,8 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
+	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
+	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 	"time"
@@ -54,12 +56,43 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 			return
 		}
 	}(instance, ctx)
-	blacklistRepository := persistence.NewBlacklistRepository(instance)
-	blacklistService := domain.NewBlacklistService(blacklistRepository)
+	blacklistService := domain.NewBlacklistService(persistence.NewBlacklistRepository(instance))
+	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
 
-	trackRepository := persistence.NewPostgresTrackRepository(pgConn)
-	trackService := domain.NewTrackService(trackRepository)
-	track, err := AddTrack(trackService, blacklistService, trackId, userFields, ctx, meta)
+	spClient, err := spotify.NewSpotifyClient(ctx)
+	if err != nil {
+		log.WithFields(meta).Error(err)
+		err2 := commands.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		if err2 != nil {
+			log.WithFields(meta).Error(err2)
+			cancel()
+			return
+		}
+		cancel()
+		return
+	}
+	spTrackService := domain.NewSpotifyTrackService(&sp.SpotifyTrackRepo{
+		Client: spClient,
+	})
+	spArtistService := domain.NewSpotifyArtistService(&sp.SpotifyArtistRepo{
+		Client: spClient,
+	})
+	spPlaylistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
+		Client: spClient,
+	})
+
+	input := &AddTrackInput{
+		TrackId:           trackId,
+		UserFields:        userFields,
+		Ctx:               ctx,
+		Meta:              meta,
+		TrackService:      trackService,
+		BlacklistService:  blacklistService,
+		SpTrackService:    spTrackService,
+		SpArtistService:   spArtistService,
+		SpPlaylistService: spPlaylistService,
+	}
+	track, err := AddTrack(input)
 	cancel()
 
 	if err != nil {
