@@ -16,12 +16,20 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 	err := commands.CheckUserPermissions(s, i)
 	if err != nil {
 		if errors.Is(err, types.ErrUnauthorized) {
-			commands.Respond(s, i, "You are not authorized to use this command")
+			err := commands.Respond(s, i, "You are not authorized to use this command")
+			if err != nil {
+				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
+				return
+			}
 			return
 		}
 
 		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
-		commands.Respond(s, i, "There was an error checking your permissions")
+		err := commands.Respond(s, i, "There was an error checking your permissions")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
 		return
 	}
 
@@ -34,7 +42,11 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 		editPreferenceMaxTrackAge(s, i, selectedOption, meta)
 	default:
 		log.WithFields(meta).Errorf("Unknown preference option: %s", selectedOption.Name)
-		commands.Respond(s, i, "Exactly one option must be provided!")
+		err := commands.Respond(s, i, "Exactly one option must be provided!")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
 	}
 }
 
@@ -47,13 +59,21 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 	err := SetMaxSongDurationPreference(durationInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max song duration preference: %s", err)
-		commands.Respond(s, i, "There was an error setting the track duration preference")
+		err := commands.Respond(s, i, "There was an error setting the track duration preference")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
 		return
 	}
 
 	log.WithFields(meta).Infof("Max song duration preference set to %d", durationInMilliseconds)
 	response := fmt.Sprintf("Max song duration preference set to %d minutes", durationInMinutes)
-	commands.Respond(s, i, response)
+	err = commands.Respond(s, i, response)
+	if err != nil {
+		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		return
+	}
 }
 
 func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.InteractionCreate,
@@ -65,13 +85,21 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	err := SetPurgeFrequencyPreference(frequencyInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting purge frequency preference: %s", err)
-		commands.Respond(s, i, "There was an error setting the purge frequency preference")
+		err := commands.Respond(s, i, "There was an error setting the purge frequency preference")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
 		return
 	}
 
 	log.WithFields(meta).Infof("Purge frequency preference set to %d", frequencyInMilliseconds)
 	response := fmt.Sprintf("Purge frequency preference set to %d days", frequencyInDays)
-	commands.Respond(s, i, response)
+	err = commands.Respond(s, i, response)
+	if err != nil {
+		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		return
+	}
 }
 
 func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCreate,
@@ -83,11 +111,19 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 	err := SetMaxTrackAgePreference(ageInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max track age preference: %s", err)
-		commands.Respond(s, i, "There was an error setting the max track age preference")
+		err := commands.Respond(s, i, "There was an error setting the max track age preference")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
 		return
 	}
 
 	log.WithFields(meta).Infof("Max track age preference set to %d", ageInMilliseconds)
 	response := fmt.Sprintf("Max track age preference set to %d minutes", ageInMinutes)
-	commands.Respond(s, i, response)
+	err = commands.Respond(s, i, response)
+	if err != nil {
+		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		return
+	}
 }
