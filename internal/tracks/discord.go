@@ -7,6 +7,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"time"
@@ -18,7 +20,23 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	meta := utils.GetFieldsFromInteraction(i)
 	userFields := utils.GetUserFieldsFromInteraction(i)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	track, err := AddTrack(ctx, trackId, userFields, meta)
+
+	pgConn, err := postgres.NewPostgresConnection()
+	if err != nil {
+		log.WithFields(meta).Error(err)
+		err2 := commands.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		if err2 != nil {
+			log.WithFields(meta).Error(err2)
+			cancel()
+			return
+		}
+		cancel()
+		return
+	}
+
+	trackRepository := persistence.NewPostgresTrackRepository(pgConn)
+	trackService := NewTrackService(trackRepository)
+	track, err := AddTrack(trackService, trackId, userFields, ctx, meta)
 	cancel()
 
 	if err != nil {

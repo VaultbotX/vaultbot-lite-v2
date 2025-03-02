@@ -13,7 +13,21 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields, meta log.Fields) (*spotify.FullTrack, error) {
+type TrackRepository interface {
+	AddTrackToDatabase(fields *types.UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error
+}
+
+type TrackService struct {
+	repo TrackRepository
+}
+
+func NewTrackService(repo TrackRepository) *TrackService {
+	return &TrackService{
+		repo: repo,
+	}
+}
+
+func AddTrack(trackService *TrackService, trackId string, userFields *types.UserFields, ctx context.Context, meta log.Fields) (*spotify.FullTrack, error) {
 	log.WithFields(meta).Debugf("Attempting to add track %v to playlist", trackId)
 	// 0. Parse the track id
 	convertedTrackId := sp.ParseTrackId(trackId)
@@ -93,9 +107,9 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	}(audioFeaturesChan)
 
 	var artists []*spotify.FullArtist
-	var audioFeatures []*spotify.AudioFeatures
-	artistsDone, audioFeaturesDone := false, false
-	for !artistsDone || !audioFeaturesDone {
+	var audioFeature *spotify.AudioFeatures
+	artistsDone, audioFeatureDone := false, false
+	for !artistsDone || !audioFeatureDone {
 		select {
 		case err := <-errorChan:
 			close(artistChan)
@@ -113,14 +127,13 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 			if !ok {
 				artistsDone = true
 			}
-		case audioFeature, ok := <-audioFeaturesChan:
-			if audioFeature != nil {
-				audioFeatures = append(audioFeatures, audioFeature)
+		case audioFeature = <-audioFeaturesChan:
+			if audioFeature == nil {
+				log.WithFields(meta).Debugf("No audio features found for track %v", convertedTrackId.String())
+				return nil, types.ErrNoTrackAudioFeatures
 			}
 
-			if !ok {
-				audioFeaturesDone = true
-			}
+			audioFeatureDone = true
 		}
 	}
 
@@ -150,8 +163,9 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 
 	log.WithFields(meta).Debugf("Adding track %v to database", convertedTrackId.String())
 	// 5. Add to databases
-	err = persistence.AddTrackToDatabase(ctx, userFields, track, artists, audioFeatures)
+	err = trackService.repo.AddTrackToDatabase(userFields, track, artists, audioFeature)
 	if err != nil {
+		// Compensation steps in case of failure, since the track was already added to the playlist
 		log.WithFields(meta).Errorf("Error adding track to database: %v", err)
 
 		log.WithFields(meta).Debugf("Attempting to rollback adding track %v to playlist", convertedTrackId.String())
