@@ -31,7 +31,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 	errorChan := make(chan error)
 
 	go func(c chan<- error) {
-		err := spcommands.GetTrack(ctx, *convertedTrackId, trackChan)
+		err := spcommands.GetTrack(*convertedTrackId, trackChan, ctx)
 		if err != nil {
 			close(trackChan)
 			c <- err
@@ -77,7 +77,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 			artistIds[i] = artist.ID
 		}
 
-		err := spcommands.GetArtists(ctx, artistIds, artistChan)
+		err := spcommands.GetArtists(artistIds, artistChan, ctx)
 		if err != nil {
 			errorChan <- err
 		}

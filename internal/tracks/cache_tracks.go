@@ -15,7 +15,7 @@ func CacheTracks(ctx context.Context) error {
 	errorChan := make(chan error)
 	playlistItemChan := make(chan *spotify.PlaylistItem)
 	go func(c chan<- error) {
-		err := commands.GetPlaylistTracks(ctx, playlistItemChan)
+		err := commands.GetPlaylistTracks(playlistItemChan, ctx)
 		if err != nil {
 			c <- err
 		}
