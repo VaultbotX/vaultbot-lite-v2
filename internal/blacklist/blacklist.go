@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
@@ -16,10 +16,10 @@ import (
 
 func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist bool) {
 	meta := utils.GetFieldsFromInteraction(i)
-	err := commands.CheckUserPermissions(s, i)
+	err := helpers.CheckUserPermissions(s, i)
 	if err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) {
-			err := commands.Respond(s, i, "You are not authorized to use this command")
+			err := helpers.Respond(s, i, "You are not authorized to use this command")
 			if err != nil {
 				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
 				return
@@ -28,7 +28,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 		}
 
 		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
-		err := commands.Respond(s, i, "There was an error checking your permissions")
+		err := helpers.Respond(s, i, "There was an error checking your permissions")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -43,7 +43,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		cancel()
-		err := commands.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -81,7 +81,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 
 	if err != nil {
 		if errors.Is(err, domain.ErrBlacklistItemAlreadyExists) {
-			err := commands.Respond(s, i, "That item is already blacklisted!")
+			err := helpers.Respond(s, i, "That item is already blacklisted!")
 			if err != nil {
 				log.WithFields(meta).Errorf("Error responding to user: %s", err)
 				return
@@ -90,7 +90,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 		}
 
 		log.WithFields(meta).Errorf("Error blacklisting item: %s", err)
-		err := commands.Respond(s, i, "There was an error blacklisting that item")
+		err := helpers.Respond(s, i, "There was an error blacklisting that item")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -98,7 +98,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 		return
 	}
 
-	err = commands.Respond(s, i, "Done!")
+	err = helpers.Respond(s, i, "Done!")
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
 		return

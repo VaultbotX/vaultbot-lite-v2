@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 )
@@ -13,10 +13,10 @@ import (
 func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	selectedOption := i.ApplicationCommandData().Options[0]
 	meta := utils.GetFieldsFromInteraction(i)
-	err := commands.CheckUserPermissions(s, i)
+	err := helpers.CheckUserPermissions(s, i)
 	if err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) {
-			err := commands.Respond(s, i, "You are not authorized to use this command")
+			err := helpers.Respond(s, i, "You are not authorized to use this command")
 			if err != nil {
 				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
 				return
@@ -25,7 +25,7 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 		}
 
 		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
-		err := commands.Respond(s, i, "There was an error checking your permissions")
+		err := helpers.Respond(s, i, "There was an error checking your permissions")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -42,7 +42,7 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 		editPreferenceMaxTrackAge(s, i, selectedOption, meta)
 	default:
 		log.WithFields(meta).Errorf("Unknown preference option: %s", selectedOption.Name)
-		err := commands.Respond(s, i, "Exactly one option must be provided!")
+		err := helpers.Respond(s, i, "Exactly one option must be provided!")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -59,7 +59,7 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 	err := SetMaxSongDurationPreference(durationInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max song duration preference: %s", err)
-		err := commands.Respond(s, i, "There was an error setting the track duration preference")
+		err := helpers.Respond(s, i, "There was an error setting the track duration preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -69,7 +69,7 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 
 	log.WithFields(meta).Infof("Max song duration preference set to %d", durationInMilliseconds)
 	response := fmt.Sprintf("Max song duration preference set to %d minutes", durationInMinutes)
-	err = commands.Respond(s, i, response)
+	err = helpers.Respond(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
 		return
@@ -85,7 +85,7 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	err := SetPurgeFrequencyPreference(frequencyInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting purge frequency preference: %s", err)
-		err := commands.Respond(s, i, "There was an error setting the purge frequency preference")
+		err := helpers.Respond(s, i, "There was an error setting the purge frequency preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -95,7 +95,7 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 
 	log.WithFields(meta).Infof("Purge frequency preference set to %d", frequencyInMilliseconds)
 	response := fmt.Sprintf("Purge frequency preference set to %d days", frequencyInDays)
-	err = commands.Respond(s, i, response)
+	err = helpers.Respond(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
 		return
@@ -111,7 +111,7 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 	err := SetMaxTrackAgePreference(ageInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max track age preference: %s", err)
-		err := commands.Respond(s, i, "There was an error setting the max track age preference")
+		err := helpers.Respond(s, i, "There was an error setting the max track age preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -121,7 +121,7 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 
 	log.WithFields(meta).Infof("Max track age preference set to %d", ageInMilliseconds)
 	response := fmt.Sprintf("Max track age preference set to %d minutes", ageInMinutes)
-	err = commands.Respond(s, i, response)
+	err = helpers.Respond(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
 		return
