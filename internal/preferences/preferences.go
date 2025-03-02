@@ -3,6 +3,7 @@ package preferences
 import (
 	"context"
 	"errors"
+	log "github.com/sirupsen/logrus"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -50,7 +51,13 @@ func SetPreference(ctx context.Context, key PreferenceKey, value interface{}) er
 	if err != nil {
 		return err
 	}
-	defer instance.Disconnect(ctx)
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %s", err)
+			return
+		}
+	}(instance, ctx)
 
 	collection := instance.Database(mg.DatabaseName).Collection(mg.PreferencesCollection)
 
@@ -72,7 +79,13 @@ func GetPreference(ctx context.Context, key PreferenceKey) (*Preference, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer instance.Disconnect(ctx)
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %s", err)
+			return
+		}
+	}(instance, ctx)
 
 	collection := instance.Database(mg.DatabaseName).Collection(mg.PreferencesCollection)
 
@@ -94,14 +107,26 @@ func GetAllPreferences(ctx context.Context) (map[PreferenceKey]Preference, error
 	if err != nil {
 		return nil, err
 	}
-	defer instance.Disconnect(ctx)
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %s", err)
+			return
+		}
+	}(instance, ctx)
 
 	collection := instance.Database(mg.DatabaseName).Collection(mg.PreferencesCollection)
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func(cursor *mongo.Cursor, ctx context.Context) {
+		err := cursor.Close(ctx)
+		if err != nil {
+			log.Errorf("Error closing MongoDB cursor: %s", err)
+			return
+		}
+	}(cursor, ctx)
 
 	preferences := make(map[PreferenceKey]Preference)
 	for cursor.Next(ctx) {

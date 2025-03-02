@@ -24,12 +24,20 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 	err := commands.CheckUserPermissions(s, i)
 	if err != nil {
 		if errors.Is(err, types.ErrUnauthorized) {
-			commands.Respond(s, i, "You are not authorized to use this command")
+			err := commands.Respond(s, i, "You are not authorized to use this command")
+			if err != nil {
+				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
+				return
+			}
 			return
 		}
 
 		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
-		commands.Respond(s, i, "There was an error checking your permissions")
+		err := commands.Respond(s, i, "There was an error checking your permissions")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
 		return
 	}
 
@@ -57,14 +65,26 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 
 	if err != nil {
 		if errors.Is(err, types.ErrBlacklistItemAlreadyExists) {
-			commands.Respond(s, i, "That item is already blacklisted!")
+			err := commands.Respond(s, i, "That item is already blacklisted!")
+			if err != nil {
+				log.WithFields(meta).Errorf("Error responding to user: %s", err)
+				return
+			}
 			return
 		}
 
 		log.WithFields(meta).Errorf("Error blacklisting item: %s", err)
-		commands.Respond(s, i, "There was an error blacklisting that item")
+		err := commands.Respond(s, i, "There was an error blacklisting that item")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
 		return
 	}
 
-	commands.Respond(s, i, "Done!")
+	err = commands.Respond(s, i, "Done!")
+	if err != nil {
+		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		return
+	}
 }
