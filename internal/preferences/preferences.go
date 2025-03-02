@@ -46,11 +46,7 @@ func (key PreferenceKey) DefaultValue() interface{} {
 	}
 }
 
-func SetPreference(ctx context.Context, key PreferenceKey, value interface{}) error {
-	instance, err := mg.GetMongoClient(ctx)
-	if err != nil {
-		return err
-	}
+func SetPreference(instance *mongo.Client, key PreferenceKey, value interface{}, ctx context.Context) error {
 	defer func(instance *mongo.Client, ctx context.Context) {
 		err := instance.Disconnect(ctx)
 		if err != nil {
@@ -66,7 +62,7 @@ func SetPreference(ctx context.Context, key PreferenceKey, value interface{}) er
 
 	upsert := true
 	opts := options.UpdateOptions{Upsert: &upsert}
-	_, err = collection.UpdateOne(context.Background(), filter, update, &opts)
+	_, err := collection.UpdateOne(ctx, filter, update, &opts)
 	if err != nil {
 		return err
 	}
