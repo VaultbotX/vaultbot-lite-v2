@@ -9,7 +9,7 @@ import (
 
 // GetPlaylistTracks gets all tracks from the dynamic playlist. It returns them as *spotify.PlaylistItems,
 // which includes information about when the track was added to the playlist.
-func GetPlaylistTracks(ctx context.Context, playlistItemChan chan<- *spotify.PlaylistItem) error {
+func GetPlaylistTracks(playlistItemChan chan<- *spotify.PlaylistItem, ctx context.Context) error {
 	client, err := sp.GetSpotifyClient(ctx)
 	if err != nil {
 		return err
