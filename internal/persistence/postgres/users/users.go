@@ -13,8 +13,6 @@ type User struct {
 	CreatedAt       time.Time `db:"created_at"`
 }
 
-var DefaultUser = User{}
-
 // AddUser adds a user to the database
 func AddUser(tx *sqlx.Tx, fields *types.UserFields) (User, error) {
 	row, err := tx.NamedExec(`
@@ -27,12 +25,12 @@ func AddUser(tx *sqlx.Tx, fields *types.UserFields) (User, error) {
 	})
 
 	if err != nil {
-		return DefaultUser, err
+		return User{}, err
 	}
 
 	id, err := row.LastInsertId()
 	if err != nil {
-		return DefaultUser, err
+		return User{}, err
 	}
 
 	return User{

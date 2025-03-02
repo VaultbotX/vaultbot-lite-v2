@@ -11,8 +11,6 @@ type Genre struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
-var DefaultGenre = Genre{}
-
 // AddGenre adds a genre to the database
 func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
 	row, err := tx.NamedExec(`
@@ -24,12 +22,12 @@ func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
 	})
 
 	if err != nil {
-		return DefaultGenre, err
+		return Genre{}, err
 	}
 
 	id, err := row.LastInsertId()
 	if err != nil {
-		return DefaultGenre, err
+		return Genre{}, err
 	}
 
 	return Genre{

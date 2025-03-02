@@ -12,8 +12,6 @@ type Artist struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
-var DefaultArtist = Artist{}
-
 // AddArtist adds an artist to the database
 func AddArtist(db *sqlx.DB, spotifyId string, name string) (Artist, error) {
 	row, err := db.NamedExec(`
@@ -26,12 +24,12 @@ func AddArtist(db *sqlx.DB, spotifyId string, name string) (Artist, error) {
 	})
 
 	if err != nil {
-		return DefaultArtist, err
+		return Artist{}, err
 	}
 
 	id, err := row.LastInsertId()
 	if err != nil {
-		return DefaultArtist, err
+		return Artist{}, err
 	}
 
 	return Artist{
