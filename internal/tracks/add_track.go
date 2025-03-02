@@ -7,14 +7,27 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
-	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/zmb3/spotify/v2"
 )
 
-func AddTrack(trackService *domain.TrackService, blacklistService *domain.BlacklistService, trackId string, userFields *domain.UserFields, ctx context.Context, meta log.Fields) (*spotify.FullTrack, error) {
-	log.WithFields(meta).Debugf("Attempting to add track %v to playlist", trackId)
+type AddTrackInput struct {
+	TrackId    string
+	UserFields *domain.UserFields
+	Ctx        context.Context
+	Meta       log.Fields
+
+	TrackService     *domain.TrackService
+	BlacklistService *domain.BlacklistService
+
+	SpTrackService    *domain.SpotifyTrackService
+	SpArtistService   *domain.SpotifyArtistService
+	SpPlaylistService *domain.SpotifyPlaylistService
+}
+
+func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
+	log.WithFields(input.Meta).Debugf("Attempting to add track %v to playlist", input.TrackId)
 	// 0. Parse the track id
-	convertedTrackId := sp.ParseTrackId(trackId)
+	convertedTrackId := sp.ParseTrackId(input.TrackId)
 	if convertedTrackId == nil {
 		return nil, domain.ErrInvalidTrackId
 	}
@@ -22,7 +35,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 	// 1. Check the cache to see if the track exists
 	existingTrack := persistence.TrackCache.Get(*convertedTrackId)
 	if existingTrack != nil {
-		log.WithFields(meta).Debugf("Track %v already exists in database", convertedTrackId.String())
+		log.WithFields(input.Meta).Debugf("Track %v already exists in database", convertedTrackId.String())
 		return nil, domain.ErrTrackAlreadyInPlaylist
 	}
 
@@ -31,7 +44,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 	errorChan := make(chan error)
 
 	go func(c chan<- error) {
-		err := spcommands.GetTrack(*convertedTrackId, trackChan, ctx)
+		err := input.SpTrackService.Repo.GetTrack(*convertedTrackId, trackChan, input.Ctx)
 		if err != nil {
 			close(trackChan)
 			c <- err
@@ -46,26 +59,26 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 			return nil, err
 		case track = <-trackChan:
 			if track == nil {
-				log.WithFields(meta).Debugf("Track %v does not exist", convertedTrackId.String())
+				log.WithFields(input.Meta).Debugf("Track %v does not exist", convertedTrackId.String())
 				return nil, domain.ErrNoTrackExists
 			}
 
 			done = true
-			log.WithFields(meta).Debugf("Track %v exists", convertedTrackId.String())
+			log.WithFields(input.Meta).Debugf("Track %v exists", convertedTrackId.String())
 		}
 	}
 
-	err := handleTrackOrArtistBlacklisted(blacklistService, track, ctx, meta)
+	err := handleTrackOrArtistBlacklisted(input.BlacklistService, track, input.Ctx, input.Meta)
 	if err != nil {
 		return nil, err
 	}
 
-	err = handleMaxDuration(err, track, meta, convertedTrackId)
+	err = handleMaxDuration(err, track, input.Meta, convertedTrackId)
 	if err != nil {
 		return nil, err
 	}
 
-	log.WithFields(meta).Debugf("Getting artists and audio features for track %v", convertedTrackId.String())
+	log.WithFields(input.Meta).Debugf("Getting artists and audio features for track %v", convertedTrackId.String())
 	// 3. If exists, pull the artists and song features
 	artistChan := make(chan *spotify.FullArtist)
 	audioFeaturesChan := make(chan *spotify.AudioFeatures)
@@ -77,14 +90,14 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 			artistIds[i] = artist.ID
 		}
 
-		err := spcommands.GetArtists(artistIds, artistChan, ctx)
+		err := input.SpArtistService.Repo.GetArtists(artistIds, artistChan, input.Ctx)
 		if err != nil {
 			errorChan <- err
 		}
 	}(artistChan)
 
 	go func(audioFeaturesChan chan<- *spotify.AudioFeatures) {
-		err := spcommands.GetTrackAudioFeatures(ctx, *convertedTrackId, audioFeaturesChan)
+		err := input.SpTrackService.Repo.GetTrackAudioFeatures(input.Ctx, *convertedTrackId, audioFeaturesChan)
 		if err != nil {
 			errorChan2 <- err
 		}
@@ -97,11 +110,11 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 		select {
 		case err := <-errorChan:
 			close(artistChan)
-			log.WithFields(meta).Errorf("Error getting artists: %v", err)
+			log.WithFields(input.Meta).Errorf("Error getting artists: %v", err)
 			return nil, err
 		case err := <-errorChan2:
 			close(audioFeaturesChan)
-			log.WithFields(meta).Errorf("Error getting audio features: %v", err)
+			log.WithFields(input.Meta).Errorf("Error getting audio features: %v", err)
 			return nil, err
 		case artist, ok := <-artistChan:
 			if artist != nil {
@@ -113,7 +126,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 			}
 		case audioFeature = <-audioFeaturesChan:
 			if audioFeature == nil {
-				log.WithFields(meta).Debugf("No audio features found for track %v", convertedTrackId.String())
+				log.WithFields(input.Meta).Debugf("No audio features found for track %v", convertedTrackId.String())
 				return nil, domain.ErrNoTrackAudioFeatures
 			}
 
@@ -121,42 +134,42 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 		}
 	}
 
-	log.WithFields(meta).Debugf("Finished getting artists and audio features for track %v", convertedTrackId.String())
+	log.WithFields(input.Meta).Debugf("Finished getting artists and audio features for track %v", convertedTrackId.String())
 	// 2.3 Check each of the genres for each artist and ensure that none of them are blacklisted
 	for _, artist := range artists {
 		for _, genre := range artist.Genres {
-			genreBlacklisted, err := blacklistService.Repo.CheckBlacklistItem(ctx, domain.Genre, genre)
+			genreBlacklisted, err := input.BlacklistService.Repo.CheckBlacklistItem(input.Ctx, domain.Genre, genre)
 			if err != nil {
 				return nil, err
 			}
 
 			if genreBlacklisted {
-				log.WithFields(meta).Debugf("Genre %v for artist %v is blacklisted", genre, artist.Name)
+				log.WithFields(input.Meta).Debugf("Genre %v for artist %v is blacklisted", genre, artist.Name)
 				return nil, &domain.ErrGenreBlacklisted{GenreName: genre, ArtistName: artist.Name}
 			}
 		}
 	}
 
-	log.WithFields(meta).Debugf("Adding track %v to playlist", convertedTrackId.String())
+	log.WithFields(input.Meta).Debugf("Adding track %v to playlist", convertedTrackId.String())
 	// 4. Add to playlist
-	err = spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
+	err = input.SpPlaylistService.Repo.AddTracksToPlaylist(input.Ctx, []spotify.ID{track.ID})
 	if err != nil {
-		log.WithFields(meta).Errorf("Error adding track to playlist: %v", err)
+		log.WithFields(input.Meta).Errorf("Error adding track to playlist: %v", err)
 		return nil, domain.ErrCouldNotAddToPlaylist
 	}
 
-	log.WithFields(meta).Debugf("Adding track %v to database", convertedTrackId.String())
+	log.WithFields(input.Meta).Debugf("Adding track %v to database", convertedTrackId.String())
 	// 5. Add to databases
-	err = trackService.Repo.AddTrackToDatabase(userFields, track, artists, audioFeature)
+	err = input.TrackService.Repo.AddTrackToDatabase(input.UserFields, track, artists, audioFeature)
 	if err != nil {
 		// Compensation steps in case of failure, since the track was already added to the playlist
-		log.WithFields(meta).Errorf("Error adding track to database: %v", err)
+		log.WithFields(input.Meta).Errorf("Error adding track to database: %v", err)
 
-		log.WithFields(meta).Debugf("Attempting to rollback adding track %v to playlist", convertedTrackId.String())
+		log.WithFields(input.Meta).Debugf("Attempting to rollback adding track %v to playlist", convertedTrackId.String())
 
-		err2 := spcommands.RemoveTracksFromPlaylist(ctx, []spotify.ID{track.ID})
+		err2 := input.SpPlaylistService.Repo.RemoveTracksFromPlaylist(input.Ctx, []spotify.ID{track.ID})
 		if err2 != nil {
-			log.WithFields(meta).Errorf("Error removing track from playlist during rollback: %v", err2)
+			log.WithFields(input.Meta).Errorf("Error removing track from playlist during rollback: %v", err2)
 			return nil, domain.ErrCouldNotRemoveFromPlaylist
 		}
 

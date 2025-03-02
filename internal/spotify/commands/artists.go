@@ -7,14 +7,14 @@ import (
 )
 
 type SpotifyArtistRepo struct {
-	client *sp.Client
+	Client *sp.Client
 }
 
 func (r *SpotifyArtistRepo) GetArtists(artistIds []spotify.ID, artistChan chan<- *spotify.FullArtist, ctx context.Context) error {
-	r.client.Mu.Lock()
-	defer r.client.Mu.Unlock()
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	artists, err := r.client.Client.GetArtists(ctx, artistIds...)
+	artists, err := r.Client.Client.GetArtists(ctx, artistIds...)
 	if err != nil {
 		return err
 	}

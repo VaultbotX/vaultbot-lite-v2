@@ -6,7 +6,7 @@ import (
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
-	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/tracks"
+	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 	"io"
 	"os"
 	"os/signal"
@@ -113,7 +113,7 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 func startBackgroundTasks() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	log.Debug("Caching tracks")
-	err := internalcommands.CacheTracks(ctx)
+	err := tracks.CacheTracks(ctx)
 	if err != nil {
 		log.Fatalf("Cannot cache playlist tracks: %v", err)
 	}

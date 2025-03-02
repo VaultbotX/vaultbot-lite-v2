@@ -8,14 +8,14 @@ import (
 )
 
 type SpotifyTrackRepo struct {
-	client *sp.Client
+	Client *sp.Client
 }
 
 func (r *SpotifyTrackRepo) GetTrack(trackId spotify.ID, trackChan chan<- *spotify.FullTrack, ctx context.Context) error {
-	r.client.Mu.Lock()
-	defer r.client.Mu.Unlock()
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	track, err := r.client.Client.GetTrack(ctx, trackId)
+	track, err := r.Client.Client.GetTrack(ctx, trackId)
 	if err != nil {
 		log.Errorf("Error getting track: %v", err)
 		return err
@@ -30,10 +30,10 @@ func (r *SpotifyTrackRepo) GetTrack(trackId spotify.ID, trackChan chan<- *spotif
 func (r *SpotifyTrackRepo) GetTrackAudioFeatures(ctx context.Context, trackId spotify.ID,
 	audioFeaturesChan chan<- *spotify.AudioFeatures) error {
 
-	r.client.Mu.Lock()
-	defer r.client.Mu.Unlock()
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	audioFeatures, err := r.client.Client.GetAudioFeatures(ctx, trackId)
+	audioFeatures, err := r.Client.Client.GetAudioFeatures(ctx, trackId)
 	if err != nil {
 		log.Errorf("Error getting audio features: %v", err)
 		return err

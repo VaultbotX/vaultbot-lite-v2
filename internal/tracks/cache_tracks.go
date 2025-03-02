@@ -5,23 +5,34 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
+	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
-	"github.com/zmb3/spotify/v2"
+	sp "github.com/zmb3/spotify/v2"
 	"time"
 )
 
 func CacheTracks(ctx context.Context) error {
 	log.Debug("Caching tracks")
 	errorChan := make(chan error)
-	playlistItemChan := make(chan *spotify.PlaylistItem)
+	playlistItemChan := make(chan *sp.PlaylistItem)
+
+	spClient, err := spotify.NewSpotifyClient(ctx)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	spPlaylistService := domain.NewSpotifyPlaylistService(&commands.SpotifyPlaylistRepo{
+		Client: spClient,
+	})
+
 	go func(c chan<- error) {
-		err := commands.GetPlaylistTracks(playlistItemChan, ctx)
+		err := spPlaylistService.Repo.GetPlaylistTracks(playlistItemChan, ctx)
 		if err != nil {
 			c <- err
 		}
 	}(errorChan)
 
-	var playlistItems []*spotify.PlaylistItem
+	var playlistItems []*sp.PlaylistItem
 	done := false
 	for !done {
 		select {
@@ -44,7 +55,7 @@ func CacheTracks(ctx context.Context) error {
 
 	tracks := make([]*domain.CacheTrack, len(playlistItems))
 	for i, track := range playlistItems {
-		addedAt, err := time.Parse(spotify.TimestampLayout, track.AddedAt)
+		addedAt, err := time.Parse(sp.TimestampLayout, track.AddedAt)
 		if err != nil {
 			return err
 		}
