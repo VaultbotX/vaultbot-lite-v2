@@ -11,7 +11,6 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 	"time"
@@ -65,32 +64,32 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	if err != nil {
 		switch {
-		case errors.Is(err, types.ErrInvalidTrackId):
+		case errors.Is(err, domain.ErrInvalidTrackId):
 			err2 := commands.Respond(s, i, "I can't recognize that track ID!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 			break
-		case errors.Is(err, types.ErrTrackAlreadyInPlaylist):
+		case errors.Is(err, domain.ErrTrackAlreadyInPlaylist):
 			err2 := commands.Respond(s, i, "Track is already in the playlist!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 			break
-		case errors.Is(err, types.ErrTrackTooLong):
+		case errors.Is(err, domain.ErrTrackTooLong):
 			err2 := commands.Respond(s, i, "That track is too long!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
-		case errors.Is(err, types.ErrNoTrackExists):
+		case errors.Is(err, domain.ErrNoTrackExists):
 			err2 := commands.Respond(s, i, "That track does not exist!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 			break
-		case errors.Is(err, types.ErrCouldNotAddToPlaylist):
-		case errors.Is(err, types.ErrCouldNotAddToDatabase):
-		case errors.Is(err, types.ErrCouldNotRemoveFromPlaylist):
+		case errors.Is(err, domain.ErrCouldNotAddToPlaylist):
+		case errors.Is(err, domain.ErrCouldNotAddToDatabase):
+		case errors.Is(err, domain.ErrCouldNotRemoveFromPlaylist):
 			err2 := commands.Respond(s, i, "Could not add track to playlist. Please try again later :(")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)

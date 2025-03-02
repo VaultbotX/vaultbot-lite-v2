@@ -2,7 +2,7 @@ package users
 
 import (
 	"github.com/jmoiron/sqlx"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"time"
 )
 
@@ -14,7 +14,7 @@ type User struct {
 }
 
 // AddUser adds a user to the database
-func AddUser(tx *sqlx.Tx, fields *types.UserFields) (User, error) {
+func AddUser(tx *sqlx.Tx, fields *domain.UserFields) (User, error) {
 	row, err := tx.NamedExec(`
 		INSERT INTO users (discord_id, discord_username) 
 		VALUES (:discord_id, :discord_username)

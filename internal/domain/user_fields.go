@@ -1,4 +1,4 @@
-package types
+package domain
 
 type UserFields struct {
 	UserId   string

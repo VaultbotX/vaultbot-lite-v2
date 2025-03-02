@@ -8,23 +8,22 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/zmb3/spotify/v2"
 )
 
-func AddTrack(trackService *domain.TrackService, blacklistService *domain.BlacklistService, trackId string, userFields *types.UserFields, ctx context.Context, meta log.Fields) (*spotify.FullTrack, error) {
+func AddTrack(trackService *domain.TrackService, blacklistService *domain.BlacklistService, trackId string, userFields *domain.UserFields, ctx context.Context, meta log.Fields) (*spotify.FullTrack, error) {
 	log.WithFields(meta).Debugf("Attempting to add track %v to playlist", trackId)
 	// 0. Parse the track id
 	convertedTrackId := sp.ParseTrackId(trackId)
 	if convertedTrackId == nil {
-		return nil, types.ErrInvalidTrackId
+		return nil, domain.ErrInvalidTrackId
 	}
 
 	// 1. Check the cache to see if the track exists
 	existingTrack := persistence.TrackCache.Get(*convertedTrackId)
 	if existingTrack != nil {
 		log.WithFields(meta).Debugf("Track %v already exists in database", convertedTrackId.String())
-		return nil, types.ErrTrackAlreadyInPlaylist
+		return nil, domain.ErrTrackAlreadyInPlaylist
 	}
 
 	// 2. Attempt to get the track from Spotify
@@ -48,7 +47,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 		case track = <-trackChan:
 			if track == nil {
 				log.WithFields(meta).Debugf("Track %v does not exist", convertedTrackId.String())
-				return nil, types.ErrNoTrackExists
+				return nil, domain.ErrNoTrackExists
 			}
 
 			done = true
@@ -115,7 +114,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 		case audioFeature = <-audioFeaturesChan:
 			if audioFeature == nil {
 				log.WithFields(meta).Debugf("No audio features found for track %v", convertedTrackId.String())
-				return nil, types.ErrNoTrackAudioFeatures
+				return nil, domain.ErrNoTrackAudioFeatures
 			}
 
 			audioFeatureDone = true
@@ -133,7 +132,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 
 			if genreBlacklisted {
 				log.WithFields(meta).Debugf("Genre %v for artist %v is blacklisted", genre, artist.Name)
-				return nil, &types.ErrGenreBlacklisted{GenreName: genre, ArtistName: artist.Name}
+				return nil, &domain.ErrGenreBlacklisted{GenreName: genre, ArtistName: artist.Name}
 			}
 		}
 	}
@@ -143,7 +142,7 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 	err = spcommands.AddTracksToPlaylist(ctx, []spotify.ID{track.ID})
 	if err != nil {
 		log.WithFields(meta).Errorf("Error adding track to playlist: %v", err)
-		return nil, types.ErrCouldNotAddToPlaylist
+		return nil, domain.ErrCouldNotAddToPlaylist
 	}
 
 	log.WithFields(meta).Debugf("Adding track %v to database", convertedTrackId.String())
@@ -158,10 +157,10 @@ func AddTrack(trackService *domain.TrackService, blacklistService *domain.Blackl
 		err2 := spcommands.RemoveTracksFromPlaylist(ctx, []spotify.ID{track.ID})
 		if err2 != nil {
 			log.WithFields(meta).Errorf("Error removing track from playlist during rollback: %v", err2)
-			return nil, types.ErrCouldNotRemoveFromPlaylist
+			return nil, domain.ErrCouldNotRemoveFromPlaylist
 		}
 
-		return nil, types.ErrCouldNotAddToDatabase
+		return nil, domain.ErrCouldNotAddToDatabase
 	}
 
 	return track, nil
@@ -183,7 +182,7 @@ func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, con
 
 	if int(track.Duration) > maxDuration {
 		log.WithFields(meta).Debugf("Track %v exceeds maximum duration", convertedTrackId.String())
-		return types.ErrTrackTooLong
+		return domain.ErrTrackTooLong
 	}
 
 	return nil
@@ -202,7 +201,7 @@ func handleTrackOrArtistBlacklisted(blacklistService *domain.BlacklistService, t
 		for i, artist := range track.Artists {
 			artistNames[i] = artist.Name
 		}
-		return &types.ErrTrackBlacklisted{TrackName: track.Name, ArtistNames: artistNames}
+		return &domain.ErrTrackBlacklisted{TrackName: track.Name, ArtistNames: artistNames}
 	}
 
 	// 2.2 Check each of the artists and ensure that none of them are blacklisted
@@ -214,7 +213,7 @@ func handleTrackOrArtistBlacklisted(blacklistService *domain.BlacklistService, t
 
 		if artistBlacklisted {
 			log.WithFields(meta).Debugf("Artist %v is blacklisted", artist.ID.String())
-			return &types.ErrArtistBlacklisted{ArtistName: artist.Name}
+			return &domain.ErrArtistBlacklisted{ArtistName: artist.Name}
 		}
 	}
 

@@ -2,8 +2,8 @@ package persistence
 
 import (
 	"github.com/jmoiron/sqlx"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/users"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/zmb3/spotify/v2"
 	"time"
 )
@@ -18,7 +18,7 @@ func NewPostgresTrackRepository(db *sqlx.DB) *PostgresTrackRepository {
 	}
 }
 
-func (r *PostgresTrackRepository) AddTrackToDatabase(fields *types.UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error {
+func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(fields *types.UserFields, t
 	}
 
 	now := time.Now()
-	TrackCache.Set(&types.CacheTrack{
+	TrackCache.Set(&domain.CacheTrack{
 		TrackId: track.ID,
 		AddedAt: now.UTC(),
 	})
