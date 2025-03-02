@@ -1,9 +1,9 @@
-package blacklist
+package persistence
 
 import (
 	"context"
 	"errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/types"
 	internaltypes "github.com/vaultbotx/vaultbot-lite/internal/types"
@@ -12,32 +12,23 @@ import (
 	"time"
 )
 
-type BlacklistType int
+type BlacklistRepository struct {
+	client *mongo.Client
+}
 
-const (
-	Track BlacklistType = iota
-	Artist
-	Genre
-)
-
-func AddToBlacklist(ctx context.Context, blacklistType BlacklistType, id string,
-	userFields *internaltypes.UserFields, time time.Time) error {
-	instance, err := mg.GetMongoClient(ctx)
-	if err != nil {
-		return err
+func NewBlacklistRepository(client *mongo.Client) *BlacklistRepository {
+	return &BlacklistRepository{
+		client: client,
 	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
+}
 
-	collection := instance.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
+func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType domain.BlacklistType, id string,
+	userFields *internaltypes.UserFields, time time.Time) error {
+
+	collection := r.client.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
 	var blacklistedItem interface{}
 	switch blacklistType {
-	case Track:
+	case domain.Track:
 		blacklistedItem = types.BlacklistedTrack{
 			TrackId:           id,
 			BlockedById:       userFields.UserId,
@@ -47,7 +38,7 @@ func AddToBlacklist(ctx context.Context, blacklistType BlacklistType, id string,
 				Timestamp: time.Unix(),
 			},
 		}
-	case Artist:
+	case domain.Artist:
 		blacklistedItem = types.BlacklistedArtist{
 			ArtistId:          id,
 			BlockedById:       userFields.UserId,
@@ -57,7 +48,7 @@ func AddToBlacklist(ctx context.Context, blacklistType BlacklistType, id string,
 				Timestamp: time.Unix(),
 			},
 		}
-	case Genre:
+	case domain.Genre:
 		blacklistedItem = types.BlacklistedGenre{
 			GenreName:         id,
 			BlockedById:       userFields.UserId,
@@ -69,7 +60,7 @@ func AddToBlacklist(ctx context.Context, blacklistType BlacklistType, id string,
 		}
 	}
 
-	_, err = collection.InsertOne(ctx, blacklistedItem)
+	_, err := collection.InsertOne(ctx, blacklistedItem)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			return internaltypes.ErrBlacklistItemAlreadyExists
@@ -80,29 +71,16 @@ func AddToBlacklist(ctx context.Context, blacklistType BlacklistType, id string,
 	return nil
 }
 
-func RemoveFromBlacklist(ctx context.Context, blacklistType BlacklistType, id string,
-	userFields *internaltypes.UserFields) error {
-	instance, err := mg.GetMongoClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-
-	collection := instance.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
+func (r *BlacklistRepository) RemoveFromBlacklist(ctx context.Context, blacklistType domain.BlacklistType, id string) error {
+	collection := r.client.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
 
 	var filter bson.M
 	switch blacklistType {
-	case Track:
+	case domain.Track:
 		filter = bson.M{"trackId": id}
-	case Artist:
+	case domain.Artist:
 		filter = bson.M{"artistId": id}
-	case Genre:
+	case domain.Genre:
 		filter = bson.M{"genreName": id}
 	}
 
@@ -118,33 +96,21 @@ func RemoveFromBlacklist(ctx context.Context, blacklistType BlacklistType, id st
 	return nil
 }
 
-func CheckBlacklistItem(ctx context.Context, blacklistType BlacklistType, id string) (bool, error) {
-	instance, err := mg.GetMongoClient(ctx)
-	if err != nil {
-		return false, err
-	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-
-	collection := instance.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
+func (r *BlacklistRepository) CheckBlacklistItem(ctx context.Context, blacklistType domain.BlacklistType, id string) (bool, error) {
+	collection := r.client.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
 
 	var filter bson.M
 	switch blacklistType {
-	case Track:
+	case domain.Track:
 		filter = bson.M{"trackId": id}
-	case Artist:
+	case domain.Artist:
 		filter = bson.M{"artistId": id}
-	case Genre:
+	case domain.Genre:
 		filter = bson.M{"genreName": id}
 	}
 
 	result := collection.FindOne(ctx, filter)
-	err = result.Err()
+	err := result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return false, nil
