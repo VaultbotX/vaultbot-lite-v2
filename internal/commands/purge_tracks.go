@@ -4,13 +4,14 @@ import (
 	"context"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	"github.com/zmb3/spotify/v2"
 	"time"
 )
 
 func PurgeTracks(ctx context.Context) error {
 	tracks := persistence.TrackCache.GetAll()
-	pref, err := GetMaxTrackAgePreference()
+	pref, err := preferences.GetMaxTrackAgePreference()
 	if err != nil {
 		return err
 	}

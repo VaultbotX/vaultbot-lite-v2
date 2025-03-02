@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 )
@@ -44,7 +44,7 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 	durationInMilliseconds := int(durationInMinutes * 60 * 1000)
 
 	log.WithFields(meta).Infof("Setting max song duration preference to %d", durationInMilliseconds)
-	err := commands.SetMaxSongDurationPreference(durationInMilliseconds)
+	err := preferences.SetMaxSongDurationPreference(durationInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max song duration preference: %s", err)
 		respond(s, i, "There was an error setting the track duration preference")
@@ -62,7 +62,7 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	frequencyInMilliseconds := int(frequencyInDays * 24 * 60 * 60 * 1000)
 
 	log.WithFields(meta).Infof("Setting purge frequency preference to %d", frequencyInMilliseconds)
-	err := commands.SetPurgeFrequencyPreference(frequencyInMilliseconds)
+	err := preferences.SetPurgeFrequencyPreference(frequencyInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting purge frequency preference: %s", err)
 		respond(s, i, "There was an error setting the purge frequency preference")
@@ -80,7 +80,7 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 	ageInMilliseconds := int(ageInMinutes * 60 * 1000)
 
 	log.WithFields(meta).Infof("Setting max track age preference to %d", ageInMilliseconds)
-	err := commands.SetMaxTrackAgePreference(ageInMilliseconds)
+	err := preferences.SetMaxTrackAgePreference(ageInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max track age preference: %s", err)
 		respond(s, i, "There was an error setting the max track age preference")

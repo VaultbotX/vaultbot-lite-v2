@@ -5,6 +5,7 @@ import (
 	"github.com/go-co-op/gocron"
 	log "github.com/sirupsen/logrus"
 	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	"time"
 )
 
@@ -18,7 +19,7 @@ var (
 // that also supports general event scheduling
 func RunPurge() {
 	scheduler := gocron.NewScheduler(time.UTC)
-	pref, err := internalcommands.GetPurgeFrequencyPreference()
+	pref, err := preferences.GetPurgeFrequencyPreference()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -34,7 +35,7 @@ func RunPurge() {
 	go func() {
 		for {
 			log.Debug("Checking for purge frequency changes")
-			pref, err2 := internalcommands.GetPurgeFrequencyPreference()
+			pref, err2 := preferences.GetPurgeFrequencyPreference()
 			if err2 != nil {
 				log.Fatal(err)
 			}

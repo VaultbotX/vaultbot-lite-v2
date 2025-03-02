@@ -6,6 +6,7 @@ import (
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	"io"
 	"os"
 	"os/signal"
@@ -119,7 +120,7 @@ func startBackgroundTasks() {
 	log.Debug("Finished caching tracks")
 
 	log.Debug("Checking default preferences")
-	err = internalcommands.CheckDefaultPreferences(ctx)
+	err = preferences.CheckDefaultPreferences(ctx)
 	if err != nil {
 		log.Fatalf("Cannot check default preferences: %v", err)
 	}

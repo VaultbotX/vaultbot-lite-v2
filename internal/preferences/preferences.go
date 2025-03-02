@@ -1,16 +1,51 @@
-package commands
+package preferences
 
 import (
 	"context"
 	"errors"
 	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func SetPreference(ctx context.Context, key types.PreferenceKey, value interface{}) error {
+type PreferenceKey string
+
+const (
+	MaxDurationKey    PreferenceKey = "maxDuration"
+	PurgeFrequencyKey PreferenceKey = "purgeFrequency"
+	MaxTrackAgeKey    PreferenceKey = "maxTrackAge"
+)
+
+type Preference struct {
+	Id    string        `bson:"_id"`
+	Key   PreferenceKey `bson:"key"`
+	Value interface{}   `bson:"value"`
+}
+
+var AllPreferences = [3]PreferenceKey{
+	MaxDurationKey,
+	PurgeFrequencyKey,
+	MaxTrackAgeKey,
+}
+
+func (key PreferenceKey) DefaultValue() interface{} {
+	switch key {
+	case MaxDurationKey:
+		// 10 minutes in MS
+		return 10 * 60 * 1000
+	case PurgeFrequencyKey:
+		// 12 hours in MS
+		return 12 * 60 * 60 * 1000
+	case MaxTrackAgeKey:
+		// 2 weeks in MS
+		return 2 * 7 * 24 * 60 * 60 * 1000
+	default:
+		return nil
+	}
+}
+
+func SetPreference(ctx context.Context, key PreferenceKey, value interface{}) error {
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		return err
@@ -32,7 +67,7 @@ func SetPreference(ctx context.Context, key types.PreferenceKey, value interface
 	return nil
 }
 
-func GetPreference(ctx context.Context, key types.PreferenceKey) (*types.Preference, error) {
+func GetPreference(ctx context.Context, key PreferenceKey) (*Preference, error) {
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		return nil, err
@@ -42,7 +77,7 @@ func GetPreference(ctx context.Context, key types.PreferenceKey) (*types.Prefere
 	collection := instance.Database(mg.DatabaseName).Collection(mg.PreferencesCollection)
 
 	filter := bson.M{"key": key}
-	var preference types.Preference
+	var preference Preference
 	err = collection.FindOne(ctx, filter).Decode(&preference)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -54,7 +89,7 @@ func GetPreference(ctx context.Context, key types.PreferenceKey) (*types.Prefere
 	return &preference, nil
 }
 
-func GetAllPreferences(ctx context.Context) (map[types.PreferenceKey]types.Preference, error) {
+func GetAllPreferences(ctx context.Context) (map[PreferenceKey]Preference, error) {
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		return nil, err
@@ -68,9 +103,9 @@ func GetAllPreferences(ctx context.Context) (map[types.PreferenceKey]types.Prefe
 	}
 	defer cursor.Close(ctx)
 
-	preferences := make(map[types.PreferenceKey]types.Preference)
+	preferences := make(map[PreferenceKey]Preference)
 	for cursor.Next(ctx) {
-		var preference types.Preference
+		var preference Preference
 		err2 := cursor.Decode(&preference)
 		if err2 != nil {
 			return nil, err2
