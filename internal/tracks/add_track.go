@@ -3,7 +3,7 @@ package tracks
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/blacklist"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
@@ -12,21 +12,7 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-type TrackRepository interface {
-	AddTrackToDatabase(fields *types.UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error
-}
-
-type TrackService struct {
-	repo TrackRepository
-}
-
-func NewTrackService(repo TrackRepository) *TrackService {
-	return &TrackService{
-		repo: repo,
-	}
-}
-
-func AddTrack(trackService *TrackService, trackId string, userFields *types.UserFields, ctx context.Context, meta log.Fields) (*spotify.FullTrack, error) {
+func AddTrack(trackService *domain.TrackService, blacklistService *domain.BlacklistService, trackId string, userFields *types.UserFields, ctx context.Context, meta log.Fields) (*spotify.FullTrack, error) {
 	log.WithFields(meta).Debugf("Attempting to add track %v to playlist", trackId)
 	// 0. Parse the track id
 	convertedTrackId := sp.ParseTrackId(trackId)
@@ -70,7 +56,7 @@ func AddTrack(trackService *TrackService, trackId string, userFields *types.User
 		}
 	}
 
-	err := handleTrackOrArtistBlacklisted(ctx, track, meta)
+	err := handleTrackOrArtistBlacklisted(blacklistService, track, ctx, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +126,7 @@ func AddTrack(trackService *TrackService, trackId string, userFields *types.User
 	// 2.3 Check each of the genres for each artist and ensure that none of them are blacklisted
 	for _, artist := range artists {
 		for _, genre := range artist.Genres {
-			genreBlacklisted, err := persistence.CheckBlacklistItem(ctx, blacklist.Genre, genre)
+			genreBlacklisted, err := blacklistService.Repo.CheckBlacklistItem(ctx, domain.Genre, genre)
 			if err != nil {
 				return nil, err
 			}
@@ -162,7 +148,7 @@ func AddTrack(trackService *TrackService, trackId string, userFields *types.User
 
 	log.WithFields(meta).Debugf("Adding track %v to database", convertedTrackId.String())
 	// 5. Add to databases
-	err = trackService.repo.AddTrackToDatabase(userFields, track, artists, audioFeature)
+	err = trackService.Repo.AddTrackToDatabase(userFields, track, artists, audioFeature)
 	if err != nil {
 		// Compensation steps in case of failure, since the track was already added to the playlist
 		log.WithFields(meta).Errorf("Error adding track to database: %v", err)
@@ -203,9 +189,9 @@ func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, con
 	return nil
 }
 
-func handleTrackOrArtistBlacklisted(ctx context.Context, track *spotify.FullTrack, meta log.Fields) error {
+func handleTrackOrArtistBlacklisted(blacklistService *domain.BlacklistService, track *spotify.FullTrack, ctx context.Context, meta log.Fields) error {
 	// 2.1 Check that the track is not blacklisted
-	trackBlacklisted, err := persistence.CheckBlacklistItem(ctx, persistence.Track, track.ID.String())
+	trackBlacklisted, err := blacklistService.Repo.CheckBlacklistItem(ctx, domain.Track, track.ID.String())
 	if err != nil {
 		return err
 	}
@@ -221,7 +207,7 @@ func handleTrackOrArtistBlacklisted(ctx context.Context, track *spotify.FullTrac
 
 	// 2.2 Check each of the artists and ensure that none of them are blacklisted
 	for _, artist := range track.Artists {
-		artistBlacklisted, err := persistence.CheckBlacklistItem(ctx, persistence.Artist, artist.ID.String())
+		artistBlacklisted, err := blacklistService.Repo.CheckBlacklistItem(ctx, domain.Artist, artist.ID.String())
 		if err != nil {
 			return err
 		}
