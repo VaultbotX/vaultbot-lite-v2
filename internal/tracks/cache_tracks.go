@@ -3,9 +3,9 @@ package tracks
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/zmb3/spotify/v2"
 	"time"
 )
@@ -42,14 +42,14 @@ func CacheTracks(ctx context.Context) error {
 		}
 	}
 
-	tracks := make([]*types.CacheTrack, len(playlistItems))
+	tracks := make([]*domain.CacheTrack, len(playlistItems))
 	for i, track := range playlistItems {
 		addedAt, err := time.Parse(spotify.TimestampLayout, track.AddedAt)
 		if err != nil {
 			return err
 		}
 
-		tracks[i] = &types.CacheTrack{
+		tracks[i] = &domain.CacheTrack{
 			TrackId: track.Track.Track.ID,
 			AddedAt: addedAt,
 		}
