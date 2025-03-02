@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/commands"
+	blacklist2 "github.com/vaultbotx/vaultbot-lite/internal/blacklist"
 	"github.com/vaultbotx/vaultbot-lite/internal/types"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"time"
@@ -37,21 +37,21 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 
-	curried := func(blacklistType types.BlacklistType) error {
+	curried := func(blacklistType blacklist2.BlacklistType) error {
 		if isBlacklist {
-			return commands.Blacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
+			return blacklist2.Blacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
 		}
 
-		return commands.Unblacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
+		return blacklist2.Unblacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
 	}
 
 	switch selectedOption.Name {
 	case "track":
-		err = curried(types.Track)
+		err = curried(blacklist2.Track)
 	case "artist":
-		err = curried(types.Artist)
+		err = curried(blacklist2.Artist)
 	case "genre":
-		err = curried(types.Genre)
+		err = curried(blacklist2.Genre)
 	}
 	cancel()
 

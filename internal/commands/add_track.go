@@ -3,8 +3,8 @@ package commands
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
+	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/blacklist"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
@@ -178,7 +178,7 @@ func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, con
 		maxDuration = int(v)
 	} else {
 		log.Warn("Max duration preference is not an int32, using default value")
-		maxDuration = types.MaxDurationKey.DefaultValue().(int)
+		maxDuration = preferences.MaxDurationKey.DefaultValue().(int)
 	}
 
 	if int(track.Duration) > maxDuration {
