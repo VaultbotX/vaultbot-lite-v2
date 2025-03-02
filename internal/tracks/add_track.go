@@ -1,8 +1,9 @@
-package commands
+package tracks
 
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/blacklist"
 	mongocommands "github.com/vaultbotx/vaultbot-lite/internal/blacklist"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
@@ -127,7 +128,7 @@ func AddTrack(ctx context.Context, trackId string, userFields *types.UserFields,
 	// 2.3 Check each of the genres for each artist and ensure that none of them are blacklisted
 	for _, artist := range artists {
 		for _, genre := range artist.Genres {
-			genreBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, types.Genre, genre)
+			genreBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, blacklist.Genre, genre)
 			if err != nil {
 				return nil, err
 			}
@@ -193,7 +194,7 @@ func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, con
 
 func handleTrackOrArtistBlacklisted(ctx context.Context, track *spotify.FullTrack, meta log.Fields) error {
 	// 2.1 Check that the track is not blacklisted
-	trackBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, types.Track, track.ID.String())
+	trackBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, blacklist.Track, track.ID.String())
 	if err != nil {
 		return err
 	}
@@ -209,7 +210,7 @@ func handleTrackOrArtistBlacklisted(ctx context.Context, track *spotify.FullTrac
 
 	// 2.2 Check each of the artists and ensure that none of them are blacklisted
 	for _, artist := range track.Artists {
-		artistBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, types.Artist, artist.ID.String())
+		artistBlacklisted, err := mongocommands.CheckBlacklistItem(ctx, blacklist.Artist, artist.ID.String())
 		if err != nil {
 			return err
 		}

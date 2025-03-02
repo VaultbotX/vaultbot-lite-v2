@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/go-co-op/gocron"
 	log "github.com/sirupsen/logrus"
-	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
+	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 	"time"
 )
 
@@ -72,7 +72,7 @@ func RunPurge() {
 func purgeTracks() {
 	log.Info("Purging tracks")
 	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	err := internalcommands.PurgeTracks(newCtx)
+	err := tracks.PurgeTracks(newCtx)
 	if err != nil {
 		log.Fatalf("Failed to purge tracks: %v", err)
 	}
