@@ -16,8 +16,8 @@ type User struct {
 var DefaultUser = User{}
 
 // AddUser adds a user to the database
-func AddUser(db *sqlx.DB, fields *types.UserFields) (User, error) {
-	row, err := db.NamedExec(`
+func AddUser(tx *sqlx.Tx, fields *types.UserFields) (User, error) {
+	row, err := tx.NamedExec(`
 		INSERT INTO users (discord_id, discord_username) 
 		VALUES (:discord_id, :discord_username)
 		ON CONFLICT (discord_id) DO NOTHING

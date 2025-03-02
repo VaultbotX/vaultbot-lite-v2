@@ -14,8 +14,8 @@ type Genre struct {
 var DefaultGenre = Genre{}
 
 // AddGenre adds a genre to the database
-func AddGenre(db *sqlx.DB, name string) (Genre, error) {
-	row, err := db.NamedExec(`
+func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
+	row, err := tx.NamedExec(`
 		INSERT INTO genres (name) 
 		VALUES (:name)
 		ON CONFLICT (name) DO NOTHING
