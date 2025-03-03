@@ -1,13 +1,18 @@
 package preferences
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
+	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
+	"go.mongodb.org/mongo-driver/mongo"
+	"time"
 )
 
 func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -55,15 +60,40 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 	durationInMinutes := option.IntValue()
 	durationInMilliseconds := int(durationInMinutes * 60 * 1000)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	instance, err := mg.GetMongoClient(ctx)
+	if err != nil {
+		cancel()
+		err := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
+		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
+		return
+	}
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %v", err)
+			return
+		}
+	}(instance, ctx)
+	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
+		Client: instance,
+	})
+
 	log.WithFields(meta).Infof("Setting max song duration preference to %d", durationInMilliseconds)
-	err := SetMaxSongDurationPreference(durationInMilliseconds)
+	err = preferenceService.Repo.Set(ctx, domain.MaxDurationKey, durationInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max song duration preference: %s", err)
 		err := helpers.Respond(s, i, "There was an error setting the track duration preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			cancel()
 			return
 		}
+		cancel()
 		return
 	}
 
@@ -72,8 +102,11 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 	err = helpers.Respond(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		cancel()
 		return
 	}
+
+	cancel()
 }
 
 func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.InteractionCreate,
@@ -81,15 +114,40 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	frequencyInDays := option.IntValue()
 	frequencyInMilliseconds := int(frequencyInDays * 24 * 60 * 60 * 1000)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	instance, err := mg.GetMongoClient(ctx)
+	if err != nil {
+		cancel()
+		err := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
+		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
+		return
+	}
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %v", err)
+			return
+		}
+	}(instance, ctx)
+	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
+		Client: instance,
+	})
+
 	log.WithFields(meta).Infof("Setting purge frequency preference to %d", frequencyInMilliseconds)
-	err := SetPurgeFrequencyPreference(frequencyInMilliseconds)
+	err = preferenceService.Repo.Set(ctx, domain.PurgeFrequencyKey, frequencyInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting purge frequency preference: %s", err)
 		err := helpers.Respond(s, i, "There was an error setting the purge frequency preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			cancel()
 			return
 		}
+		cancel()
 		return
 	}
 
@@ -98,8 +156,11 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	err = helpers.Respond(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		cancel()
 		return
 	}
+
+	cancel()
 }
 
 func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCreate,
@@ -107,15 +168,40 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 	ageInMinutes := option.IntValue()
 	ageInMilliseconds := int(ageInMinutes * 60 * 1000)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	instance, err := mg.GetMongoClient(ctx)
+	if err != nil {
+		cancel()
+		err := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			return
+		}
+		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
+		return
+	}
+	defer func(instance *mongo.Client, ctx context.Context) {
+		err := instance.Disconnect(ctx)
+		if err != nil {
+			log.Errorf("Error disconnecting from MongoDB: %v", err)
+			return
+		}
+	}(instance, ctx)
+	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
+		Client: instance,
+	})
+
 	log.WithFields(meta).Infof("Setting max track age preference to %d", ageInMilliseconds)
-	err := SetMaxTrackAgePreference(ageInMilliseconds)
+	err = preferenceService.Repo.Set(ctx, domain.MaxTrackAgeKey, ageInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max track age preference: %s", err)
 		err := helpers.Respond(s, i, "There was an error setting the max track age preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+			cancel()
 			return
 		}
+		cancel()
 		return
 	}
 
@@ -124,6 +210,9 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 	err = helpers.Respond(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		cancel()
 		return
 	}
+
+	cancel()
 }

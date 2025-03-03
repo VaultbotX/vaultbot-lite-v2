@@ -18,7 +18,7 @@ func AddArtist(db *sqlx.DB, spotifyId string, name string) (Artist, error) {
 		INSERT INTO artists (spotify_id, name) 
 		VALUES (:spotify_id, :name)
 		ON CONFLICT (spotify_id) DO NOTHING
-	`, map[string]interface{}{
+	`, map[string]any{
 		"spotify_id": spotifyId,
 		"name":       name,
 	})

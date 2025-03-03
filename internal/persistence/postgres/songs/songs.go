@@ -35,7 +35,7 @@ func AddSong(db *sqlx.DB, track *spotify.FullTrack, audioFeatures []*spotify.Aud
 		INSERT INTO songs (spotify_id, name, release_date, spotify_album_id, acousticness, danceability, duration_ms, energy, instrumentalness, key, liveness, loudness, mode, speechiness, tempo, time_signature, valence) 
 		VALUES (:spotify_id, :name, :release_date, :spotify_album_id, :acousticness, :danceability, :duration_ms, :energy, :instrumentalness, :key, :liveness, :loudness, :mode, :speechiness, :tempo, :time_signature, :valence)
 		ON CONFLICT (spotify_id) DO NOTHING
-	`, map[string]interface{}{
+	`, map[string]any{
 		"spotify_id":       track.ID.String(),
 		"name":             track.Name,
 		"release_date":     track.Album.ReleaseDate,
