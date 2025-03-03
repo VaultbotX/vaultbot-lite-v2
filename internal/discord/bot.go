@@ -2,6 +2,7 @@ package discord
 
 import (
 	"context"
+	"errors"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
@@ -79,7 +80,8 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 	for i, v := range commands {
 		cmd, err2 := s.ApplicationCommandCreate(s.State.User.ID, TestGuildId, v)
 		if err2 != nil {
-			if restErr, ok := err2.(*discordgo.RESTError); ok {
+			var restErr *discordgo.RESTError
+			if errors.As(err2, &restErr) {
 				message := ""
 				if restErr.Message != nil {
 					message = restErr.Message.Message
