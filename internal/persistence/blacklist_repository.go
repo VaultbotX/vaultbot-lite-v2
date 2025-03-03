@@ -25,7 +25,7 @@ func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType 
 	userFields *domain.UserFields, time time.Time) error {
 
 	collection := r.client.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
-	var blacklistedItem interface{}
+	var blacklistedItem any
 	switch blacklistType {
 	case domain.Track:
 		blacklistedItem = types.BlacklistedTrack{

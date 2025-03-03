@@ -19,7 +19,7 @@ func AddUser(tx *sqlx.Tx, fields *domain.UserFields) (User, error) {
 		INSERT INTO users (discord_id, discord_username) 
 		VALUES (:discord_id, :discord_username)
 		ON CONFLICT (discord_id) DO NOTHING
-	`, map[string]interface{}{
+	`, map[string]any{
 		"discord_id":       fields.UserId,
 		"discord_username": fields.Username,
 	})

@@ -18,7 +18,7 @@ func AddArchive(db *sqlx.DB, songId int, userId int) (Archive, error) {
 		INSERT INTO song_archive (song_id, user_id) 
 		VALUES (:song_id, :user_id)
 		ON CONFLICT (song_id, user_id) DO NOTHING
-	`, map[string]interface{}{
+	`, map[string]any{
 		"song_id": songId,
 		"user_id": userId,
 	})

@@ -17,7 +17,7 @@ func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
 		INSERT INTO genres (name) 
 		VALUES (:name)
 		ON CONFLICT (name) DO NOTHING
-	`, map[string]interface{}{
+	`, map[string]any{
 		"name": name,
 	})
 
