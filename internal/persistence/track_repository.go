@@ -3,6 +3,10 @@ package persistence
 import (
 	"github.com/jmoiron/sqlx"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/archive"
+	artists2 "github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/artists"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/genres"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/songs"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/users"
 	"github.com/zmb3/spotify/v2"
 	"time"
@@ -18,14 +22,13 @@ func NewPostgresTrackRepository(db *sqlx.DB) *PostgresTrackRepository {
 	}
 }
 
-func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error {
+func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, track *spotify.FullTrack, artists []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
 	}
 
-	// TODO
-	_, err = users.AddUser(tx, fields)
+	addUser, err := users.AddUser(tx, fields)
 	if err != nil {
 		err := tx.Rollback()
 		if err != nil {
@@ -34,10 +37,37 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, 
 		return err
 	}
 
-	// for each genre associated with song, album - insert new records + a link record
-	// for each artist associated with song, album - insert new records + a link record
-	// insert song if it doesn't exist, add links
-	// always add to archive table
+	var allGenreIds []int
+	var allArtistIds []int
+	for _, artist := range artists {
+		var genreIds []int
+		for _, genre := range artist.Genres {
+			// insert genre if it doesn't exist
+			addGenre, err := genres.AddGenre(tx, genre)
+			if err != nil {
+				return err
+			}
+			genreIds = append(genreIds, addGenre.Id)
+		}
+
+		// insert artist if it doesn't exist, add links
+		addArtist, err := artists2.AddArtist(tx, artist.ID.String(), artist.Name, genreIds)
+		if err != nil {
+			return err
+		}
+		allGenreIds = append(allGenreIds, genreIds...)
+		allArtistIds = append(allArtistIds, addArtist.Id)
+	}
+
+	addTrack, err := songs.AddSong(tx, track, audioFeatures, allGenreIds, allArtistIds)
+	if err != nil {
+		return err
+	}
+
+	_, err = archive.AddArchive(tx, addTrack.Id, addUser.Id)
+	if err != nil {
+		return err
+	}
 
 	err = tx.Commit()
 	if err != nil {

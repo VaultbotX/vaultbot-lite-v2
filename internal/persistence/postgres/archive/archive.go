@@ -13,8 +13,8 @@ type Archive struct {
 }
 
 // AddArchive adds an archive to the database
-func AddArchive(db *sqlx.DB, songId int, userId int) (Archive, error) {
-	row, err := db.NamedExec(`
+func AddArchive(tx *sqlx.Tx, songId int, userId int) (Archive, error) {
+	row, err := tx.NamedExec(`
 		INSERT INTO song_archive (song_id, user_id) 
 		VALUES (:song_id, :user_id)
 		ON CONFLICT (song_id, user_id) DO NOTHING
