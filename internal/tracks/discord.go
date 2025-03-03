@@ -23,12 +23,19 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	meta := utils.GetFieldsFromInteraction(i)
 	userFields := utils.GetUserFieldsFromInteraction(i)
+
+	err := helpers.RespondImmediately(s, i, "Processing your request...")
+	if err != nil {
+		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 
 	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
 		log.WithFields(meta).Error(err)
-		err2 := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
 		if err2 != nil {
 			log.WithFields(meta).Error(err2)
 			cancel()
@@ -41,7 +48,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		cancel()
-		err := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -65,7 +72,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	spClient, err := spotify.NewSpotifyClient(ctx)
 	if err != nil {
 		log.WithFields(meta).Error(err)
-		err2 := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
 		if err2 != nil {
 			log.WithFields(meta).Error(err2)
 			cancel()
@@ -102,24 +109,24 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidTrackId):
-			err2 := helpers.Respond(s, i, "I can't recognize that track ID!")
+			err2 := helpers.RespondDelayed(s, i, "I can't recognize that track ID!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 			break
 		case errors.Is(err, domain.ErrTrackAlreadyInPlaylist):
-			err2 := helpers.Respond(s, i, "Track is already in the playlist!")
+			err2 := helpers.RespondDelayed(s, i, "Track is already in the playlist!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 			break
 		case errors.Is(err, domain.ErrTrackTooLong):
-			err2 := helpers.Respond(s, i, "That track is too long!")
+			err2 := helpers.RespondDelayed(s, i, "That track is too long!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
 		case errors.Is(err, domain.ErrNoTrackExists):
-			err2 := helpers.Respond(s, i, "That track does not exist!")
+			err2 := helpers.RespondDelayed(s, i, "That track does not exist!")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
@@ -127,7 +134,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		case errors.Is(err, domain.ErrCouldNotAddToPlaylist):
 		case errors.Is(err, domain.ErrCouldNotAddToDatabase):
 		case errors.Is(err, domain.ErrCouldNotRemoveFromPlaylist):
-			err2 := helpers.Respond(s, i, "Could not add track to playlist. Please try again later :(")
+			err2 := helpers.RespondDelayed(s, i, "Could not add track to playlist. Please try again later :(")
 			if err2 != nil {
 				log.WithFields(meta).Error(err2)
 			}
@@ -135,7 +142,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 
 		log.WithFields(meta).Error(err)
-		err2 := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
 		if err2 != nil {
 			log.WithFields(meta).Error(err2)
 			return
@@ -144,7 +151,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	trackDetails := fmt.Sprintf("%s by %s", track.Name, track.Artists[0].Name)
-	err = helpers.Respond(s, i, fmt.Sprintf("Added %s to the playlist!", trackDetails))
+	err = helpers.RespondDelayed(s, i, fmt.Sprintf("Added %s to the playlist!", trackDetails))
 	if err != nil {
 		log.WithFields(meta).Error(err)
 		return

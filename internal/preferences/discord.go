@@ -21,7 +21,7 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 	err := helpers.CheckUserPermissions(s, i)
 	if err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) {
-			err := helpers.Respond(s, i, "You are not authorized to use this command")
+			err := helpers.RespondImmediately(s, i, "You are not authorized to use this command")
 			if err != nil {
 				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
 				return
@@ -30,11 +30,17 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 		}
 
 		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
-		err := helpers.Respond(s, i, "There was an error checking your permissions")
+		err := helpers.RespondImmediately(s, i, "There was an error checking your permissions")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
 		}
+		return
+	}
+
+	err = helpers.RespondImmediately(s, i, "Processing your request...")
+	if err != nil {
+		log.WithFields(meta).Errorf("Error responding to user: %s", err)
 		return
 	}
 
@@ -47,7 +53,7 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 		editPreferenceMaxTrackAge(s, i, selectedOption, meta)
 	default:
 		log.WithFields(meta).Errorf("Unknown preference option: %s", selectedOption.Name)
-		err := helpers.Respond(s, i, "Exactly one option must be provided!")
+		err := helpers.RespondDelayed(s, i, "Exactly one option must be provided!")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -64,7 +70,7 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		cancel()
-		err := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -87,7 +93,7 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 	err = preferenceService.Repo.Set(ctx, domain.MaxDurationKey, durationInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max song duration preference: %s", err)
-		err := helpers.Respond(s, i, "There was an error setting the track duration preference")
+		err := helpers.RespondDelayed(s, i, "There was an error setting the track duration preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			cancel()
@@ -99,7 +105,7 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 
 	log.WithFields(meta).Infof("Max song duration preference set to %d", durationInMilliseconds)
 	response := fmt.Sprintf("Max song duration preference set to %d minutes", durationInMinutes)
-	err = helpers.Respond(s, i, response)
+	err = helpers.RespondDelayed(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
 		cancel()
@@ -118,7 +124,7 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		cancel()
-		err := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -141,7 +147,7 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	err = preferenceService.Repo.Set(ctx, domain.PurgeFrequencyKey, frequencyInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting purge frequency preference: %s", err)
-		err := helpers.Respond(s, i, "There was an error setting the purge frequency preference")
+		err := helpers.RespondDelayed(s, i, "There was an error setting the purge frequency preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			cancel()
@@ -153,7 +159,7 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 
 	log.WithFields(meta).Infof("Purge frequency preference set to %d", frequencyInMilliseconds)
 	response := fmt.Sprintf("Purge frequency preference set to %d days", frequencyInDays)
-	err = helpers.Respond(s, i, response)
+	err = helpers.RespondDelayed(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
 		cancel()
@@ -172,7 +178,7 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 	instance, err := mg.GetMongoClient(ctx)
 	if err != nil {
 		cancel()
-		err := helpers.Respond(s, i, "An unexpected error occurred. Please try again later :(")
+		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return
@@ -195,7 +201,7 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 	err = preferenceService.Repo.Set(ctx, domain.MaxTrackAgeKey, ageInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max track age preference: %s", err)
-		err := helpers.Respond(s, i, "There was an error setting the max track age preference")
+		err := helpers.RespondDelayed(s, i, "There was an error setting the max track age preference")
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			cancel()
@@ -207,7 +213,7 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 
 	log.WithFields(meta).Infof("Max track age preference set to %d", ageInMilliseconds)
 	response := fmt.Sprintf("Max track age preference set to %d minutes", ageInMinutes)
-	err = helpers.Respond(s, i, response)
+	err = helpers.RespondDelayed(s, i, response)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
 		cancel()
