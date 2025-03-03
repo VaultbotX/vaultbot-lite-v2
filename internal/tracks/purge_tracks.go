@@ -25,6 +25,12 @@ func PurgeTracks(ctx context.Context, preferenceService *domain.PreferenceServic
 			expiredTracks = append(expiredTracks, track.TrackId)
 		}
 	}
+
+	if len(expiredTracks) == 0 {
+		log.Debug("No expired tracks found")
+		return nil
+	}
+
 	log.Debugf("Found %d expired tracks", len(expiredTracks))
 
 	err = RemoveTracks(ctx, expiredTracks, spotifyPlaylistService)
