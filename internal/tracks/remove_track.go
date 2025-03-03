@@ -3,14 +3,14 @@ package tracks
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/zmb3/spotify/v2"
 )
 
-func RemoveTracks(ctx context.Context, trackIds []spotify.ID) error {
+func RemoveTracks(ctx context.Context, trackIds []spotify.ID, spotifyPlaylistService *domain.SpotifyPlaylistService) error {
 	log.Debug("Removing ", len(trackIds), " tracks from playlist")
-	err := sp.RemoveTracksFromPlaylist(ctx, trackIds)
+	err := spotifyPlaylistService.Repo.RemoveTracksFromPlaylist(ctx, trackIds)
 	if err != nil {
 		return err
 	}
