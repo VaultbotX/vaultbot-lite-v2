@@ -64,10 +64,14 @@ func Run() {
 	<-stop
 
 	// Teardown
-	for _, v := range registeredCommands {
-		err := s.ApplicationCommandDelete(s.State.User.ID, TestGuildId, v.ID)
-		if err != nil {
-			log.Fatalf("Cannot delete '%v' command: %v", v.Name, err)
+	_, envPresent := os.LookupEnv("ENVIRONMENT")
+	if envPresent {
+		log.Info("Cleaning up registered commands")
+		for _, v := range registeredCommands {
+			err := s.ApplicationCommandDelete(s.State.User.ID, TestGuildId, v.ID)
+			if err != nil {
+				log.Fatalf("Cannot delete '%v' command: %v", v.Name, err)
+			}
 		}
 	}
 
@@ -105,6 +109,8 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 			}
 
 			log.Fatalf("Cannot create '%v' command: %v", v.Name, err2)
+		} else {
+			log.Infof("Created '%v' command", cmd.Name)
 		}
 		registeredCommands[i] = cmd
 	}
