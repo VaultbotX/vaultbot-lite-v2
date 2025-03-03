@@ -5,7 +5,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/zmb3/spotify/v2"
 )
@@ -22,6 +21,8 @@ type AddTrackInput struct {
 	SpTrackService    *domain.SpotifyTrackService
 	SpArtistService   *domain.SpotifyArtistService
 	SpPlaylistService *domain.SpotifyPlaylistService
+
+	PreferenceService *domain.PreferenceService
 }
 
 func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
@@ -73,7 +74,7 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 		return nil, err
 	}
 
-	err = handleMaxDuration(err, track, input.Meta, convertedTrackId)
+	err = handleMaxDuration(input.PreferenceService, track, input.Meta, convertedTrackId, input.Ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -179,9 +180,9 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 	return track, nil
 }
 
-func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, convertedTrackId *spotify.ID) error {
+func handleMaxDuration(preferenceService *domain.PreferenceService, track *spotify.FullTrack, meta log.Fields, convertedTrackId *spotify.ID, ctx context.Context) error {
 	// 2.5 Check that the duration of the song does not exceed the maximum
-	maxDurationPreference, err := preferences.GetMaxSongDurationPreference()
+	maxDurationPreference, err := preferenceService.Repo.Get(ctx, domain.MaxDurationKey)
 	if err != nil {
 		return err
 	}
@@ -190,7 +191,7 @@ func handleMaxDuration(err error, track *spotify.FullTrack, meta log.Fields, con
 		maxDuration = int(v)
 	} else {
 		log.Warn("Max duration preference is not an int32, using default value")
-		maxDuration = preferences.MaxDurationKey.DefaultValue().(int)
+		maxDuration = domain.MaxDurationKey.DefaultValue().(int)
 	}
 
 	if int(track.Duration) > maxDuration {

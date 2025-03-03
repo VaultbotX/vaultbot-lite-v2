@@ -57,6 +57,9 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}(instance, ctx)
 	blacklistService := domain.NewBlacklistService(persistence.NewBlacklistRepository(instance))
+	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
+		Client: instance,
+	})
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
 
 	spClient, err := spotify.NewSpotifyClient(ctx)
@@ -91,6 +94,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		SpTrackService:    spTrackService,
 		SpArtistService:   spArtistService,
 		SpPlaylistService: spPlaylistService,
+		PreferenceService: preferenceService,
 	}
 	track, err := AddTrack(input)
 	cancel()
