@@ -13,8 +13,8 @@ type Artist struct {
 }
 
 // AddArtist adds an artist to the database
-func AddArtist(db *sqlx.DB, spotifyId string, name string) (Artist, error) {
-	row, err := db.NamedExec(`
+func AddArtist(tx *sqlx.Tx, spotifyId string, name string, genreIds []int) (Artist, error) {
+	row, err := tx.NamedExec(`
 		INSERT INTO artists (spotify_id, name) 
 		VALUES (:spotify_id, :name)
 		ON CONFLICT (spotify_id) DO NOTHING
@@ -30,6 +30,18 @@ func AddArtist(db *sqlx.DB, spotifyId string, name string) (Artist, error) {
 	id, err := row.LastInsertId()
 	if err != nil {
 		return Artist{}, err
+	}
+
+	// insert link records for genres
+	for _, genreId := range genreIds {
+		_, err := tx.Exec(`
+			INSERT INTO link_artist_genres (artist_id, genre_id) 
+			VALUES ($1, $2)
+			ON CONFLICT (artist_id, genre_id) DO NOTHING
+		`, id, genreId)
+		if err != nil {
+			return Artist{}, err
+		}
 	}
 
 	return Artist{

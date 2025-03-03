@@ -29,9 +29,8 @@ type Song struct {
 }
 
 // AddSong adds a song to the database
-func AddSong(db *sqlx.DB, track *spotify.FullTrack, audioFeatures []*spotify.AudioFeatures) (Song, error) {
-	firstAudioFeature := audioFeatures[0]
-	row, err := db.NamedExec(`
+func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, audioFeatures *spotify.AudioFeatures, genreIds []int, artistIds []int) (Song, error) {
+	row, err := tx.NamedExec(`
 		INSERT INTO songs (spotify_id, name, release_date, spotify_album_id, acousticness, danceability, duration_ms, energy, instrumentalness, key, liveness, loudness, mode, speechiness, tempo, time_signature, valence) 
 		VALUES (:spotify_id, :name, :release_date, :spotify_album_id, :acousticness, :danceability, :duration_ms, :energy, :instrumentalness, :key, :liveness, :loudness, :mode, :speechiness, :tempo, :time_signature, :valence)
 		ON CONFLICT (spotify_id) DO NOTHING
@@ -40,19 +39,19 @@ func AddSong(db *sqlx.DB, track *spotify.FullTrack, audioFeatures []*spotify.Aud
 		"name":             track.Name,
 		"release_date":     track.Album.ReleaseDate,
 		"spotify_album_id": track.Album.ID.String(),
-		"acousticness":     firstAudioFeature.Acousticness,
-		"danceability":     firstAudioFeature.Danceability,
-		"duration_ms":      firstAudioFeature.Duration,
-		"energy":           firstAudioFeature.Energy,
-		"instrumentalness": firstAudioFeature.Instrumentalness,
-		"key":              firstAudioFeature.Key,
-		"liveness":         firstAudioFeature.Liveness,
-		"loudness":         firstAudioFeature.Loudness,
-		"mode":             firstAudioFeature.Mode,
-		"speechiness":      firstAudioFeature.Speechiness,
-		"tempo":            firstAudioFeature.Tempo,
-		"time_signature":   firstAudioFeature.TimeSignature,
-		"valence":          firstAudioFeature.Valence,
+		"acousticness":     audioFeatures.Acousticness,
+		"danceability":     audioFeatures.Danceability,
+		"duration_ms":      audioFeatures.Duration,
+		"energy":           audioFeatures.Energy,
+		"instrumentalness": audioFeatures.Instrumentalness,
+		"key":              audioFeatures.Key,
+		"liveness":         audioFeatures.Liveness,
+		"loudness":         audioFeatures.Loudness,
+		"mode":             audioFeatures.Mode,
+		"speechiness":      audioFeatures.Speechiness,
+		"tempo":            audioFeatures.Tempo,
+		"time_signature":   audioFeatures.TimeSignature,
+		"valence":          audioFeatures.Valence,
 	})
 
 	if err != nil {
@@ -64,25 +63,48 @@ func AddSong(db *sqlx.DB, track *spotify.FullTrack, audioFeatures []*spotify.Aud
 		return Song{}, err
 	}
 
+	// insert link records
+	for _, genreId := range genreIds {
+		_, err := tx.Exec(`
+			INSERT INTO link_song_genres (song_id, genre_id) 
+			VALUES ($1, $2)
+			ON CONFLICT (song_id, genre_id) DO NOTHING
+		`, id, genreId)
+		if err != nil {
+			return Song{}, err
+		}
+	}
+
+	for _, artistId := range artistIds {
+		_, err := tx.Exec(`
+			INSERT INTO link_song_artists (song_id, artist_id) 
+			VALUES ($1, $2)
+			ON CONFLICT (song_id, artist_id) DO NOTHING
+		`, id, artistId)
+		if err != nil {
+			return Song{}, err
+		}
+	}
+
 	return Song{
 		Id:               int(id),
 		SpotifyId:        track.ID.String(),
 		Name:             track.Name,
 		ReleaseDate:      track.Album.ReleaseDateTime(),
 		SpotifyAlbumId:   track.Album.ID.String(),
-		Acousticness:     firstAudioFeature.Acousticness,
-		Danceability:     firstAudioFeature.Danceability,
-		DurationMs:       int(firstAudioFeature.Duration),
-		Energy:           firstAudioFeature.Energy,
-		Instrumentalness: firstAudioFeature.Instrumentalness,
-		Key:              int(firstAudioFeature.Key),
-		Liveness:         firstAudioFeature.Liveness,
-		Loudness:         firstAudioFeature.Loudness,
-		Mode:             int(firstAudioFeature.Mode),
-		Speechiness:      firstAudioFeature.Speechiness,
-		Tempo:            firstAudioFeature.Tempo,
-		TimeSignature:    int(firstAudioFeature.TimeSignature),
-		Valence:          firstAudioFeature.Valence,
+		Acousticness:     audioFeatures.Acousticness,
+		Danceability:     audioFeatures.Danceability,
+		DurationMs:       int(audioFeatures.Duration),
+		Energy:           audioFeatures.Energy,
+		Instrumentalness: audioFeatures.Instrumentalness,
+		Key:              int(audioFeatures.Key),
+		Liveness:         audioFeatures.Liveness,
+		Loudness:         audioFeatures.Loudness,
+		Mode:             int(audioFeatures.Mode),
+		Speechiness:      audioFeatures.Speechiness,
+		Tempo:            audioFeatures.Tempo,
+		TimeSignature:    int(audioFeatures.TimeSignature),
+		Valence:          audioFeatures.Valence,
 		CreatedAt:        time.Now(),
 	}, nil
 }
