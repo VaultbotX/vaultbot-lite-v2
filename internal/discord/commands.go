@@ -2,7 +2,9 @@ package discord
 
 import (
 	"github.com/bwmarrin/discordgo"
-	discordcommands "github.com/vaultbotx/vaultbot-lite/internal/discord/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/blacklist"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
+	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 )
 
 var (
@@ -12,7 +14,7 @@ var (
 	// https://github.com/discordjs/discord-api-types/blob/0e6b19d2bcfe6e9806d3d20125668b3464845517/payloads/common.ts#L26
 	AdminPermission int64 = 8
 
-	MinSongDuration float64 = 2
+	MinSongDuration float64 = 0
 	MaxSongDuration float64 = 120
 
 	MinPurgeFrequency float64 = 1
@@ -109,9 +111,9 @@ var (
 				},
 			})
 		},
-		"add-track":        discordcommands.AddTrack,
-		"edit-preferences": discordcommands.EditPreferences,
-		"blacklist":        discordcommands.Blacklist,
-		"unblacklist":      discordcommands.Unblacklist,
+		"add-track":        tracks.AddTrackCommandHandler,
+		"edit-preferences": preferences.EditPreferencesCommandHandler,
+		"blacklist":        blacklist.BlacklistCommandHandler,
+		"unblacklist":      blacklist.UnblacklistCommandHandler,
 	}
 )

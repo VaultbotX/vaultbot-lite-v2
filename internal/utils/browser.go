@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"os/exec"
 	"runtime"
 )
@@ -17,7 +17,7 @@ func OpenBrowser(url string) error {
 	case "darwin":
 		err = exec.Command("open", url).Start()
 	default:
-		err = types.ErrUnsupportedOSForBrowser
+		err = domain.ErrUnsupportedOSForBrowser
 	}
 
 	return err

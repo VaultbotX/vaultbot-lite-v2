@@ -2,10 +2,12 @@ package discord
 
 import (
 	"context"
+	"errors"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
-	internalcommands "github.com/vaultbotx/vaultbot-lite/internal/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
+	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 	"io"
 	"os"
 	"os/signal"
@@ -39,6 +41,18 @@ func Run() {
 		log.Infof("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
 
+	s.AddHandler(func(s *discordgo.Session, e *discordgo.APIErrorMessage) {
+		log.Errorf("Discord API error: %v", e.Message)
+	})
+
+	s.AddHandler(func(s *discordgo.Session, e *discordgo.RESTError) {
+		log.Errorf("Discord REST error: %v", e.Message)
+	})
+
+	s.AddHandler(func(s *discordgo.Session, e *discordgo.RateLimitError) {
+		log.Errorf("Discord rate limit error: %v", e.Message)
+	})
+
 	startBackgroundTasks()
 
 	err = s.Open()
@@ -57,12 +71,19 @@ func Run() {
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, os.Kill)
+
+	// Block until a signal is received
 	<-stop
 
-	for _, v := range registeredCommands {
-		err := s.ApplicationCommandDelete(s.State.User.ID, TestGuildId, v.ID)
-		if err != nil {
-			log.Fatalf("Cannot delete '%v' command: %v", v.Name, err)
+	// Teardown
+	_, envPresent := os.LookupEnv("ENVIRONMENT")
+	if envPresent {
+		log.Info("Cleaning up registered commands")
+		for _, v := range registeredCommands {
+			err := s.ApplicationCommandDelete(s.State.User.ID, TestGuildId, v.ID)
+			if err != nil {
+				log.Fatalf("Cannot delete '%v' command: %v", v.Name, err)
+			}
 		}
 	}
 
@@ -75,7 +96,8 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 	for i, v := range commands {
 		cmd, err2 := s.ApplicationCommandCreate(s.State.User.ID, TestGuildId, v)
 		if err2 != nil {
-			if restErr, ok := err2.(*discordgo.RESTError); ok {
+			var restErr *discordgo.RESTError
+			if errors.As(err2, &restErr) {
 				message := ""
 				if restErr.Message != nil {
 					message = restErr.Message.Message
@@ -99,6 +121,8 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 			}
 
 			log.Fatalf("Cannot create '%v' command: %v", v.Name, err2)
+		} else {
+			log.Infof("Created '%v' command", cmd.Name)
 		}
 		registeredCommands[i] = cmd
 	}
@@ -109,14 +133,14 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 func startBackgroundTasks() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	log.Debug("Caching tracks")
-	err := internalcommands.CacheTracks(ctx)
+	err := tracks.CacheTracks(ctx)
 	if err != nil {
 		log.Fatalf("Cannot cache playlist tracks: %v", err)
 	}
 	log.Debug("Finished caching tracks")
 
 	log.Debug("Checking default preferences")
-	err = internalcommands.CheckDefaultPreferences(ctx)
+	err = preferences.CheckDefaultPreferences(ctx)
 	if err != nil {
 		log.Fatalf("Cannot check default preferences: %v", err)
 	}

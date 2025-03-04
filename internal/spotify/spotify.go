@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/types"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"github.com/zmb3/spotify/v2"
 	auth "github.com/zmb3/spotify/v2/auth"
@@ -30,7 +30,7 @@ type Client struct {
 	Mu                sync.Mutex
 }
 
-func GetSpotifyClient(ctx context.Context) (*Client, error) {
+func NewSpotifyClient(ctx context.Context) (*Client, error) {
 	if instance != nil {
 		return instance, nil
 	}
@@ -120,7 +120,7 @@ func GetSpotifyClient(ctx context.Context) (*Client, error) {
 	url := authenticator.AuthURL(state)
 	err = utils.OpenBrowser(url)
 	if err != nil {
-		if errors.Is(err, types.ErrUnsupportedOSForBrowser) {
+		if errors.Is(err, domain.ErrUnsupportedOSForBrowser) {
 			log.Warnf("Unable to automatically open browser. Please log in to Spotify by visiting "+
 				"the following page in your browser: %s", url)
 		} else {

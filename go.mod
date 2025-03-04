@@ -1,11 +1,13 @@
 module github.com/vaultbotx/vaultbot-lite
 
-go 1.20
+go 1.24.0
 
 require (
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/go-co-op/gocron v1.37.0
+	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
+	github.com/lib/pq v1.10.9
 	github.com/sirupsen/logrus v1.9.3
 	github.com/zmb3/spotify/v2 v2.4.3
 	go.mongodb.org/mongo-driver v1.17.2

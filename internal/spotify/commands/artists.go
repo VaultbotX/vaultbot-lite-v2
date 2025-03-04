@@ -6,16 +6,15 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-func GetArtists(ctx context.Context, artistIds []spotify.ID, artistChan chan<- *spotify.FullArtist) error {
-	client, err := sp.GetSpotifyClient(ctx)
-	if err != nil {
-		return err
-	}
+type SpotifyArtistRepo struct {
+	Client *sp.Client
+}
 
-	client.Mu.Lock()
-	defer client.Mu.Unlock()
+func (r *SpotifyArtistRepo) GetArtists(artistIds []spotify.ID, artistChan chan<- *spotify.FullArtist, ctx context.Context) error {
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	artists, err := client.Client.GetArtists(ctx, artistIds...)
+	artists, err := r.Client.Client.GetArtists(ctx, artistIds...)
 	if err != nil {
 		return err
 	}
