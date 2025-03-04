@@ -13,26 +13,19 @@ type Genre struct {
 
 // AddGenre adds a genre to the database
 func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
-	row, err := tx.NamedExec(`
+	var addGenre Genre
+	err := tx.QueryRowx(`
 		INSERT INTO genres (name) 
-		VALUES (:name)
+		VALUES ($1)
 		ON CONFLICT (name) DO NOTHING
-	`, map[string]any{
-		"name": name,
-	})
+		RETURNING id, created_at
+	`, name).StructScan(&addGenre)
 
 	if err != nil {
 		return Genre{}, err
 	}
 
-	id, err := row.LastInsertId()
-	if err != nil {
-		return Genre{}, err
-	}
+	addGenre.Name = name
 
-	return Genre{
-		Id:        int(id),
-		Name:      name,
-		CreatedAt: time.Now(),
-	}, nil
+	return addGenre, nil
 }
