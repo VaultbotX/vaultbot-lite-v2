@@ -22,6 +22,7 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 		INSERT INTO songs (spotify_id, name, release_date, spotify_album_id) 
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (spotify_id) DO NOTHING
+		RETURNING id, created_at
 	`, track.ID.String(), track.Name, track.Album.ReleaseDateTime(), track.Album.ID.String()).StructScan(&addSong)
 
 	if err != nil {

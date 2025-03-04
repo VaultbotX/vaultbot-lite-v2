@@ -19,6 +19,7 @@ func AddArtist(tx *sqlx.Tx, spotifyId string, name string, genreIds []int) (Arti
 		INSERT INTO artists (spotify_id, name) 
 		VALUES ($1, $2)
 		ON CONFLICT (spotify_id) DO NOTHING
+		RETURNING id, created_at
 	`, spotifyId, name).StructScan(&addArtist)
 
 	if err != nil {

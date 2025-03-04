@@ -79,7 +79,7 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 		return nil, err
 	}
 
-	log.WithFields(input.Meta).Debugf("Getting artists and audio features for track %v", convertedTrackId.String())
+	log.WithFields(input.Meta).Debugf("Getting artists for track %v", convertedTrackId.String())
 	// 3. If exists, pull the artists
 	artistChan := make(chan *spotify.FullArtist)
 
@@ -114,7 +114,7 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 		}
 	}
 
-	log.WithFields(input.Meta).Debugf("Finished getting artists and audio features for track %v", convertedTrackId.String())
+	log.WithFields(input.Meta).Debugf("Finished getting artists for track %v", convertedTrackId.String())
 	// 2.3 Check each of the genres for each artist and ensure that none of them are blacklisted
 	for _, artist := range artists {
 		for _, genre := range artist.Genres {
