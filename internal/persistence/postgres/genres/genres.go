@@ -1,6 +1,8 @@
 package genres
 
 import (
+	"database/sql"
+	"errors"
 	"github.com/jmoiron/sqlx"
 	"time"
 )
@@ -14,18 +16,32 @@ type Genre struct {
 // AddGenre adds a genre to the database
 func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
 	var addGenre Genre
+
 	err := tx.QueryRowx(`
-		INSERT INTO genres (name) 
-		VALUES ($1)
-		ON CONFLICT (name) DO NOTHING
-		RETURNING id, created_at
+		SELECT id, name, created_at
+		FROM genres
+		WHERE name = $1
 	`, name).StructScan(&addGenre)
 
 	if err != nil {
-		return Genre{}, err
-	}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return Genre{}, err
+		}
 
-	addGenre.Name = name
+		// no genre found, create a new one
+		err := tx.QueryRowx(`
+			INSERT INTO genres (name) 
+			VALUES ($1)
+			ON CONFLICT (name) DO NOTHING
+			RETURNING id, created_at
+		`, name).StructScan(&addGenre)
+
+		if err != nil {
+			return Genre{}, err
+		}
+
+		addGenre.Name = name
+	}
 
 	return addGenre, nil
 }

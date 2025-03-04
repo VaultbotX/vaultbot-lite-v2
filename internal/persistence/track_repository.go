@@ -30,9 +30,9 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, 
 
 	addUser, err := users.AddUser(tx, fields)
 	if err != nil {
-		err := tx.Rollback()
-		if err != nil {
-			return err
+		err2 := tx.Rollback()
+		if err2 != nil {
+			return err2
 		}
 		return err
 	}
