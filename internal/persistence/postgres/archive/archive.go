@@ -18,7 +18,7 @@ func AddArchive(tx *sqlx.Tx, songId int, userId int) (Archive, error) {
 	err := tx.QueryRowx(`
 		INSERT INTO song_archive (song_id, user_id) 
 		VALUES ($1, $2)
-		ON CONFLICT (song_id, user_id) DO NOTHING
+		RETURNING id, created_at
 	`, songId, userId).StructScan(&addArchive)
 
 	if err != nil {
