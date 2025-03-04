@@ -7,18 +7,17 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
+type SpotifyPlaylistRepo struct {
+	Client *sp.Client
+}
+
 // GetPlaylistTracks gets all tracks from the dynamic playlist. It returns them as *spotify.PlaylistItems,
 // which includes information about when the track was added to the playlist.
-func GetPlaylistTracks(ctx context.Context, playlistItemChan chan<- *spotify.PlaylistItem) error {
-	client, err := sp.GetSpotifyClient(ctx)
-	if err != nil {
-		return err
-	}
+func (r *SpotifyPlaylistRepo) GetPlaylistTracks(playlistItemChan chan<- *spotify.PlaylistItem, ctx context.Context) error {
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	client.Mu.Lock()
-	defer client.Mu.Unlock()
-
-	playlistItems, err := client.Client.GetPlaylistItems(ctx, client.DynamicPlaylistId)
+	playlistItems, err := r.Client.Client.GetPlaylistItems(ctx, r.Client.DynamicPlaylistId)
 	if err != nil {
 		return err
 	}
@@ -28,7 +27,7 @@ func GetPlaylistTracks(ctx context.Context, playlistItemChan chan<- *spotify.Pla
 	}
 
 	for page := 1; ; page++ {
-		err = client.Client.NextPage(ctx, playlistItems)
+		err = r.Client.Client.NextPage(ctx, playlistItems)
 		if errors.Is(err, spotify.ErrNoMorePages) {
 			break
 		}
@@ -46,16 +45,11 @@ func GetPlaylistTracks(ctx context.Context, playlistItemChan chan<- *spotify.Pla
 	return nil
 }
 
-func AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error {
-	client, err := sp.GetSpotifyClient(ctx)
-	if err != nil {
-		return err
-	}
+func (r *SpotifyPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error {
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	client.Mu.Lock()
-	defer client.Mu.Unlock()
-
-	_, err = client.Client.AddTracksToPlaylist(ctx, client.DynamicPlaylistId, trackIds...)
+	_, err := r.Client.Client.AddTracksToPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
 	if err != nil {
 		return err
 	}
@@ -63,16 +57,11 @@ func AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error {
 	return nil
 }
 
-func RemoveTracksFromPlaylist(ctx context.Context, trackIds []spotify.ID) error {
-	client, err := sp.GetSpotifyClient(ctx)
-	if err != nil {
-		return err
-	}
+func (r *SpotifyPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trackIds []spotify.ID) error {
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
 
-	client.Mu.Lock()
-	defer client.Mu.Unlock()
-
-	_, err = client.Client.RemoveTracksFromPlaylist(ctx, client.DynamicPlaylistId, trackIds...)
+	_, err := r.Client.Client.RemoveTracksFromPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
 	if err != nil {
 		return err
 	}
