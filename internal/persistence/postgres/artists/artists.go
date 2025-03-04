@@ -1,6 +1,8 @@
 package artists
 
 import (
+	"database/sql"
+	"errors"
 	"github.com/jmoiron/sqlx"
 	"time"
 )
@@ -15,19 +17,32 @@ type Artist struct {
 // AddArtist adds an artist to the database
 func AddArtist(tx *sqlx.Tx, spotifyId string, name string, genreIds []int) (Artist, error) {
 	var addArtist Artist
+
 	err := tx.QueryRowx(`
-		INSERT INTO artists (spotify_id, name) 
-		VALUES ($1, $2)
-		ON CONFLICT (spotify_id) DO NOTHING
-		RETURNING id, created_at
-	`, spotifyId, name).StructScan(&addArtist)
+		SELECT id, spotify_id, name, created_at
+		FROM artists
+		WHERE spotify_id = $1
+	`, spotifyId).StructScan(&addArtist)
 
 	if err != nil {
-		return Artist{}, err
-	}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return Artist{}, err
+		}
 
-	addArtist.SpotifyId = spotifyId
-	addArtist.Name = name
+		err := tx.QueryRowx(`
+			INSERT INTO artists (spotify_id, name) 
+			VALUES ($1, $2)
+			ON CONFLICT (spotify_id) DO NOTHING
+			RETURNING id, created_at
+		`, spotifyId, name).StructScan(&addArtist)
+
+		if err != nil {
+			return Artist{}, err
+		}
+
+		addArtist.SpotifyId = spotifyId
+		addArtist.Name = name
+	}
 
 	// insert link records for genres
 	for _, genreId := range genreIds {

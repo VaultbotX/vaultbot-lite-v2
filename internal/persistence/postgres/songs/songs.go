@@ -1,6 +1,8 @@
 package songs
 
 import (
+	"database/sql"
+	"errors"
 	"github.com/jmoiron/sqlx"
 	"github.com/zmb3/spotify/v2"
 	"time"
@@ -18,21 +20,34 @@ type Song struct {
 // AddSong adds a song to the database
 func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []int) (Song, error) {
 	var addSong Song
+
 	err := tx.QueryRowx(`
-		INSERT INTO songs (spotify_id, name, release_date, spotify_album_id) 
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (spotify_id) DO NOTHING
-		RETURNING id, created_at
-	`, track.ID.String(), track.Name, track.Album.ReleaseDateTime(), track.Album.ID.String()).StructScan(&addSong)
+		SELECT id, spotify_id, name, release_date, spotify_album_id, created_at
+		FROM songs
+		WHERE spotify_id = $1
+	`, track.ID.String()).StructScan(&addSong)
 
 	if err != nil {
-		return Song{}, err
-	}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return Song{}, err
+		}
 
-	addSong.SpotifyId = track.ID.String()
-	addSong.Name = track.Name
-	addSong.ReleaseDate = track.Album.ReleaseDateTime()
-	addSong.SpotifyAlbumId = track.Album.ID.String()
+		err := tx.QueryRowx(`
+			INSERT INTO songs (spotify_id, name, release_date, spotify_album_id) 
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (spotify_id) DO NOTHING
+			RETURNING id, created_at
+		`, track.ID.String(), track.Name, track.Album.ReleaseDateTime(), track.Album.ID.String()).StructScan(&addSong)
+
+		if err != nil {
+			return Song{}, err
+		}
+
+		addSong.SpotifyId = track.ID.String()
+		addSong.Name = track.Name
+		addSong.ReleaseDate = track.Album.ReleaseDateTime()
+		addSong.SpotifyAlbumId = track.Album.ID.String()
+	}
 
 	// insert link records
 	for _, genreId := range genreIds {
