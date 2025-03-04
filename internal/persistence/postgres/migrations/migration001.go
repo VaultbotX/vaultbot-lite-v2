@@ -9,19 +9,6 @@ var Migration_001 = &Migration{
 			name VARCHAR(255) NOT NULL,
 			release_date DATE,
 			spotify_album_id VARCHAR(64) NOT NULL,
-			acousticness FLOAT,
-			danceability FLOAT,
-			duration_ms INTEGER,
-			energy FLOAT,
-			instrumentalness FLOAT,
-			key INTEGER,
-			liveness FLOAT,
-			loudness FLOAT,
-			mode INTEGER,
-			speechiness FLOAT,
-			tempo FLOAT,
-			time_signature INTEGER,
-			valence FLOAT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 		

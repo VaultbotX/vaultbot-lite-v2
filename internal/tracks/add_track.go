@@ -80,10 +80,8 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 	}
 
 	log.WithFields(input.Meta).Debugf("Getting artists and audio features for track %v", convertedTrackId.String())
-	// 3. If exists, pull the artists and song features
+	// 3. If exists, pull the artists
 	artistChan := make(chan *spotify.FullArtist)
-	audioFeaturesChan := make(chan *spotify.AudioFeatures)
-	errorChan2 := make(chan error)
 
 	go func(artistChan chan<- *spotify.FullArtist) {
 		artistIds := make([]spotify.ID, len(track.Artists))
@@ -97,25 +95,13 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 		}
 	}(artistChan)
 
-	go func(audioFeaturesChan chan<- *spotify.AudioFeatures) {
-		err := input.SpTrackService.Repo.GetTrackAudioFeatures(input.Ctx, *convertedTrackId, audioFeaturesChan)
-		if err != nil {
-			errorChan2 <- err
-		}
-	}(audioFeaturesChan)
-
 	var artists []*spotify.FullArtist
-	var audioFeature *spotify.AudioFeatures
-	artistsDone, audioFeatureDone := false, false
-	for !artistsDone || !audioFeatureDone {
+	artistsDone := false
+	for !artistsDone {
 		select {
 		case err := <-errorChan:
 			close(artistChan)
 			log.WithFields(input.Meta).Errorf("Error getting artists: %v", err)
-			return nil, err
-		case err := <-errorChan2:
-			close(audioFeaturesChan)
-			log.WithFields(input.Meta).Errorf("Error getting audio features: %v", err)
 			return nil, err
 		case artist, ok := <-artistChan:
 			if artist != nil {
@@ -125,13 +111,6 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 			if !ok {
 				artistsDone = true
 			}
-		case audioFeature = <-audioFeaturesChan:
-			if audioFeature == nil {
-				log.WithFields(input.Meta).Debugf("No audio features found for track %v", convertedTrackId.String())
-				return nil, domain.ErrNoTrackAudioFeatures
-			}
-
-			audioFeatureDone = true
 		}
 	}
 
@@ -161,7 +140,7 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 
 	log.WithFields(input.Meta).Debugf("Adding track %v to database", convertedTrackId.String())
 	// 5. Add to databases
-	err = input.TrackService.Repo.AddTrackToDatabase(input.UserFields, track, artists, audioFeature)
+	err = input.TrackService.Repo.AddTrackToDatabase(input.UserFields, track, artists)
 	if err != nil {
 		// Compensation steps in case of failure, since the track was already added to the playlist
 		log.WithFields(input.Meta).Errorf("Error adding track to database: %v", err)

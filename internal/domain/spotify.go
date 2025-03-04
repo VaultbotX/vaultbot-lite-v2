@@ -7,8 +7,6 @@ import (
 
 type SpotifyTrackRepository interface {
 	GetTrack(trackId spotify.ID, trackChan chan<- *spotify.FullTrack, ctx context.Context) error
-	GetTrackAudioFeatures(ctx context.Context, trackId spotify.ID,
-		audioFeaturesChan chan<- *spotify.AudioFeatures) error
 }
 
 type SpotifyTrackService struct {
