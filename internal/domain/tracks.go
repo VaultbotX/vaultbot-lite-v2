@@ -11,7 +11,7 @@ type CacheTrack struct {
 }
 
 type TrackRepository interface {
-	AddTrackToDatabase(fields *UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error
+	AddTrackToDatabase(fields *UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist) error
 }
 
 type TrackService struct {

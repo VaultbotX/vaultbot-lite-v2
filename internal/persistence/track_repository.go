@@ -22,7 +22,7 @@ func NewPostgresTrackRepository(db *sqlx.DB) *PostgresTrackRepository {
 	}
 }
 
-func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, track *spotify.FullTrack, artists []*spotify.FullArtist, audioFeatures *spotify.AudioFeatures) error {
+func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, track *spotify.FullTrack, artists []*spotify.FullArtist) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, 
 		allArtistIds = append(allArtistIds, addArtist.Id)
 	}
 
-	addTrack, err := songs.AddSong(tx, track, audioFeatures, allGenreIds, allArtistIds)
+	addTrack, err := songs.AddSong(tx, track, allGenreIds, allArtistIds)
 	if err != nil {
 		return err
 	}

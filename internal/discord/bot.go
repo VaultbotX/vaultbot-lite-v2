@@ -41,6 +41,18 @@ func Run() {
 		log.Infof("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
 
+	s.AddHandler(func(s *discordgo.Session, e *discordgo.APIErrorMessage) {
+		log.Errorf("Discord API error: %v", e.Message)
+	})
+
+	s.AddHandler(func(s *discordgo.Session, e *discordgo.RESTError) {
+		log.Errorf("Discord REST error: %v", e.Message)
+	})
+
+	s.AddHandler(func(s *discordgo.Session, e *discordgo.RateLimitError) {
+		log.Errorf("Discord rate limit error: %v", e.Message)
+	})
+
 	startBackgroundTasks()
 
 	err = s.Open()
