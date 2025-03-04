@@ -17,25 +17,21 @@ type Song struct {
 
 // AddSong adds a song to the database
 func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []int) (Song, error) {
-	row, err := tx.NamedExec(`
+	var addSong Song
+	err := tx.QueryRowx(`
 		INSERT INTO songs (spotify_id, name, release_date, spotify_album_id) 
-		VALUES (:spotify_id, :name, :release_date, :spotify_album_id)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (spotify_id) DO NOTHING
-	`, map[string]any{
-		"spotify_id":       track.ID.String(),
-		"name":             track.Name,
-		"release_date":     track.Album.ReleaseDate,
-		"spotify_album_id": track.Album.ID.String(),
-	})
+	`, track.ID.String(), track.Name, track.Album.ReleaseDateTime(), track.Album.ID.String()).StructScan(&addSong)
 
 	if err != nil {
 		return Song{}, err
 	}
 
-	id, err := row.LastInsertId()
-	if err != nil {
-		return Song{}, err
-	}
+	addSong.SpotifyId = track.ID.String()
+	addSong.Name = track.Name
+	addSong.ReleaseDate = track.Album.ReleaseDateTime()
+	addSong.SpotifyAlbumId = track.Album.ID.String()
 
 	// insert link records
 	for _, genreId := range genreIds {
@@ -43,7 +39,7 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 			INSERT INTO link_song_genres (song_id, genre_id) 
 			VALUES ($1, $2)
 			ON CONFLICT (song_id, genre_id) DO NOTHING
-		`, id, genreId)
+		`, addSong.Id, genreId)
 		if err != nil {
 			return Song{}, err
 		}
@@ -54,18 +50,11 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 			INSERT INTO link_song_artists (song_id, artist_id) 
 			VALUES ($1, $2)
 			ON CONFLICT (song_id, artist_id) DO NOTHING
-		`, id, artistId)
+		`, addSong.Id, artistId)
 		if err != nil {
 			return Song{}, err
 		}
 	}
 
-	return Song{
-		Id:             int(id),
-		SpotifyId:      track.ID.String(),
-		Name:           track.Name,
-		ReleaseDate:    track.Album.ReleaseDateTime(),
-		SpotifyAlbumId: track.Album.ID.String(),
-		CreatedAt:      time.Now(),
-	}, nil
+	return addSong, nil
 }

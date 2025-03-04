@@ -147,7 +147,7 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 
 		log.WithFields(input.Meta).Debugf("Attempting to rollback adding track %v to playlist", convertedTrackId.String())
 
-		err2 := input.SpPlaylistService.Repo.RemoveTracksFromPlaylist(input.Ctx, []spotify.ID{track.ID})
+		err2 := input.SpPlaylistService.Repo.RemoveTracksFromPlaylist(context.Background(), []spotify.ID{track.ID})
 		if err2 != nil {
 			log.WithFields(input.Meta).Errorf("Error removing track from playlist during rollback: %v", err2)
 			return nil, domain.ErrCouldNotRemoveFromPlaylist

@@ -14,28 +14,19 @@ type Archive struct {
 
 // AddArchive adds an archive to the database
 func AddArchive(tx *sqlx.Tx, songId int, userId int) (Archive, error) {
-	row, err := tx.NamedExec(`
+	var addArchive Archive
+	err := tx.QueryRowx(`
 		INSERT INTO song_archive (song_id, user_id) 
-		VALUES (:song_id, :user_id)
+		VALUES ($1, $2)
 		ON CONFLICT (song_id, user_id) DO NOTHING
-	`, map[string]any{
-		"song_id": songId,
-		"user_id": userId,
-	})
+	`, songId, userId).StructScan(&addArchive)
 
 	if err != nil {
 		return Archive{}, err
 	}
 
-	id, err := row.LastInsertId()
-	if err != nil {
-		return Archive{}, err
-	}
+	addArchive.SongId = songId
+	addArchive.UserId = userId
 
-	return Archive{
-		Id:        int(id),
-		SongId:    songId,
-		UserId:    userId,
-		CreatedAt: time.Now(),
-	}, nil
+	return addArchive, nil
 }

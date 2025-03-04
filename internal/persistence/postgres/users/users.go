@@ -15,28 +15,20 @@ type User struct {
 
 // AddUser adds a user to the database
 func AddUser(tx *sqlx.Tx, fields *domain.UserFields) (User, error) {
-	row, err := tx.NamedExec(`
+	var addUser User
+	err := tx.QueryRowx(`
 		INSERT INTO users (discord_id, discord_username) 
-		VALUES (:discord_id, :discord_username)
+		VALUES ($1, $2)
 		ON CONFLICT (discord_id) DO NOTHING
-	`, map[string]any{
-		"discord_id":       fields.UserId,
-		"discord_username": fields.Username,
-	})
+		RETURNING id, created_at
+	`, fields.UserId, fields.Username).StructScan(&addUser)
 
 	if err != nil {
 		return User{}, err
 	}
 
-	id, err := row.LastInsertId()
-	if err != nil {
-		return User{}, err
-	}
+	addUser.DiscordId = fields.UserId
+	addUser.DiscordUsername = fields.Username
 
-	return User{
-		Id:              int(id),
-		DiscordId:       fields.UserId,
-		DiscordUsername: fields.Username,
-		CreatedAt:       time.Now(),
-	}, nil
+	return addUser, nil
 }
