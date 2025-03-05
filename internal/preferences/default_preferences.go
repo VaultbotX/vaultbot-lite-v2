@@ -33,7 +33,7 @@ func CheckDefaultPreferences(ctx context.Context) error {
 
 	for _, preferenceKey := range domain.AllPreferences {
 		if _, ok := preferences[preferenceKey]; !ok {
-			log.Info("Preference %s does not exist, creating with default value", preferenceKey)
+			log.Infof("Preference %s does not exist, creating with default value", preferenceKey)
 			err = preferenceService.Repo.Set(ctx, preferenceKey, preferenceKey.DefaultValue())
 			if err != nil {
 				return err

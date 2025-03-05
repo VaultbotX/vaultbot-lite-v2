@@ -10,7 +10,7 @@ import (
 
 var (
 	migrationsList = []*migrations.Migration{
-		migrations.Migration_001,
+		migrations.Migration001,
 	}
 )
 
@@ -18,14 +18,12 @@ var (
 func main() {
 	log.SetFormatter(&log.JSONFormatter{})
 
-	host := os.Getenv("POSTGRES_HOST")
-	user := os.Getenv("POSTGRES_USER")
-	password := os.Getenv("POSTGRES_PASSWORD")
+	host, hostExists := os.LookupEnv("POSTGRES_HOST")
+	user, userExists := os.LookupEnv("POSTGRES_USER")
+	password, passwordExists := os.LookupEnv("POSTGRES_PASSWORD")
 
-	for _, envVar := range []string{"POSTGRES_HOST", "POSTGRES_USER", "POSTGRES_PASSWORD"} {
-		if os.Getenv(envVar) == "" {
-			panic("missing required environment variable: " + envVar)
-		}
+	if !hostExists || !userExists || !passwordExists {
+		log.Fatal("POSTGRES_HOST, POSTGRES_USER, and POSTGRES_PASSWORD must be set")
 	}
 
 	log.Infof("Running migrations on %s@%s", user, host)
@@ -45,20 +43,8 @@ func main() {
 
 	migrationsExecuted := 0
 	for _, migration := range migrationsList {
-		// locate the migration in the migrations table
 		exists := false
-		rows, err := db.Queryx("SELECT EXISTS(SELECT 1 FROM migrations WHERE name = $1)", migration.Name)
-		if err != nil {
-			panic(err)
-		}
-
-		for rows.Next() {
-			err := rows.Scan(&exists)
-			if err != nil {
-				panic(err)
-			}
-		}
-		err = rows.Close()
+		err := db.QueryRowx("SELECT EXISTS(SELECT 1 FROM migrations WHERE name = $1)", migration.Name).Scan(&exists)
 		if err != nil {
 			panic(err)
 		}
