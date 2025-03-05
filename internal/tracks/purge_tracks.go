@@ -11,7 +11,7 @@ import (
 
 func PurgeTracks(ctx context.Context, preferenceService *domain.PreferenceService, spotifyPlaylistService *domain.SpotifyPlaylistService) error {
 	tracks := persistence.TrackCache.GetAll()
-	pref, err := preferenceService.Repo.Get(ctx, domain.MaxDurationKey)
+	pref, err := preferenceService.Repo.Get(ctx, domain.MaxTrackAgeKey)
 	if err != nil {
 		return err
 	}
