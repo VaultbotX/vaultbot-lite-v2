@@ -155,7 +155,7 @@ func startBackgroundTasks() {
 
 func loadEnvVars() {
 	_, envPresent := os.LookupEnv("ENVIRONMENT")
-	if !envPresent {
+	if envPresent {
 		log.SetLevel(log.DebugLevel)
 		log.Info("Starting in development mode")
 
