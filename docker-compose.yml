@@ -23,9 +23,10 @@ services:
 
   migration_runner:
     container_name: vaultbot-migration-runner
-    build: .
+    build:
+      context: .
+      dockerfile: MigrationRunner.Dockerfile
     environment:
-      ENVIRONMENT: "docker"
       POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
       POSTGRES_HOST: "postgres"
@@ -34,15 +35,22 @@ services:
 
   vaultbot:
     container_name: vaultbot-discord
-    build: .
+    build:
+      context: .
+      dockerfile: VaultBot.Dockerfile
     environment:
-      ENVIRONMENT: "docker"
       DISCORD_TOKEN: ${DISCORD_TOKEN:?Discord token is required}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:?Discord guild ID is required}
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:?Spotify client ID is required}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:?Spotify client secret is required}
       SPOTIFY_PLAYLIST_ID: ${SPOTIFY_PLAYLIST_ID:?Spotify playlist ID is required}
-      MONGO_HOST: ${MONGO_HOST:?Mongo host is required}
+      SPOTIFY_TOKEN: ${SPOTIFY_TOKEN:?Spotify token is required}
+      MONGO_HOST: "mongo"
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?Mongo root username is required}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?Mongo root password is required}
+      POSTGRES_HOST: "postgres"
+      POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
     depends_on:
       - postgres
       - mongo

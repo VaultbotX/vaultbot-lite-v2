@@ -1,4 +1,4 @@
-FROM golang:1.20 as build
+FROM golang:1.24 AS build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ RUN go test -v ./cmd/... ./internal/...
 
 RUN go build -mod=readonly -v -o vaultbot ./cmd/vaultbot/vaultbot.go
 
-FROM gcr.io/distroless/base as deploy
+FROM gcr.io/distroless/base AS deploy
 
 WORKDIR /app
 COPY --from=build app/vaultbot .

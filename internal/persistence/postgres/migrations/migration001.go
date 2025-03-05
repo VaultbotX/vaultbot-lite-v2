@@ -1,6 +1,6 @@
 package migrations
 
-var Migration_001 = &Migration{
+var Migration001 = &Migration{
 	Name: "001-Initial",
 	Up: `
 		CREATE TABLE IF NOT EXISTS songs (
