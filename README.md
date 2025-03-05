@@ -1,5 +1,10 @@
 # vaultbot-lite-v2
 
+## Requirements
+
+- Go 1.24
+- Docker (recommended for running Postgres and Mongo via Docker Compose)
+
 ## Configuration
 
 Set the following environment variables:
@@ -15,7 +20,6 @@ Set the following environment variables:
 - - `SPOTIFY_PLAYLIST_ID` (ID of the playlist that songs will be stored in)
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
-- `SPOTIFY_REDIRECT_URI`
 - `SPOTIFY_TOKEN` (very important, see below)
 
 If running locally, you can set these in a `.env` file in the root directory, then make sure that you set an additional environment variable `ENVIRONMENT=local`. (it can technically be any non-empty string)
@@ -28,7 +32,7 @@ Create a new Discord application and bot. You will need the bot token to authent
 
 Create a Spotify Developer account and create a new application. You will need the client ID and client secret to authenticate with the Spotify API.
 
-Make sure to register the redirect URI as `http://localhost:8888/callback` in the Spotify Developer Dashboard.
+Make sure to register the redirect URI as `http://localhost:8080/callback` in the Spotify Developer Dashboard.
 
 Run the application ONCE locally. A Spotify authentication page should appear in your browser. After logging in, you will be redirected to `http://localhost:8888/callback`. The app will have created a new file in the root `token.txt`. Copy the contents of this file and set it as the `SPOTIFY_TOKEN` environment variable.
 
