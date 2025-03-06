@@ -9,9 +9,8 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
-	"go.mongodb.org/mongo-driver/mongo"
 	"time"
 )
 
@@ -67,35 +66,27 @@ func editPreferenceTrackDuration(s *discordgo.Session, i *discordgo.InteractionC
 	durationInMilliseconds := int(durationInMinutes * 60 * 1000)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	instance, err := mg.GetMongoClient(ctx)
+	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
-		cancel()
-		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		log.WithFields(meta).Error(err)
+		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
+		if err2 != nil {
+			log.WithFields(meta).Error(err2)
+			cancel()
 			return
 		}
-		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
+		cancel()
 		return
 	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
-		Client: instance,
-	})
+	preferenceService := domain.NewPreferenceService(persistence.NewPostgresPreferenceRepository(pgConn))
 
 	log.WithFields(meta).Infof("Setting max song duration preference to %d", durationInMilliseconds)
 	err = preferenceService.Repo.Set(ctx, domain.MaxDurationKey, durationInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max song duration preference: %s", err)
-		err := helpers.RespondDelayed(s, i, "There was an error setting the track duration preference")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		err2 := helpers.RespondDelayed(s, i, "There was an error setting the track duration preference")
+		if err2 != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err2)
 			cancel()
 			return
 		}
@@ -121,35 +112,27 @@ func editPreferencePurgeFrequency(s *discordgo.Session, i *discordgo.Interaction
 	frequencyInMilliseconds := int(frequencyInDays * 24 * 60 * 60 * 1000)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	instance, err := mg.GetMongoClient(ctx)
+	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
-		cancel()
-		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		log.WithFields(meta).Error(err)
+		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
+		if err2 != nil {
+			log.WithFields(meta).Error(err2)
+			cancel()
 			return
 		}
-		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
+		cancel()
 		return
 	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
-		Client: instance,
-	})
+	preferenceService := domain.NewPreferenceService(persistence.NewPostgresPreferenceRepository(pgConn))
 
 	log.WithFields(meta).Infof("Setting purge frequency preference to %d", frequencyInMilliseconds)
 	err = preferenceService.Repo.Set(ctx, domain.PurgeFrequencyKey, frequencyInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting purge frequency preference: %s", err)
-		err := helpers.RespondDelayed(s, i, "There was an error setting the purge frequency preference")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		err2 := helpers.RespondDelayed(s, i, "There was an error setting the purge frequency preference")
+		if err2 != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err2)
 			cancel()
 			return
 		}
@@ -175,35 +158,27 @@ func editPreferenceMaxTrackAge(s *discordgo.Session, i *discordgo.InteractionCre
 	ageInMilliseconds := int(ageInMinutes * 60 * 1000)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	instance, err := mg.GetMongoClient(ctx)
+	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
-		cancel()
-		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		log.WithFields(meta).Error(err)
+		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
+		if err2 != nil {
+			log.WithFields(meta).Error(err2)
+			cancel()
 			return
 		}
-		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
+		cancel()
 		return
 	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
-		Client: instance,
-	})
+	preferenceService := domain.NewPreferenceService(persistence.NewPostgresPreferenceRepository(pgConn))
 
 	log.WithFields(meta).Infof("Setting max track age preference to %d", ageInMilliseconds)
 	err = preferenceService.Repo.Set(ctx, domain.MaxTrackAgeKey, ageInMilliseconds)
 	if err != nil {
 		log.WithFields(meta).Errorf("Error setting max track age preference: %s", err)
-		err := helpers.RespondDelayed(s, i, "There was an error setting the max track age preference")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		err2 := helpers.RespondDelayed(s, i, "There was an error setting the max track age preference")
+		if err2 != nil {
+			log.WithFields(meta).Errorf("Error responding to user: %s", err2)
 			cancel()
 			return
 		}

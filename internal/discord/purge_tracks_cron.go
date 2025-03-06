@@ -80,7 +80,6 @@ func getPurgeFrequencyPreference() (*domain.Preference, error) {
 	}
 
 	preferenceService := domain.NewPreferenceService(persistence.NewPostgresPreferenceRepository(pgConn))
-
 	return preferenceService.Repo.Get(context.Background(), domain.PurgeFrequencyKey)
 }
 
