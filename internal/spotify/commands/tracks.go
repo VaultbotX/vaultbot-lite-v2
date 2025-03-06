@@ -14,6 +14,10 @@ type SpotifyTrackRepo struct {
 func (r *SpotifyTrackRepo) GetTrack(trackId spotify.ID, trackChan chan<- *spotify.FullTrack, ctx context.Context) error {
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
+	err := r.Client.RefreshAccessTokenIfExpired(ctx)
+	if err != nil {
+		return err
+	}
 
 	track, err := r.Client.Client.GetTrack(ctx, trackId)
 	if err != nil {
@@ -35,6 +39,10 @@ func (r *SpotifyTrackRepo) GetTrackAudioFeatures(ctx context.Context, trackId sp
 
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
+	err := r.Client.RefreshAccessTokenIfExpired(ctx)
+	if err != nil {
+		return err
+	}
 
 	audioFeatures, err := r.Client.Client.GetAudioFeatures(ctx, trackId)
 	if err != nil {
