@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	migrationsList = []*migrations.Migration{
+	migrationsList = [2]*migrations.Migration{
 		migrations.Migration001,
+		migrations.Migration002,
 	}
 )
 
