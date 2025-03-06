@@ -9,12 +9,12 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 )
 
-type PreferenceRepoNew struct {
+type PreferenceRepo struct {
 	db *sqlx.DB
 }
 
-func NewPostgresPreferenceRepository(db *sqlx.DB) *PreferenceRepoNew {
-	return &PreferenceRepoNew{
+func NewPostgresPreferenceRepository(db *sqlx.DB) *PreferenceRepo {
+	return &PreferenceRepo{
 		db: db,
 	}
 }
@@ -24,7 +24,7 @@ type PreferenceRecord struct {
 	Value interface{} `db:"value"`
 }
 
-func (p PreferenceRepoNew) Set(ctx context.Context, preferenceKey domain.PreferenceKey, value any) error {
+func (p PreferenceRepo) Set(ctx context.Context, preferenceKey domain.PreferenceKey, value any) error {
 	_, err := p.db.ExecContext(ctx, `
 		INSERT INTO preferences (key, value)
 		VALUES ($1, $2)
@@ -37,7 +37,7 @@ func (p PreferenceRepoNew) Set(ctx context.Context, preferenceKey domain.Prefere
 	return nil
 }
 
-func (p PreferenceRepoNew) Get(ctx context.Context, preferenceKey domain.PreferenceKey) (*domain.Preference, error) {
+func (p PreferenceRepo) Get(ctx context.Context, preferenceKey domain.PreferenceKey) (*domain.Preference, error) {
 	var preference PreferenceRecord
 	err := p.db.GetContext(ctx, &preference, `
 		SELECT key, value
@@ -57,7 +57,7 @@ func (p PreferenceRepoNew) Get(ctx context.Context, preferenceKey domain.Prefere
 	}, nil
 }
 
-func (p PreferenceRepoNew) GetAll(ctx context.Context) (map[domain.PreferenceKey]domain.Preference, error) {
+func (p PreferenceRepo) GetAll(ctx context.Context) (map[domain.PreferenceKey]domain.Preference, error) {
 	preferences := make(map[domain.PreferenceKey]domain.Preference)
 	rows, err := p.db.QueryxContext(ctx, `
 		SELECT key, value

@@ -64,9 +64,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}(instance, ctx)
 	blacklistService := domain.NewBlacklistService(persistence.NewBlacklistRepository(instance))
-	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
-		Client: instance,
-	})
+	preferenceService := domain.NewPreferenceService(persistence.NewPostgresPreferenceRepository(pgConn))
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
 
 	spClient, err := spotify.NewSpotifyClient(ctx)
