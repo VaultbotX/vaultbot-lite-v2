@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 )
 
 var (
@@ -28,6 +29,7 @@ type Client struct {
 	DynamicPlaylistId spotify.ID
 	Client            *spotify.Client
 	Mu                sync.Mutex
+	auth              *auth.Authenticator
 }
 
 func NewSpotifyClient(ctx context.Context) (*Client, error) {
@@ -69,13 +71,15 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 			log.Fatalf("Unable to parse Spotify token from environment variable: %s", err)
 		}
 
-		client := spotify.New(authenticator.Client(ctx, token))
+		client := spotify.New(authenticator.Client(ctx, token), spotify.WithRetry(true))
 
 		validateUserPresent(ctx, client)
 
 		instance = &Client{
 			DynamicPlaylistId: spotify.ID(playlistId),
 			Client:            client,
+			Mu:                sync.Mutex{},
+			auth:              authenticator,
 		}
 
 		log.Info("Successfully parsed Spotify token from environment variable")
@@ -152,6 +156,26 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 	log.Info("Successfully retrieved new Spotify token")
 
 	return instance, nil
+}
+
+func (c *Client) RefreshAccessTokenIfExpired(ctx context.Context) error {
+	token, err := c.Client.Token()
+	if err != nil {
+		return err
+	}
+
+	if token.Expiry.Sub(time.Now()) > 0 {
+		return nil
+	}
+
+	newToken, err := c.auth.RefreshToken(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	c.Client = spotify.New(c.auth.Client(ctx, newToken))
+
+	return nil
 }
 
 func validateUserPresent(ctx context.Context, client *spotify.Client) {
