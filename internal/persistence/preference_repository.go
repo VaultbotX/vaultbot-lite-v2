@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
@@ -20,8 +21,8 @@ func NewPostgresPreferenceRepository(db *sqlx.DB) *PreferenceRepo {
 }
 
 type PreferenceRecord struct {
-	Key   string      `db:"key"`
-	Value interface{} `db:"value"`
+	Key   string          `db:"key"`
+	Value json.RawMessage `db:"value"`
 }
 
 func (p PreferenceRepo) Set(ctx context.Context, preferenceKey domain.PreferenceKey, value any) error {

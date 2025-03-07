@@ -16,7 +16,12 @@ func PurgeTracks(ctx context.Context, preferenceService *domain.PreferenceServic
 		return err
 	}
 
-	maxTrackAge := time.Duration(pref.Value.(int32)) * time.Millisecond
+	num, err := pref.IntValue()
+	if err != nil {
+		return err
+	}
+
+	maxTrackAge := time.Duration(num) * time.Millisecond
 	oldestAllowed := time.Now().UTC().Add(-maxTrackAge)
 	log.Debugf("Threshold: %s", oldestAllowed)
 	var expiredTracks []spotify.ID

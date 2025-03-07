@@ -27,7 +27,13 @@ func RunPurge() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	duration = time.Duration(pref.Value.(int32)) * time.Millisecond
+
+	num, err := pref.IntValue()
+	if err != nil {
+		log.Fatalf("Failed to convert preference value to int: %v", err)
+	}
+
+	duration = time.Duration(num) * time.Millisecond
 	log.Infof("Scheduling purge tracks every %v", duration)
 	job, err = scheduler.Every(duration).Do(purgeTracks)
 	if err != nil {
@@ -39,12 +45,17 @@ func RunPurge() {
 	go func() {
 		for {
 			log.Debug("Checking for purge frequency changes")
-			pref, err2 := getPurgeFrequencyPreference()
-			if err2 != nil {
+			pref, err := getPurgeFrequencyPreference()
+			if err != nil {
 				log.Fatal(err)
 			}
 
-			newDuration := time.Duration(pref.Value.(int32)) * time.Millisecond
+			num, err := pref.IntValue()
+			if err != nil {
+				log.Fatalf("Failed to convert preference value to int: %v", err)
+			}
+
+			newDuration := time.Duration(num) * time.Millisecond
 			if newDuration != duration {
 				frequencyChange <- newDuration
 			}
