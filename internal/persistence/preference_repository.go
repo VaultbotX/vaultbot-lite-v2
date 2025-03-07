@@ -2,34 +2,35 @@ package persistence
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
-	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Preference struct {
-	Id    string               `bson:"_id"`
-	Key   domain.PreferenceKey `bson:"key"`
-	Value any                  `bson:"value"`
+type PreferenceRepo struct {
+	db *sqlx.DB
 }
 
-type PreferenceRepo struct {
-	Client *mongo.Client
+func NewPostgresPreferenceRepository(db *sqlx.DB) *PreferenceRepo {
+	return &PreferenceRepo{
+		db: db,
+	}
+}
+
+type PreferenceRecord struct {
+	Key   string          `db:"key"`
+	Value json.RawMessage `db:"value"`
 }
 
 func (p PreferenceRepo) Set(ctx context.Context, preferenceKey domain.PreferenceKey, value any) error {
-	collection := p.Client.Database(mg.DatabaseName).Collection(mg.PreferencesCollection)
-
-	filter := bson.M{"key": preferenceKey}
-	update := bson.M{"$set": bson.M{"value": value}}
-
-	upsert := true
-	opts := options.UpdateOptions{Upsert: &upsert}
-	_, err := collection.UpdateOne(ctx, filter, update, &opts)
+	_, err := p.db.ExecContext(ctx, `
+		INSERT INTO preferences (key, value)
+		VALUES ($1, $2)
+		ON CONFLICT (key) DO UPDATE SET value = $2
+	`, preferenceKey, value)
 	if err != nil {
 		return err
 	}
@@ -38,55 +39,53 @@ func (p PreferenceRepo) Set(ctx context.Context, preferenceKey domain.Preference
 }
 
 func (p PreferenceRepo) Get(ctx context.Context, preferenceKey domain.PreferenceKey) (*domain.Preference, error) {
-	collection := p.Client.Database(mg.DatabaseName).Collection(mg.PreferencesCollection)
-
-	filter := bson.M{"key": preferenceKey}
-	var preference Preference
-	err := collection.FindOne(ctx, filter).Decode(&preference)
+	var preference PreferenceRecord
+	err := p.db.GetContext(ctx, &preference, `
+		SELECT key, value
+		FROM preferences
+		WHERE key = $1
+	`, preferenceKey)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
 	}
 
 	return &domain.Preference{
-		Id:    preference.Id,
-		Key:   preference.Key,
+		Key:   domain.PreferenceKey(preference.Key),
 		Value: preference.Value,
 	}, nil
 }
 
 func (p PreferenceRepo) GetAll(ctx context.Context) (map[domain.PreferenceKey]domain.Preference, error) {
-	collection := p.Client.Database(mg.DatabaseName).Collection(mg.PreferencesCollection)
-	cursor, err := collection.Find(ctx, bson.M{})
+	preferences := make(map[domain.PreferenceKey]domain.Preference)
+	rows, err := p.db.QueryxContext(ctx, `
+		SELECT key, value
+		FROM preferences
+	`)
 	if err != nil {
 		return nil, err
 	}
-	defer func(cursor *mongo.Cursor, ctx context.Context) {
-		err := cursor.Close(ctx)
+	defer func(rows *sqlx.Rows) {
+		err := rows.Close()
 		if err != nil {
-			log.Errorf("Error closing MongoDB cursor: %s", err)
+			log.Errorf("Error closing rows: %s", err)
 			return
 		}
-	}(cursor, ctx)
+	}(rows)
 
-	preferences := make(map[domain.PreferenceKey]domain.Preference)
-	for cursor.Next(ctx) {
-		var preference Preference
-		err2 := cursor.Decode(&preference)
-		if err2 != nil {
-			return nil, err2
+	for rows.Next() {
+		var preference PreferenceRecord
+		err := rows.StructScan(&preference)
+		if err != nil {
+			return nil, err
 		}
-		preferences[preference.Key] = domain.Preference{
-			Id:    preference.Id,
-			Key:   preference.Key,
+
+		preferences[domain.PreferenceKey(preference.Key)] = domain.Preference{
+			Key:   domain.PreferenceKey(preference.Key),
 			Value: preference.Value,
 		}
-	}
-
-	if err2 := cursor.Err(); err2 != nil {
-		return nil, err2
 	}
 
 	return preferences, nil
