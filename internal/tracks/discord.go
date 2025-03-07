@@ -9,12 +9,10 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
-	"go.mongodb.org/mongo-driver/mongo"
 	"time"
 )
 
@@ -45,25 +43,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		return
 	}
 
-	instance, err := mg.GetMongoClient(ctx)
-	if err != nil {
-		cancel()
-		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
-			return
-		}
-		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
-		return
-	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-	blacklistService := domain.NewBlacklistService(persistence.NewBlacklistRepository(instance))
+	blacklistService := domain.NewBlacklistService(persistence.NewPostgresBlacklistRepository(pgConn))
 	preferenceService := domain.NewPreferenceService(persistence.NewPostgresPreferenceRepository(pgConn))
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
 
