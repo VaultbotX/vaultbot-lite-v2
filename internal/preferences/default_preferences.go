@@ -5,26 +5,16 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 )
 
 func CheckDefaultPreferences(ctx context.Context) error {
-	instance, err := mg.GetMongoClient(ctx)
+	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
-		log.Errorf("Error getting MongoDB client: %s", err)
 		return err
 	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-	preferenceService := domain.NewPreferenceService(persistence.PreferenceRepo{
-		Client: instance,
-	})
+
+	preferenceService := domain.NewPreferenceService(persistence.NewPostgresPreferenceRepository(pgConn))
 
 	preferences, err := preferenceService.Repo.GetAll(ctx)
 	if err != nil {
