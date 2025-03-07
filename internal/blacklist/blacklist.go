@@ -8,9 +8,8 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
-	"go.mongodb.org/mongo-driver/mongo"
 	"time"
 )
 
@@ -46,26 +45,19 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 
-	instance, err := mg.GetMongoClient(ctx)
+	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
-		cancel()
-		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		log.WithFields(meta).Error(err)
+		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
+		if err2 != nil {
+			log.WithFields(meta).Error(err2)
+			cancel()
 			return
 		}
-		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
+		cancel()
 		return
 	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-	blacklistRepository := persistence.NewBlacklistRepository(instance)
-	blacklistService := domain.NewBlacklistService(blacklistRepository)
+	blacklistService := domain.NewBlacklistService(persistence.NewPostgresBlacklistRepository(pgConn))
 
 	curried := func(blacklistType domain.BlacklistType) error {
 		if isBlacklist {
