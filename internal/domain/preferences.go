@@ -1,6 +1,9 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+)
 
 type PreferenceKey string
 
@@ -33,9 +36,23 @@ func (key PreferenceKey) DefaultValue() any {
 }
 
 type Preference struct {
-	Id    string
 	Key   PreferenceKey
-	Value any
+	Value json.RawMessage
+}
+
+func (p Preference) IntValue() (int, error) {
+	var jsonNum json.Number
+	err := json.Unmarshal(p.Value, &jsonNum)
+	if err != nil {
+		return 0, err
+	}
+
+	num, err := jsonNum.Int64()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(num), nil
 }
 
 type PreferenceRepository interface {

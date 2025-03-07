@@ -165,12 +165,11 @@ func handleMaxDuration(preferenceService *domain.PreferenceService, track *spoti
 	if err != nil {
 		return err
 	}
-	var maxDuration int
-	if v, ok := maxDurationPreference.Value.(int32); ok {
-		maxDuration = int(v)
-	} else {
-		log.Warn("Max duration preference is not an int32, using default value")
-		maxDuration = domain.MaxDurationKey.DefaultValue().(int)
+
+	maxDuration, err := maxDurationPreference.IntValue()
+	if err != nil {
+		log.WithFields(meta).Errorf("Error converting max duration preference: %v", err)
+		return err
 	}
 
 	if int(track.Duration) > maxDuration {
