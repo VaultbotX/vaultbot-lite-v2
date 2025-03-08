@@ -28,7 +28,7 @@ services:
     container_name: vaultbot-discord
     build:
       context: .
-      dockerfile: VaultBot.Dockerfile
+      dockerfile: Vaultbot.Dockerfile
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN:?Discord token is required}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:?Discord guild ID is required}
