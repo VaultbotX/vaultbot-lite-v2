@@ -47,8 +47,8 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 	go func(c chan<- error) {
 		err := input.SpTrackService.Repo.GetTrack(*convertedTrackId, trackChan, input.Ctx)
 		if err != nil {
-			close(trackChan)
 			c <- err
+			close(trackChan)
 		}
 	}(errorChan)
 

@@ -161,6 +161,7 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 func (c *Client) RefreshAccessTokenIfExpired(ctx context.Context) error {
 	token, err := c.Client.Token()
 	if err != nil {
+		log.Errorf("Unable to retrieve exiting token during refresh check: %v", err)
 		return err
 	}
 
