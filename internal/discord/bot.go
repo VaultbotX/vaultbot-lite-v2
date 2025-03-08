@@ -45,6 +45,12 @@ func Run() {
 		log.Info("Resumed session")
 	})
 
+	// TODO: Attempt to use least privileged intents. The commented intents were not sufficient
+	//  to retrieve a user's permissions in a guild.
+	// Used for calculating guild member permissions
+	//s.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers
+	s.Identify.Intents = discordgo.IntentsAll
+
 	startBackgroundTasks()
 
 	err = s.Open()
