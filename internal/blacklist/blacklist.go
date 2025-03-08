@@ -9,7 +9,9 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
+	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
+	"strings"
 	"time"
 )
 
@@ -60,36 +62,48 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 	}
 	blacklistService := domain.NewBlacklistService(persistence.NewPostgresBlacklistRepository(pgConn))
 
-	curried := func(blacklistType domain.BlacklistType) error {
+	curried := func(blacklistType domain.EntityType, value string) error {
 		if isBlacklist {
-			return blacklistService.Repo.AddToBlacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
+			return blacklistService.Repo.AddToBlacklist(ctx, blacklistType, value, utils.GetUserFieldsFromInteraction(i))
 		}
 
-		return blacklistService.Repo.RemoveFromBlacklist(ctx, blacklistType, selectedOption.StringValue())
+		return blacklistService.Repo.RemoveFromBlacklist(ctx, blacklistType, value)
 	}
 
 	switch selectedOption.Name {
 	case "track":
-		err = curried(domain.Track)
+		trackId := spotify.ParseSpotifyId(selectedOption.StringValue(), domain.Track)
+		if trackId == nil {
+			err = domain.ErrInvalidSpotifyId
+			break
+		}
+		err = curried(domain.Track, trackId.String())
 	case "artist":
-		err = curried(domain.Artist)
+		artistId := spotify.ParseSpotifyId(selectedOption.StringValue(), domain.Artist)
+		if artistId == nil {
+			err = domain.ErrInvalidSpotifyId
+			break
+		}
+		err = curried(domain.Artist, artistId.String())
 	case "genre":
-		err = curried(domain.Genre)
+		genreName := strings.ToLower(selectedOption.StringValue())
+		err = curried(domain.Genre, genreName)
 	}
 	cancel()
 
 	if err != nil {
-		if errors.Is(err, domain.ErrBlacklistItemAlreadyExists) {
-			err := helpers.RespondDelayed(s, i, "That item is already blacklisted!")
-			if err != nil {
-				log.WithFields(meta).Errorf("Error responding to user: %s", err)
-				return
-			}
-			return
+		response := "There was an error managing that blacklist item"
+		switch {
+		case errors.Is(err, domain.ErrBlacklistItemAlreadyExists):
+			response = "That item is already blacklisted!"
+			break
+		case errors.Is(err, domain.ErrInvalidSpotifyId):
+			response = "Please provide a valid ID, URI, or URL"
+			break
 		}
 
-		log.WithFields(meta).Errorf("Error blacklisting item: %s", err)
-		err := helpers.RespondDelayed(s, i, "There was an error blacklisting that item")
+		log.WithFields(meta).Errorf("Error managing blacklist item: %s", err)
+		err := helpers.RespondDelayed(s, i, response)
 		if err != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err)
 			return

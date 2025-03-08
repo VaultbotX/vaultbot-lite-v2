@@ -27,7 +27,7 @@ func NewPostgresBlacklistRepository(db *sqlx.DB) *BlacklistRepository {
 	}
 }
 
-func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType domain.BlacklistType, id string,
+func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType domain.EntityType, id string,
 	userFields *domain.UserFields) error {
 	_, err := r.db.ExecContext(ctx, `
 		WITH user_id AS (
@@ -36,7 +36,7 @@ func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType 
 		    WHERE discord_id = $1
 		)
 		INSERT INTO blacklist (type, value, blocked_by_user_id)
-		VALUES ($2, $3, (SELECT user_id FROM user_id))
+		VALUES ($2, $3, (SELECT id FROM user_id))
 		ON CONFLICT (value) DO NOTHING
 	`, userFields.UserId, blacklistType, id)
 	if err != nil {
@@ -46,7 +46,7 @@ func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType 
 	return nil
 }
 
-func (r *BlacklistRepository) RemoveFromBlacklist(ctx context.Context, blacklistType domain.BlacklistType, id string) error {
+func (r *BlacklistRepository) RemoveFromBlacklist(ctx context.Context, blacklistType domain.EntityType, id string) error {
 	result, err := r.db.ExecContext(ctx, `
 		DELETE FROM blacklist
 		WHERE type = $1 AND value = $2
@@ -67,7 +67,7 @@ func (r *BlacklistRepository) RemoveFromBlacklist(ctx context.Context, blacklist
 	return nil
 }
 
-func (r *BlacklistRepository) CheckBlacklistItem(ctx context.Context, blacklistType domain.BlacklistType, id string) (bool, error) {
+func (r *BlacklistRepository) CheckBlacklistItem(ctx context.Context, blacklistType domain.EntityType, id string) (bool, error) {
 	var count int
 	err := r.db.GetContext(ctx, &count, `
 		SELECT COUNT(*)

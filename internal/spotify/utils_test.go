@@ -1,6 +1,9 @@
 package spotify
 
-import "testing"
+import (
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
+	"testing"
+)
 
 func TestParseTrackId_ParsesAlphanumericText(t *testing.T) {
 	tests := []struct {
@@ -15,7 +18,7 @@ func TestParseTrackId_ParsesAlphanumericText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseTrackId(tt.input)
+			actual := ParseSpotifyId(tt.input, domain.Track)
 			if tt.expected == "" {
 				if actual != nil {
 					t.Errorf("Expected nil, got %s", actual)
@@ -42,7 +45,7 @@ func TestParseTrackId_InvalidLengthString_ReturnsNil(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseTrackId(tt.input)
+			actual := ParseSpotifyId(tt.input, domain.Track)
 			if actual != nil {
 				t.Errorf("Expected nil, got %s", actual)
 			}
@@ -62,7 +65,7 @@ func TestParseTrackId_ParsesSpotifyUri(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseTrackId(tt.input)
+			actual := ParseSpotifyId(tt.input, domain.Track)
 			if tt.expected == "" {
 				if actual != nil {
 					t.Errorf("Expected nil, got %s", actual)
@@ -91,7 +94,7 @@ func TestParseTrackId_DoesNotParseOtherSpotifyEntityTypeUris(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseTrackId(tt.input)
+			actual := ParseSpotifyId(tt.input, domain.Track)
 			if actual != nil {
 				t.Errorf("Expected nil, got %s", actual)
 			}
@@ -111,7 +114,7 @@ func TestParseTrackId_ParsesSpotifyUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseTrackId(tt.input)
+			actual := ParseSpotifyId(tt.input, domain.Track)
 			if tt.expected == "" {
 				if actual != nil {
 					t.Errorf("Expected nil, got %s", actual)
