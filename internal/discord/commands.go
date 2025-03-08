@@ -15,7 +15,8 @@ var (
 		},
 		preferences.Command,
 		tracks.Command,
-		blacklist.Command,
+		blacklist.BlacklistCommand,
+		blacklist.UnblacklistCommand,
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
