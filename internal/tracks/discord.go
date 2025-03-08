@@ -85,42 +85,29 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	cancel()
 
 	if err != nil {
+		response := "An unexpected error occurred. Please try again later :("
 		switch {
 		case errors.Is(err, domain.ErrInvalidTrackId):
-			err2 := helpers.RespondDelayed(s, i, "I can't recognize that track ID!")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "I can't recognize that track ID!"
 			break
 		case errors.Is(err, domain.ErrTrackAlreadyInPlaylist):
-			err2 := helpers.RespondDelayed(s, i, "Track is already in the playlist!")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "That track is already in the playlist!"
 			break
 		case errors.Is(err, domain.ErrTrackTooLong):
-			err2 := helpers.RespondDelayed(s, i, "That track is too long!")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "That track is too long!"
+			break
 		case errors.Is(err, domain.ErrNoTrackExists):
-			err2 := helpers.RespondDelayed(s, i, "That track does not exist!")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "That track does not exist!"
 			break
 		case errors.Is(err, domain.ErrCouldNotAddToPlaylist):
 		case errors.Is(err, domain.ErrCouldNotAddToDatabase):
 		case errors.Is(err, domain.ErrCouldNotRemoveFromPlaylist):
-			err2 := helpers.RespondDelayed(s, i, "Could not add track to playlist. Please try again later :(")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "Could not add track to playlist. Please try again later :("
 			break
 		}
 
 		log.WithFields(meta).Error(err)
-		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
+		err2 := helpers.RespondDelayed(s, i, response)
 		if err2 != nil {
 			log.WithFields(meta).Error(err2)
 			return
