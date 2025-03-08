@@ -100,7 +100,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	if err != nil {
 		response := "An unexpected error occurred. Please try again later :("
 		switch {
-		case errors.Is(err, domain.ErrInvalidTrackId):
+		case errors.Is(err, domain.ErrInvalidSpotifyId):
 			response = "I can't recognize that track ID!"
 			break
 		case errors.Is(err, domain.ErrTrackAlreadyInPlaylist):
