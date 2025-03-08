@@ -16,6 +16,19 @@ import (
 	"time"
 )
 
+var Command = &discordgo.ApplicationCommand{
+	Name:        "add-track",
+	Description: "Add a track to the playlist",
+	Options: []*discordgo.ApplicationCommandOption{
+		{
+			Name:        "track-id",
+			Description: "The Spotify track ID, URI, or URL",
+			Type:        discordgo.ApplicationCommandOptionString,
+			Required:    true,
+		},
+	},
+}
+
 func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	trackId := i.ApplicationCommandData().Options[0].StringValue()
 
