@@ -28,7 +28,7 @@ func NewPostgresBlacklistRepository(db *sqlx.DB) *BlacklistRepository {
 }
 
 func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType domain.BlacklistType, id string,
-	userFields *domain.UserFields, time time.Time) error {
+	userFields *domain.UserFields) error {
 	_, err := r.db.ExecContext(ctx, `
 		WITH user_id AS (
 		    SELECT id
@@ -38,7 +38,7 @@ func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType 
 		INSERT INTO blacklist (type, value, blocked_by_user_id)
 		VALUES ($2, $3, (SELECT user_id FROM user_id))
 		ON CONFLICT (value) DO NOTHING
-	`, blacklistType, id, userFields.UserId, time)
+	`, userFields.UserId, blacklistType, id)
 	if err != nil {
 		return err
 	}

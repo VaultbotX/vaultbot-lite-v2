@@ -41,7 +41,8 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 		return
 	}
 
-	selectedOption := i.ApplicationCommandData().Options[0]
+	commandData := i.ApplicationCommandData()
+	selectedOption := commandData.Options[0]
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 
@@ -61,7 +62,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 
 	curried := func(blacklistType domain.BlacklistType) error {
 		if isBlacklist {
-			return blacklistService.Repo.AddToBlacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i), time.Now())
+			return blacklistService.Repo.AddToBlacklist(ctx, blacklistType, selectedOption.StringValue(), utils.GetUserFieldsFromInteraction(i))
 		}
 
 		return blacklistService.Repo.RemoveFromBlacklist(ctx, blacklistType, selectedOption.StringValue())
