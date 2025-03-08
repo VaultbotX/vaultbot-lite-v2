@@ -14,6 +14,38 @@ import (
 	"time"
 )
 
+var Command = &discordgo.ApplicationCommand{
+	Name:        "edit-preferences",
+	Description: "Edit preferences",
+	Options: []*discordgo.ApplicationCommandOption{
+		{
+			Name:        "max-track-duration",
+			Description: "The track duration in minutes",
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Required:    false,
+			MinValue:    &helpers.MinSongDuration,
+			MaxValue:    helpers.MaxSongDuration,
+		},
+		{
+			Name:        "purge-frequency",
+			Description: "How often to purge the playlist (in days)",
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Required:    false,
+			MinValue:    &helpers.MinPurgeFrequency,
+			MaxValue:    helpers.MaxPurgeFrequency,
+		},
+		{
+			Name:        "max-track-age",
+			Description: "The maximum age of a track in days",
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Required:    false,
+			MinValue:    &helpers.MinTrackAge,
+			MaxValue:    helpers.MaxTrackAge,
+		},
+	},
+	DefaultMemberPermissions: &helpers.AdminPermission,
+}
+
 func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	selectedOption := i.ApplicationCommandData().Options[0]
 	meta := utils.GetFieldsFromInteraction(i)

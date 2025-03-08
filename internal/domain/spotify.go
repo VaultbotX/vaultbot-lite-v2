@@ -5,6 +5,14 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
+type EntityType int
+
+const (
+	Track EntityType = iota
+	Artist
+	Genre
+)
+
 type SpotifyTrackRepository interface {
 	GetTrack(trackId spotify.ID, trackChan chan<- *spotify.FullTrack, ctx context.Context) error
 }

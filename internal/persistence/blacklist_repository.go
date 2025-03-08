@@ -2,121 +2,85 @@ package persistence
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"github.com/jmoiron/sqlx"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
-	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
-	"github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo/types"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"time"
 )
 
 type BlacklistRepository struct {
-	client *mongo.Client
+	db *sqlx.DB
 }
 
-func NewBlacklistRepository(client *mongo.Client) *BlacklistRepository {
+type BlacklistRecord struct {
+	Id              int       `db:"id"`
+	Type            string    `db:"type"`
+	Value           string    `db:"value"`
+	BlockedByUserId int       `db:"blocked_by_user_id"`
+	CreatedAt       time.Time `db:"created_at"`
+}
+
+func NewPostgresBlacklistRepository(db *sqlx.DB) *BlacklistRepository {
 	return &BlacklistRepository{
-		client: client,
+		db: db,
 	}
 }
 
-func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType domain.BlacklistType, id string,
-	userFields *domain.UserFields, time time.Time) error {
-
-	collection := r.client.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
-	var blacklistedItem any
-	switch blacklistType {
-	case domain.Track:
-		blacklistedItem = types.BlacklistedTrack{
-			TrackId:           id,
-			BlockedById:       userFields.UserId,
-			BlockedByUsername: userFields.Username,
-			CommonFields: types.CommonFields{
-				GuildId:   userFields.GuildId,
-				Timestamp: time.Unix(),
-			},
-		}
-	case domain.Artist:
-		blacklistedItem = types.BlacklistedArtist{
-			ArtistId:          id,
-			BlockedById:       userFields.UserId,
-			BlockedByUsername: userFields.Username,
-			CommonFields: types.CommonFields{
-				GuildId:   userFields.GuildId,
-				Timestamp: time.Unix(),
-			},
-		}
-	case domain.Genre:
-		blacklistedItem = types.BlacklistedGenre{
-			GenreName:         id,
-			BlockedById:       userFields.UserId,
-			BlockedByUsername: userFields.Username,
-			CommonFields: types.CommonFields{
-				GuildId:   userFields.GuildId,
-				Timestamp: time.Unix(),
-			},
-		}
-	}
-
-	_, err := collection.InsertOne(ctx, blacklistedItem)
+func (r *BlacklistRepository) AddToBlacklist(ctx context.Context, blacklistType domain.EntityType, id string,
+	userFields *domain.UserFields) error {
+	_, err := r.db.ExecContext(ctx, `
+		WITH user_id AS (
+		    SELECT id
+		    FROM users
+		    WHERE discord_id = $1
+		)
+		INSERT INTO blacklist (type, value, blocked_by_user_id)
+		VALUES ($2, $3, (SELECT id FROM user_id))
+		ON CONFLICT (value) DO NOTHING
+	`, userFields.UserId, blacklistType, id)
 	if err != nil {
-		if mongo.IsDuplicateKeyError(err) {
-			return domain.ErrBlacklistItemAlreadyExists
-		}
 		return err
 	}
 
 	return nil
 }
 
-func (r *BlacklistRepository) RemoveFromBlacklist(ctx context.Context, blacklistType domain.BlacklistType, id string) error {
-	collection := r.client.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
-
-	var filter bson.M
-	switch blacklistType {
-	case domain.Track:
-		filter = bson.M{"trackId": id}
-	case domain.Artist:
-		filter = bson.M{"artistId": id}
-	case domain.Genre:
-		filter = bson.M{"genreName": id}
-	}
-
-	result, err := collection.DeleteOne(ctx, filter)
+func (r *BlacklistRepository) RemoveFromBlacklist(ctx context.Context, blacklistType domain.EntityType, id string) error {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM blacklist
+		WHERE type = $1 AND value = $2
+	`, blacklistType, id)
 	if err != nil {
 		return err
 	}
 
-	if result.DeletedCount == 0 {
-		return types.ErrNoDocuments
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return errors.New("blacklist item not found")
 	}
 
 	return nil
 }
 
-func (r *BlacklistRepository) CheckBlacklistItem(ctx context.Context, blacklistType domain.BlacklistType, id string) (bool, error) {
-	collection := r.client.Database(mg.DatabaseName).Collection(mg.BlacklistCollection)
-
-	var filter bson.M
-	switch blacklistType {
-	case domain.Track:
-		filter = bson.M{"trackId": id}
-	case domain.Artist:
-		filter = bson.M{"artistId": id}
-	case domain.Genre:
-		filter = bson.M{"genreName": id}
-	}
-
-	result := collection.FindOne(ctx, filter)
-	err := result.Err()
+func (r *BlacklistRepository) CheckBlacklistItem(ctx context.Context, blacklistType domain.EntityType, id string) (bool, error) {
+	var count int
+	err := r.db.GetContext(ctx, &count, `
+		SELECT COUNT(*)
+		FROM blacklist
+		WHERE type = $1 AND value = $2
+	`, blacklistType, id)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
 
 		return false, err
 	}
 
-	return true, nil
+	return count > 0, nil
 }

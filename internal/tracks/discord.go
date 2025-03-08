@@ -9,14 +9,25 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	mg "github.com/vaultbotx/vaultbot-lite/internal/persistence/mongo"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
-	"go.mongodb.org/mongo-driver/mongo"
 	"time"
 )
+
+var Command = &discordgo.ApplicationCommand{
+	Name:        "add-track",
+	Description: "Add a track to the playlist",
+	Options: []*discordgo.ApplicationCommandOption{
+		{
+			Name:        "track-id",
+			Description: "The Spotify track ID, URI, or URL",
+			Type:        discordgo.ApplicationCommandOptionString,
+			Required:    true,
+		},
+	},
+}
 
 func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	trackId := i.ApplicationCommandData().Options[0].StringValue()
@@ -45,25 +56,7 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		return
 	}
 
-	instance, err := mg.GetMongoClient(ctx)
-	if err != nil {
-		cancel()
-		err := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
-			return
-		}
-		log.WithFields(meta).Errorf("Error getting MongoDB client: %s", err)
-		return
-	}
-	defer func(instance *mongo.Client, ctx context.Context) {
-		err := instance.Disconnect(ctx)
-		if err != nil {
-			log.Errorf("Error disconnecting from MongoDB: %v", err)
-			return
-		}
-	}(instance, ctx)
-	blacklistService := domain.NewBlacklistService(persistence.NewBlacklistRepository(instance))
+	blacklistService := domain.NewBlacklistService(persistence.NewPostgresBlacklistRepository(pgConn))
 	preferenceService := domain.NewPreferenceService(persistence.NewPostgresPreferenceRepository(pgConn))
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
 
@@ -105,42 +98,29 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	cancel()
 
 	if err != nil {
+		response := "An unexpected error occurred. Please try again later :("
 		switch {
-		case errors.Is(err, domain.ErrInvalidTrackId):
-			err2 := helpers.RespondDelayed(s, i, "I can't recognize that track ID!")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+		case errors.Is(err, domain.ErrInvalidSpotifyId):
+			response = "I can't recognize that track ID!"
 			break
 		case errors.Is(err, domain.ErrTrackAlreadyInPlaylist):
-			err2 := helpers.RespondDelayed(s, i, "Track is already in the playlist!")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "That track is already in the playlist!"
 			break
 		case errors.Is(err, domain.ErrTrackTooLong):
-			err2 := helpers.RespondDelayed(s, i, "That track is too long!")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "That track is too long!"
+			break
 		case errors.Is(err, domain.ErrNoTrackExists):
-			err2 := helpers.RespondDelayed(s, i, "That track does not exist!")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "That track does not exist!"
 			break
 		case errors.Is(err, domain.ErrCouldNotAddToPlaylist):
 		case errors.Is(err, domain.ErrCouldNotAddToDatabase):
 		case errors.Is(err, domain.ErrCouldNotRemoveFromPlaylist):
-			err2 := helpers.RespondDelayed(s, i, "Could not add track to playlist. Please try again later :(")
-			if err2 != nil {
-				log.WithFields(meta).Error(err2)
-			}
+			response = "Could not add track to playlist. Please try again later :("
 			break
 		}
 
 		log.WithFields(meta).Error(err)
-		err2 := helpers.RespondDelayed(s, i, "An unexpected error occurred. Please try again later :(")
+		err2 := helpers.RespondDelayed(s, i, response)
 		if err2 != nil {
 			log.WithFields(meta).Error(err2)
 			return

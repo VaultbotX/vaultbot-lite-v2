@@ -164,13 +164,28 @@ func (c *Client) RefreshAccessTokenIfExpired(ctx context.Context) error {
 		return err
 	}
 
-	if token.Expiry.Sub(time.Now()) > 0 {
+	now := time.Now()
+
+	log.WithFields(log.Fields{
+		"expiry": token.Expiry,
+		"now":    now,
+	}).Info("Checking if access token is expired")
+
+	if token.Expiry.Sub(now) > 0 {
+		log.Info("Access token is still valid")
 		return nil
 	}
 
+	log.Info("Access token expired, refreshing...")
 	newToken, err := c.auth.RefreshToken(ctx, token)
 	if err != nil {
 		return err
+	}
+
+	if newToken.AccessToken != token.AccessToken {
+		log.Info("New access token received")
+	} else {
+		log.Info("New access token is the same as the old one")
 	}
 
 	c.Client = spotify.New(c.auth.Client(ctx, newToken))

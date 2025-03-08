@@ -28,9 +28,9 @@ type AddTrackInput struct {
 func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 	log.WithFields(input.Meta).Debugf("Attempting to add track %v to playlist", input.TrackId)
 	// 0. Parse the track id
-	convertedTrackId := sp.ParseTrackId(input.TrackId)
+	convertedTrackId := sp.ParseSpotifyId(input.TrackId, domain.Track)
 	if convertedTrackId == nil {
-		return nil, domain.ErrInvalidTrackId
+		return nil, domain.ErrInvalidSpotifyId
 	}
 
 	// 1. Check the cache to see if the track exists

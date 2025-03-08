@@ -3,7 +3,7 @@ package domain
 import "errors"
 
 var (
-	ErrInvalidTrackId             = errors.New("spotify: invalid track id")
+	ErrInvalidSpotifyId           = errors.New("spotify: invalid spotify entity id")
 	ErrTrackAlreadyInPlaylist     = errors.New("spotify: track already exists in playlist")
 	ErrNoTrackExists              = errors.New("spotify: no track exists")
 	ErrTrackTooLong               = errors.New("spotify: track is too long")
