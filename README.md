@@ -3,7 +3,7 @@
 ## Requirements
 
 - Go 1.24
-- Docker (recommended for running Postgres and Mongo via Docker Compose)
+- Docker (recommended for running Postgres)
 
 ## Configuration
 
@@ -12,9 +12,6 @@ Set the following environment variables:
 - `POSTGRES_HOST`
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
-- `MONGO_HOST` (probably removing Mongo soon, these subject to change)
-- `MONGO_INITDB_ROOT_USERNAME`
-- `MONGO_INITDB_ROOT_PASSWORD`
 - `DISCORD_GUILD_ID` (optional, recommended during development for immediate setting of Discord slash commands)
 - `DISCORD_TOKEN` (more information below)
 - - `SPOTIFY_PLAYLIST_ID` (ID of the playlist that songs will be stored in)

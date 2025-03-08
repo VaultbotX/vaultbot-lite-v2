@@ -12,15 +12,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  mongo:
-    image: mongo:6.0.4
-    container_name: vaultbot-mongo
-    restart: unless-stopped
-    volumes:
-      - mongo_data:/data/db
-    ports:
-      - "27017:27017"
-
   migration_runner:
     container_name: vaultbot-migration-runner
     build:
@@ -37,7 +28,7 @@ services:
     container_name: vaultbot-discord
     build:
       context: .
-      dockerfile: VaultBot.Dockerfile
+      dockerfile: Vaultbot.Dockerfile
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN:?Discord token is required}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:?Discord guild ID is required}
@@ -45,17 +36,12 @@ services:
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:?Spotify client secret is required}
       SPOTIFY_PLAYLIST_ID: ${SPOTIFY_PLAYLIST_ID:?Spotify playlist ID is required}
       SPOTIFY_TOKEN: ${SPOTIFY_TOKEN:?Spotify token is required}
-      MONGO_HOST: "mongo"
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?Mongo root username is required}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?Mongo root password is required}
       POSTGRES_HOST: "postgres"
       POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
     depends_on:
       - postgres
-      - mongo
       - migration_runner
 
 volumes:
   postgres_data:
-  mongo_data:
