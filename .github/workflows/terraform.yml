@@ -22,24 +22,41 @@ jobs:
         with:
           terraform_version: latest
 
-      - name: Initialize Terraform
+      - name: Initialize Terraform (with remote backend)
         working-directory: infra
-        run: terraform init
+        run: |
+          .\tf_init.ps1 -BucketName ${{ secrets.DO_SPACES_REMOTE_BACKEND_BUCKET_NAME }} `
+                        -TfStateKey ${{ secrets.DO_SPACES_REMOTE_BACKEND_STATE_KEY }} `
+                        -DoSpacesAccessKey ${{ secrets.DO_SPACES_ACCESS_KEY }} `
+                        -DoSpacesSecretKey ${{ secrets.DO_SPACES_SECRET_KEY }}
 
       - name: Validate Terraform
         working-directory: infra
         run: terraform validate
 
+      # TODO: DO Spaces env vars here too and other vars that are necessary
+      # TODO: docs for GH secrets
+
       - name: Plan Terraform Changes
+        id: plan
         working-directory: infra
-        run: terraform plan
+        run: terraform plan -detailed-exitcode -out=tfplan
         env:
           TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
           TF_VAR_api_secret_key: ${{ secrets.TF_VAR_api_secret_key }}
+        continue-on-error: true
 
-      # Only apply changes if on main branch (i.e., after PR merge)
+      - name: Check for Destructive Changes
+        if: steps.plan.outcome == 'failure' && steps.plan.outputs.exitcode == '2'
+        run: |
+          terraform show -json tfplan | jq '.resource_changes[] | select(.change.actions | index("delete") or index("replace"))' > destructive_changes.json
+          if [ -s destructive_changes.json ]; then
+            echo "Destructive changes detected, not handling them automatically yet"
+            exit 1
+          fi
+
       - name: Apply Terraform Changes
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outcome == 'success'
         working-directory: infra
         run: terraform apply -auto-approve
         env:
