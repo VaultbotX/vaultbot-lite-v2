@@ -7,32 +7,13 @@ terraform {
   }
 }
 
-# Set the variable value in *.tfvars file
-# or using -var="do_token=..." CLI option
-variable "do_token" {}
-
-variable "do_region" {
-  type        = string
-  description = "Region for the resources"
-}
-
-variable "github_repo_url" {
-  type        = string
-  description = "GitHub repository URL for the app"
-}
-
-variable "github_repo_branch" {
-  type        = string
-  description = "Branch to deploy from"
-}
-
 # Configure the DigitalOcean Provider
 provider "digitalocean" {
   token = var.do_token
 }
 
 resource "digitalocean_project" "vaultbot" {
-  name        = "Vaultbot"
+  name        = "Vaultbot-${var.environment}"
   description = "Vaultbot Project"
   resources = [
     digitalocean_database_cluster.vaultbot_postgres_cluster.id,
@@ -41,7 +22,7 @@ resource "digitalocean_project" "vaultbot" {
 }
 
 resource "digitalocean_database_cluster" "vaultbot_postgres_cluster" {
-  name       = "vaultbot-postgres-cluster"
+  name       = "vaultbot-postgres-cluster-${var.environment}"
   engine     = "pg"
   version    = "17"
   size       = "db-s-1vcpu-1gb"
@@ -53,12 +34,12 @@ resource "digitalocean_database_cluster" "vaultbot_postgres_cluster" {
 resource "digitalocean_app" "vaultbot_app" {
   depends_on = [digitalocean_database_cluster.vaultbot_postgres_cluster]
   spec {
-    name   = "vaultbot-app"
+    name   = "vaultbot-app-${var.environment}"
     region = var.do_region
 
     # Postgres database as a component in the app
     database {
-      name         = "vaultbot-postgres"
+      name         = "vaultbot-postgres-${var.environment}"
       engine       = "pg"
       cluster_name = digitalocean_database_cluster.vaultbot_postgres_cluster.name
       db_name      = "vaultbot"
@@ -67,7 +48,7 @@ resource "digitalocean_app" "vaultbot_app" {
 
     # Go WebSocket Backend Service
     service {
-      name               = "websocket-backend"
+      name               = "websocket-backend-${var.environment}"
       instance_count     = 1
       instance_size_slug = "basic-xxs"
       source_dir         = "."
@@ -88,7 +69,7 @@ resource "digitalocean_app" "vaultbot_app" {
 
     # Job for Database Migrations
     job {
-      name       = "migration-runner"
+      name       = "migration-runner-${var.environment}"
       source_dir = "."
       dockerfile_path = "MigrationRunner.Dockerfile"
 
