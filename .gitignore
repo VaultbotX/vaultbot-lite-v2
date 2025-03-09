@@ -5,6 +5,9 @@ token.txt
 # Local .terraform directories
 **/.terraform/*
 
+# Local generated tfplan files
+tfplan
+
 # .tfstate files
 *.tfstate
 *.tfstate.*

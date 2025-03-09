@@ -17,7 +17,7 @@ variable "environment" {
   description = "Environment for the resources (e.g., dev, prod)"
 }
 
-variable "github_repo_url" {
+variable "github_repo" {
   type        = string
   description = "GitHub repository URL for the app"
 }
@@ -25,4 +25,34 @@ variable "github_repo_url" {
 variable "github_repo_branch" {
   type        = string
   description = "Branch to deploy from"
+}
+
+variable "discord_token" {
+  type        = string
+  description = "Discord bot token"
+  sensitive   = true
+}
+
+variable "spotify_playlist_id" {
+  type        = string
+  description = "Spotify playlist ID"
+  sensitive   = true
+}
+
+variable "spotify_client_id" {
+  type        = string
+  description = "Spotify client ID"
+  sensitive   = true
+}
+
+variable "spotify_client_secret" {
+  type        = string
+  description = "Spotify client secret"
+  sensitive   = true
+}
+
+variable "spotify_token" {
+  type        = string
+  description = "Spotify oauth token"
+  sensitive   = true
 }
