@@ -5,7 +5,7 @@
 # Most values empty since we will pass these in via CLI (partial config)
 # See tf_init.ps1
 terraform {
-  required_version = ">= 1.6.3"
+  required_version = ">= 1.11.0"
 
   backend "s3" {
     endpoints = {
