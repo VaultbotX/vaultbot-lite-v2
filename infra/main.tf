@@ -7,9 +7,8 @@ terraform {
   }
 }
 
-# Configure the DigitalOcean Provider
 provider "digitalocean" {
-  token = var.do_token
+  token = var.do_management_token
 }
 
 resource "digitalocean_project" "vaultbot" {
@@ -30,14 +29,12 @@ resource "digitalocean_database_cluster" "vaultbot_postgres_cluster" {
   node_count = 1
 }
 
-# DigitalOcean App Platform Deployment
 resource "digitalocean_app" "vaultbot_app" {
   depends_on = [digitalocean_database_cluster.vaultbot_postgres_cluster]
   spec {
     name   = "vaultbot-app-${var.environment}"
     region = var.do_region
 
-    # Postgres database as a component in the app
     database {
       name         = "vaultbot-postgres-${var.environment}"
       engine       = "pg"
@@ -46,7 +43,6 @@ resource "digitalocean_app" "vaultbot_app" {
       user         = "vaultbot"
     }
 
-    # Go WebSocket Backend Service
     service {
       name               = "websocket-backend-${var.environment}"
       instance_count     = 1
@@ -58,6 +54,7 @@ resource "digitalocean_app" "vaultbot_app" {
         key   = "DATABASE_URL"
         value = digitalocean_database_cluster.vaultbot_postgres_cluster.uri
         scope = "RUN_TIME"
+        type = "SECRET"
       }
 
       github {
@@ -67,19 +64,16 @@ resource "digitalocean_app" "vaultbot_app" {
       }
     }
 
-    # Job for Database Migrations
     job {
       name       = "migration-runner-${var.environment}"
       source_dir = "."
       dockerfile_path = "MigrationRunner.Dockerfile"
 
-      # Runs once per deployment and exits
-      run_command = "your-migration-command"
-
       env {
         key   = "DATABASE_URL"
         value = digitalocean_database_cluster.vaultbot_postgres_cluster.uri
         scope = "RUN_TIME"
+        type = "SECRET"
       }
 
       github {
