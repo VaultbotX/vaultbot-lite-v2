@@ -16,10 +16,6 @@ type SpotifyPlaylistRepo struct {
 func (r *SpotifyPlaylistRepo) GetPlaylistTracks(playlistItemChan chan<- *spotify.PlaylistItem, ctx context.Context) error {
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
-	err := r.Client.RefreshAccessTokenIfExpired(ctx)
-	if err != nil {
-		return err
-	}
 
 	playlistItems, err := r.Client.Client.GetPlaylistItems(ctx, r.Client.DynamicPlaylistId)
 	if err != nil {
@@ -52,12 +48,8 @@ func (r *SpotifyPlaylistRepo) GetPlaylistTracks(playlistItemChan chan<- *spotify
 func (r *SpotifyPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error {
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
-	err := r.Client.RefreshAccessTokenIfExpired(ctx)
-	if err != nil {
-		return err
-	}
 
-	_, err = r.Client.Client.AddTracksToPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
+	_, err := r.Client.Client.AddTracksToPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
 	if err != nil {
 		return err
 	}
@@ -68,12 +60,8 @@ func (r *SpotifyPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds 
 func (r *SpotifyPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trackIds []spotify.ID) error {
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
-	err := r.Client.RefreshAccessTokenIfExpired(ctx)
-	if err != nil {
-		return err
-	}
 
-	_, err = r.Client.Client.RemoveTracksFromPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
+	_, err := r.Client.Client.RemoveTracksFromPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
 	if err != nil {
 		return err
 	}
