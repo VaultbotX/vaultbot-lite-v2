@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"time"
 )
 
 var (
@@ -156,43 +155,6 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 	log.Info("Successfully retrieved new Spotify token")
 
 	return instance, nil
-}
-
-// RefreshAccessTokenIfExpired TODO: this may not be needed anymore now that we have fixed the deadline issue with the oauth2 transport
-func (c *Client) RefreshAccessTokenIfExpired(ctx context.Context) error {
-	token, err := c.Client.Token()
-	if err != nil {
-		log.Errorf("Unable to retrieve exiting token during refresh check: %v", err)
-		return err
-	}
-
-	now := time.Now()
-
-	log.WithFields(log.Fields{
-		"expiry": token.Expiry,
-		"now":    now,
-	}).Info("Checking if access token is expired")
-
-	if token.Expiry.Sub(now) > 0 {
-		log.Info("Access token is still valid")
-		return nil
-	}
-
-	log.Info("Access token expired, refreshing...")
-	newToken, err := c.auth.RefreshToken(ctx, token)
-	if err != nil {
-		return err
-	}
-
-	if newToken.AccessToken != token.AccessToken {
-		log.Info("New access token received")
-	} else {
-		log.Info("New access token is the same as the old one")
-	}
-
-	c.Client = spotify.New(c.auth.Client(ctx, newToken))
-
-	return nil
 }
 
 func validateUserPresent(ctx context.Context, client *spotify.Client) {
