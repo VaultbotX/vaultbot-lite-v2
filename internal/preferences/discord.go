@@ -49,6 +49,9 @@ var Command = &discordgo.ApplicationCommand{
 func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	selectedOption := i.ApplicationCommandData().Options[0]
 	meta := utils.GetFieldsFromInteraction(i)
+
+	log.WithFields(meta).Infof("Received edit-preferences command with option: %s", selectedOption.Name)
+
 	err := helpers.CheckUserPermissions(s, i)
 	if err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) {
