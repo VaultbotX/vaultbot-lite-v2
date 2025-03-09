@@ -42,8 +42,13 @@ jobs:
           TF_VAR_do_management_token: ${{ secrets.DO_MANAGEMENT_TOKEN }}
           TF_VAR_do_region: ${{ vars.TF_VAR_REGION }}
           TF_VAR_environment: ${{ vars.TF_VAR_ENVIRONMENT }}
-          TF_VAR_github_repo_url: ${{ vars.TF_VAR_GITHUB_REPO_URL }}
+          TF_VAR_github_repo: ${{ vars.TF_VAR_GITHUB_REPO }}
           TF_VAR_github_repo_branch: ${{ vars.TF_VAR_GITHUB_REPO_BRANCH }}
+          TF_VAR_discord_token: ${{ secrets.DISCORD_TOKEN }}
+          TF_VAR_spotify_playlist_id: ${{ secrets.SPOTIFY_PLAYLIST_ID }}
+          TF_VAR_spotify_client_id: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          TF_VAR_spotify_client_secret: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          TF_VAR_spotify_token: ${{ secrets.SPOTIFY_TOKEN }}
 
       - name: Apply Terraform Changes
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outcome == 'success'
@@ -53,5 +58,10 @@ jobs:
           TF_VAR_do_management_token: ${{ secrets.DO_MANAGEMENT_TOKEN }}
           TF_VAR_do_region: ${{ vars.TF_VAR_REGION }}
           TF_VAR_environment: ${{ vars.TF_VAR_ENVIRONMENT }}
-          TF_VAR_github_repo_url: ${{ vars.TF_VAR_GITHUB_REPO_URL }}
+          TF_VAR_github_repo: ${{ vars.TF_VAR_GITHUB_REPO }}
           TF_VAR_github_repo_branch: ${{ vars.TF_VAR_GITHUB_REPO_BRANCH }}
+          TF_VAR_discord_token: ${{ secrets.DISCORD_TOKEN }}
+          TF_VAR_spotify_playlist_id: ${{ secrets.SPOTIFY_PLAYLIST_ID }}
+          TF_VAR_spotify_client_id: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          TF_VAR_spotify_client_secret: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          TF_VAR_spotify_token: ${{ secrets.SPOTIFY_TOKEN }}
