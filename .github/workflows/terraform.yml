@@ -23,6 +23,7 @@ jobs:
           terraform_version: latest
 
       - name: Initialize Terraform (with remote backend)
+        shell: pwsh
         working-directory: infra
         run: |
           .\tf_init.ps1 -BucketName ${{ secrets.DO_SPACES_REMOTE_BACKEND_BUCKET_NAME }} `
