@@ -9,7 +9,6 @@ resource "digitalocean_app" "vaultbot_app" {
       engine       = "pg"
       cluster_name = digitalocean_database_cluster.vaultbot_postgres_cluster.name
       db_name      = "vaultbot"
-      user         = "vaultbot"
     }
 
     service {

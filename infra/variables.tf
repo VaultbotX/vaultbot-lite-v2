@@ -1,12 +1,11 @@
-# Set the variable value in *.tfvars file
-# or using -var="do_token=..." CLI option
+# https://cloud.digitalocean.com/account/api/tokens
 variable "do_management_token" {
   type        = string
   description = "DigitalOcean API token for infrastructure management"
   sensitive   = true
 }
 
-# https://docs.digitalocean.com/platform/regional-availability/
+# https://docs.digitalocean.com/platform/regional-availability
 variable "do_region" {
   type        = string
   description = "Region for the resources"
