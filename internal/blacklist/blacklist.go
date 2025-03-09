@@ -17,6 +17,9 @@ import (
 
 func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist bool) {
 	meta := utils.GetFieldsFromInteraction(i)
+
+	log.WithFields(meta).Infof("Received blacklist command with option: %s and is blacklist: %t", i.ApplicationCommandData().Options[0].Name, isBlacklist)
+
 	err := helpers.CheckUserPermissions(s, i)
 	if err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) {
@@ -111,6 +114,7 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 		return
 	}
 
+	log.WithFields(meta).Infof("Blacklist item managed successfully")
 	err = helpers.RespondDelayed(s, i, "Done!")
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)

@@ -1,0 +1,68 @@
+name: "Terraform CI/CD"
+
+on:
+  push:
+    branches:
+      - main  # Runs Terraform Apply when merging to main
+  pull_request:
+    paths:
+      - 'infra/**'  # Runs only if files in infra/ change
+
+jobs:
+  terraform:
+    name: "Terraform Validation & Deployment"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Initialize Terraform (with remote backend)
+        shell: pwsh
+        working-directory: infra
+        run: |
+          .\tf_init.ps1 -BucketName ${{ secrets.DO_SPACES_REMOTE_BACKEND_BUCKET_NAME }} `
+                        -TfStateKey ${{ secrets.DO_SPACES_REMOTE_BACKEND_STATE_KEY }} `
+                        -DoSpacesAccessKey ${{ secrets.DO_SPACES_ACCESS_KEY }} `
+                        -DoSpacesSecretKey ${{ secrets.DO_SPACES_SECRET_KEY }}
+
+      - name: Validate Terraform
+        working-directory: infra
+        run: terraform validate
+
+      - name: Plan Terraform Changes
+        id: plan
+        working-directory: infra
+        run: terraform plan -detailed-exitcode -out=tfplan
+        env:
+          TF_VAR_do_management_token: ${{ secrets.DO_MANAGEMENT_TOKEN }}
+          TF_VAR_do_region: ${{ vars.TF_VAR_REGION }}
+          TF_VAR_environment: ${{ vars.TF_VAR_ENVIRONMENT }}
+          TF_VAR_github_repo: ${{ vars.TF_VAR_GITHUB_REPO }}
+          TF_VAR_github_repo_branch: ${{ vars.TF_VAR_GITHUB_REPO_BRANCH }}
+          TF_VAR_discord_token: ${{ secrets.DISCORD_TOKEN }}
+          TF_VAR_spotify_playlist_id: ${{ secrets.SPOTIFY_PLAYLIST_ID }}
+          TF_VAR_spotify_client_id: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          TF_VAR_spotify_client_secret: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          TF_VAR_spotify_token: ${{ secrets.SPOTIFY_TOKEN }}
+
+      - name: Apply Terraform Changes
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outcome == 'success'
+        working-directory: infra
+        run: terraform apply -auto-approve
+        env:
+          TF_VAR_do_management_token: ${{ secrets.DO_MANAGEMENT_TOKEN }}
+          TF_VAR_do_region: ${{ vars.TF_VAR_REGION }}
+          TF_VAR_environment: ${{ vars.TF_VAR_ENVIRONMENT }}
+          TF_VAR_github_repo: ${{ vars.TF_VAR_GITHUB_REPO }}
+          TF_VAR_github_repo_branch: ${{ vars.TF_VAR_GITHUB_REPO_BRANCH }}
+          TF_VAR_discord_token: ${{ secrets.DISCORD_TOKEN }}
+          TF_VAR_spotify_playlist_id: ${{ secrets.SPOTIFY_PLAYLIST_ID }}
+          TF_VAR_spotify_client_id: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          TF_VAR_spotify_client_secret: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          TF_VAR_spotify_token: ${{ secrets.SPOTIFY_TOKEN }}

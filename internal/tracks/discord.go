@@ -35,6 +35,8 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	meta := utils.GetFieldsFromInteraction(i)
 	userFields := utils.GetUserFieldsFromInteraction(i)
 
+	log.WithFields(meta).Infof("Received add-track command with track ID: %s", trackId)
+
 	err := helpers.RespondImmediately(s, i, "Processing your request...")
 	if err != nil {
 		log.WithFields(meta).Errorf("Error responding to user: %s", err)
@@ -129,6 +131,8 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	trackDetails := fmt.Sprintf("%s by %s", track.Name, track.Artists[0].Name)
+	log.WithFields(meta).Infof("Successfully added track %s to the playlist", trackDetails)
+
 	err = helpers.RespondDelayed(s, i, fmt.Sprintf("Added %s to the playlist!", trackDetails))
 	if err != nil {
 		log.WithFields(meta).Error(err)
