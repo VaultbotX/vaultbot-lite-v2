@@ -71,7 +71,7 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 			log.Fatalf("Unable to parse Spotify token from environment variable: %s", err)
 		}
 
-		client := spotify.New(authenticator.Client(ctx, token), spotify.WithRetry(true))
+		client := spotify.New(authenticator.Client(context.Background(), token), spotify.WithRetry(true))
 
 		validateUserPresent(ctx, client)
 
@@ -158,6 +158,7 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 	return instance, nil
 }
 
+// RefreshAccessTokenIfExpired TODO: this may not be needed anymore now that we have fixed the deadline issue with the oauth2 transport
 func (c *Client) RefreshAccessTokenIfExpired(ctx context.Context) error {
 	token, err := c.Client.Token()
 	if err != nil {
