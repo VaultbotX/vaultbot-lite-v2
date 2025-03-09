@@ -13,10 +13,6 @@ type SpotifyArtistRepo struct {
 func (r *SpotifyArtistRepo) GetArtists(artistIds []spotify.ID, artistChan chan<- *spotify.FullArtist, ctx context.Context) error {
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
-	err := r.Client.RefreshAccessTokenIfExpired(ctx)
-	if err != nil {
-		return err
-	}
 
 	artists, err := r.Client.Client.GetArtists(ctx, artistIds...)
 	if err != nil {
