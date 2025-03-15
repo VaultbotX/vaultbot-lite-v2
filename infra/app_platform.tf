@@ -59,7 +59,7 @@ resource "digitalocean_app" "vaultbot_app" {
 
       env {
         key   = "POSTGRES_PASSWORD"
-        value = digitalocean_database_user.vaultbot_user.password
+        value = digitalocean_database_connection_pool.vaultbot_pool.password
         scope = "RUN_TIME"
         type  = "SECRET"
       }
@@ -152,7 +152,7 @@ resource "digitalocean_app" "vaultbot_migration_runner" {
 
       env {
         key   = "POSTGRES_PASSWORD"
-        value = digitalocean_database_user.vaultbot_user.password
+        value = digitalocean_database_connection_pool.vaultbot_pool.password
         scope = "RUN_TIME"
         type  = "SECRET"
       }
