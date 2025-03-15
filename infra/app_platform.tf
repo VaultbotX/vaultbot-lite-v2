@@ -9,7 +9,7 @@ resource "digitalocean_app" "vaultbot_app" {
     }
 
     alert {
-      rule = "DEPLOYMENT_CANCELLED"
+      rule = "DEPLOYMENT_CANCELED"
     }
 
     alert {
