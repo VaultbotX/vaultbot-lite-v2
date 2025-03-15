@@ -21,16 +21,27 @@ func main() {
 	log.SetFormatter(&log.JSONFormatter{})
 
 	host, hostExists := os.LookupEnv("POSTGRES_HOST")
+	port, portExists := os.LookupEnv("POSTGRES_PORT")
 	user, userExists := os.LookupEnv("POSTGRES_USER")
 	password, passwordExists := os.LookupEnv("POSTGRES_PASSWORD")
 
-	if !hostExists || !userExists || !passwordExists {
-		log.Fatal("POSTGRES_HOST, POSTGRES_USER, and POSTGRES_PASSWORD must be set")
+	if !hostExists || !portExists || !userExists || !passwordExists {
+		log.Fatal("POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, and POSTGRES_PASSWORD must be set")
 	}
 
 	log.Infof("Running migrations on %s@%s", user, host)
 
-	db := sqlx.MustConnect("postgres", "host="+host+" user="+user+" password="+password+" dbname=vaultbot sslmode=disable")
+	dsn := "host=" + host + " port=" + port + " user=" + user + " password=" + password + " dbname=vaultbot"
+	_, envPresent := os.LookupEnv("ENVIRONMENT")
+	if envPresent {
+		// append sslmode=disable - local dev only
+		dsn += " sslmode=disable"
+	} else {
+		// append sslmode=require - prod
+		dsn += " sslmode=require"
+	}
+
+	db := sqlx.MustConnect("postgres", dsn)
 
 	db.MustExec(`
 		CREATE TABLE IF NOT EXISTS migrations (
