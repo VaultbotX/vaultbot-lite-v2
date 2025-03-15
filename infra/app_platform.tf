@@ -16,13 +16,6 @@ resource "digitalocean_app" "vaultbot_app" {
       rule = "DEPLOYMENT_LIVE"
     }
 
-    database {
-      name         = "vaultbot-postgres-${var.environment}"
-      engine       = "pg"
-      cluster_name = digitalocean_database_cluster.vaultbot_postgres_cluster.name
-      db_name      = digitalocean_database_db.vaultbot_db.name
-    }
-
     service {
       name               = "websocket-backend-${var.environment}"
       instance_count     = 1
