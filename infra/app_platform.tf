@@ -4,6 +4,18 @@ resource "digitalocean_app" "vaultbot_app" {
     name   = "vaultbot-app-${var.environment}"
     region = var.do_region
 
+    alert {
+      rule = "DEPLOYMENT_FAILED"
+    }
+
+    alert {
+      rule = "DEPLOYMENT_CANCELLED"
+    }
+
+    alert {
+      rule = "DEPLOYMENT_LIVE"
+    }
+
     database {
       name         = "vaultbot-postgres-${var.environment}"
       engine       = "pg"
@@ -17,6 +29,13 @@ resource "digitalocean_app" "vaultbot_app" {
       instance_size_slug = "basic-xxs"
       source_dir         = "."
       dockerfile_path    = "Vaultbot.Dockerfile"
+
+      alert {
+        operator = "GREATER_THAN"
+        rule     = "RESTART_COUNT"
+        value    = 2
+        window   = "TEN_MINUTES"
+      }
 
       autoscaling {
         min_instance_count = 1
@@ -33,56 +52,56 @@ resource "digitalocean_app" "vaultbot_app" {
         key   = "POSTGRES_HOST"
         value = digitalocean_database_connection_pool.vaultbot_pool.host
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_USER"
         value = digitalocean_database_connection_pool.vaultbot_pool.user
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PASSWORD"
         value = digitalocean_database_user.vaultbot_user.password
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       env {
-        key = "DISCORD_TOKEN"
+        key   = "DISCORD_TOKEN"
         value = var.discord_token
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       env {
-        key = "SPOTIFY_PLAYLIST_ID"
+        key   = "SPOTIFY_PLAYLIST_ID"
         value = var.spotify_playlist_id
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       env {
-          key = "SPOTIFY_CLIENT_ID"
-          value = var.spotify_client_id
-          scope = "RUN_TIME"
-          type = "SECRET"
+        key   = "SPOTIFY_CLIENT_ID"
+        value = var.spotify_client_id
+        scope = "RUN_TIME"
+        type  = "SECRET"
       }
 
       env {
-          key = "SPOTIFY_CLIENT_SECRET"
-          value = var.spotify_client_secret
-          scope = "RUN_TIME"
-          type = "SECRET"
+        key   = "SPOTIFY_CLIENT_SECRET"
+        value = var.spotify_client_secret
+        scope = "RUN_TIME"
+        type  = "SECRET"
       }
 
       env {
-        key = "SPOTIFY_TOKEN"
+        key   = "SPOTIFY_TOKEN"
         value = var.spotify_token
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       github {
@@ -93,29 +112,29 @@ resource "digitalocean_app" "vaultbot_app" {
     }
 
     job {
-      name       = "migration-runner-${var.environment}"
-      source_dir = "."
+      name            = "migration-runner-${var.environment}"
+      source_dir      = "."
       dockerfile_path = "MigrationRunner.Dockerfile"
 
       env {
         key   = "POSTGRES_HOST"
         value = digitalocean_database_connection_pool.vaultbot_pool.host
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_USER"
         value = digitalocean_database_connection_pool.vaultbot_pool.user
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PASSWORD"
         value = digitalocean_database_user.vaultbot_user.password
         scope = "RUN_TIME"
-        type = "SECRET"
+        type  = "SECRET"
       }
 
       github {
