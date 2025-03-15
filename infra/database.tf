@@ -12,3 +12,8 @@ resource "digitalocean_database_cluster" "vaultbot_postgres_cluster" {
     hour = "03:00"
   }
 }
+
+resource "digitalocean_database_firewall" "vaultbot-postgres-firewall" {
+  cluster_id = digitalocean_database_cluster.vaultbot_postgres_cluster.id
+  # no inbound rules configured here. will manage this via the UI
+}
