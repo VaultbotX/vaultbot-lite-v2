@@ -30,6 +30,16 @@ resource "digitalocean_app" "vaultbot_app" {
         window   = "TEN_MINUTES"
       }
 
+      health_check {
+        protocol = "HTTP"
+        path     = "/healthz"
+        port     = 8080
+        check_interval_seconds = 60
+        response_timeout_seconds = 5
+        healthy_threshold = 3
+        unhealthy_threshold = 3
+      }
+
       env {
         key   = "POSTGRES_HOST"
         value = digitalocean_database_connection_pool.vaultbot_pool.host
