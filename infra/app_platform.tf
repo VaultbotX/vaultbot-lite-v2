@@ -122,7 +122,7 @@ resource "digitalocean_app" "vaultbot_migration_runner" {
       rule = "DEPLOYMENT_CANCELED"
     }
 
-    service {
+    job {
       name               = "migration-runner-${var.environment}"
       instance_count     = 1
       instance_size_slug = "basic-xxs"
