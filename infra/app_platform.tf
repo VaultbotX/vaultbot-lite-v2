@@ -30,17 +30,6 @@ resource "digitalocean_app" "vaultbot_app" {
         window   = "TEN_MINUTES"
       }
 
-      autoscaling {
-        min_instance_count = 1
-        max_instance_count = 2
-
-        metrics {
-          cpu {
-            percent = 70
-          }
-        }
-      }
-
       env {
         key   = "POSTGRES_HOST"
         value = digitalocean_database_connection_pool.vaultbot_pool.host
