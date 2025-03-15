@@ -48,6 +48,13 @@ resource "digitalocean_app" "vaultbot_app" {
       }
 
       env {
+        key   = "POSTGRES_PORT"
+        value = digitalocean_database_connection_pool.vaultbot_pool.port
+        scope = "RUN_TIME"
+        type  = "SECRET"
+      }
+
+      env {
         key   = "POSTGRES_USER"
         value = digitalocean_database_connection_pool.vaultbot_pool.user
         scope = "RUN_TIME"
@@ -111,6 +118,13 @@ resource "digitalocean_app" "vaultbot_app" {
       env {
         key   = "POSTGRES_HOST"
         value = digitalocean_database_connection_pool.vaultbot_pool.host
+        scope = "RUN_TIME"
+        type  = "SECRET"
+      }
+
+      env {
+        key   = "POSTGRES_PORT"
+        value = digitalocean_database_connection_pool.vaultbot_pool.port
         scope = "RUN_TIME"
         type  = "SECRET"
       }
