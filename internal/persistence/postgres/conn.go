@@ -3,6 +3,7 @@ package postgres
 import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"sync"
 )
@@ -22,17 +23,26 @@ func NewPostgresConnection() (*sqlx.DB, error) {
 		return db, nil
 	}
 
-	host := os.Getenv("POSTGRES_HOST")
-	user := os.Getenv("POSTGRES_USER")
-	password := os.Getenv("POSTGRES_PASSWORD")
+	host, hostExists := os.LookupEnv("POSTGRES_HOST")
+	port, portExists := os.LookupEnv("POSTGRES_PORT")
+	user, userExists := os.LookupEnv("POSTGRES_USER")
+	password, passwordExists := os.LookupEnv("POSTGRES_PASSWORD")
 
-	for _, envVar := range []string{"POSTGRES_HOST", "POSTGRES_USER", "POSTGRES_PASSWORD"} {
-		if os.Getenv(envVar) == "" {
-			panic("missing required environment variable: " + envVar)
-		}
+	if !hostExists || !portExists || !userExists || !passwordExists {
+		log.Fatal("POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, and POSTGRES_PASSWORD must be set")
 	}
 
-	dsn := "host=" + host + " user=" + user + " password=" + password + " dbname=vaultbot sslmode=disable"
+	log.Infof("Initializing db pool connection to %s@%s", user, host)
+
+	dsn := "host=" + host + " port=" + port + " user=" + user + " password=" + password + " dbname=vaultbot"
+	_, envPresent := os.LookupEnv("ENVIRONMENT")
+	if envPresent {
+		// append sslmode=disable - local dev only
+		dsn += " sslmode=disable"
+	} else {
+		// append sslmode=require - prod
+		dsn += " sslmode=require"
+	}
 
 	newDb, err := sqlx.Open("postgres", dsn)
 	if err != nil {

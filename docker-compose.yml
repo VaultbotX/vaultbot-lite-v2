@@ -21,6 +21,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
       POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
     depends_on:
       - postgres
 
@@ -37,6 +38,7 @@ services:
       SPOTIFY_PLAYLIST_ID: ${SPOTIFY_PLAYLIST_ID:?Spotify playlist ID is required}
       SPOTIFY_TOKEN: ${SPOTIFY_TOKEN:?Spotify token is required}
       POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
     depends_on:
