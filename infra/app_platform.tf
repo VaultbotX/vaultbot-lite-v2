@@ -31,13 +31,13 @@ resource "digitalocean_app" "vaultbot_app" {
       }
 
       health_check {
-        protocol = "HTTP"
-        path     = "/healthz"
-        port     = 8080
-        check_interval_seconds = 60
-        response_timeout_seconds = 5
-        healthy_threshold = 3
-        unhealthy_threshold = 3
+        http_path = "/api/healthz"
+        port = 8080
+        period_seconds = 10
+        timeout_seconds = 3
+        failure_threshold = 3
+        success_threshold = 1
+        initial_delay_seconds = 5
       }
 
       env {
