@@ -199,7 +199,7 @@ func loadEnvVars() {
 			log.Fatal("Error loading .env file")
 		}
 	} else {
-		log.SetLevel(log.InfoLevel)
+		log.SetLevel(log.DebugLevel)
 		log.Info("Starting in production mode")
 	}
 
