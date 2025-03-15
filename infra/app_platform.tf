@@ -38,28 +38,28 @@ resource "digitalocean_app" "vaultbot_app" {
 
       env {
         key   = "POSTGRES_HOST"
-        value = digitalocean_database_connection_pool.vaultbot_pool.host
+        value = digitalocean_database_cluster.vaultbot_postgres_cluster.host
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PORT"
-        value = digitalocean_database_connection_pool.vaultbot_pool.port
+        value = digitalocean_database_cluster.vaultbot_postgres_cluster.port
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_USER"
-        value = digitalocean_database_connection_pool.vaultbot_pool.user
+        value = digitalocean_database_cluster.vaultbot_postgres_cluster.user
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PASSWORD"
-        value = digitalocean_database_connection_pool.vaultbot_pool.password
+        value = digitalocean_database_cluster.vaultbot_postgres_cluster.password
         scope = "RUN_TIME"
         type  = "SECRET"
       }
@@ -131,28 +131,28 @@ resource "digitalocean_app" "vaultbot_migration_runner" {
 
       env {
         key   = "POSTGRES_HOST"
-        value = digitalocean_database_connection_pool.vaultbot_pool.host
+        value = digitalocean_database_cluster.vaultbot_postgres_cluster.host
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PORT"
-        value = digitalocean_database_connection_pool.vaultbot_pool.port
+        value = digitalocean_database_cluster.vaultbot_postgres_cluster.port
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_USER"
-        value = digitalocean_database_connection_pool.vaultbot_pool.user
+        value = digitalocean_database_cluster.vaultbot_postgres_cluster.user
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PASSWORD"
-        value = digitalocean_database_connection_pool.vaultbot_pool.password
+        value = digitalocean_database_cluster.vaultbot_postgres_cluster.password
         scope = "RUN_TIME"
         type  = "SECRET"
       }
