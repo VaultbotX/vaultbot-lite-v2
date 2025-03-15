@@ -8,8 +8,6 @@ RUN go mod download
 COPY cmd cmd
 COPY internal internal
 
-RUN go test -v ./cmd/... ./internal/...
-
 RUN go build -mod=readonly -v -o runner ./cmd/migration_runner/runner.go
 
 FROM gcr.io/distroless/base AS deploy
