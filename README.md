@@ -14,7 +14,7 @@ Set the following environment variables:
 - `POSTGRES_PASSWORD`
 - `DISCORD_GUILD_ID` (optional, recommended during development for immediate setting of Discord slash commands)
 - `DISCORD_TOKEN` (more information below)
-- - `SPOTIFY_PLAYLIST_ID` (ID of the playlist that songs will be stored in)
+- `SPOTIFY_PLAYLIST_ID` (ID of the playlist that songs will be stored in)
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
 - `SPOTIFY_TOKEN` (very important, see below)

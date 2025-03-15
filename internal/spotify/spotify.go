@@ -64,7 +64,7 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 
 	spotifyTokenString, spotifyTokenStringPresent := os.LookupEnv("SPOTIFY_TOKEN")
 	if spotifyTokenStringPresent {
-		log.Info("Attempting to parse Spotify token from environment variable")
+		log.Debug("Attempting to parse Spotify token from environment variable")
 		token, err := utils.ParseTokenString(spotifyTokenString)
 		if err != nil {
 			log.Fatalf("Unable to parse Spotify token from environment variable: %s", err)
@@ -81,7 +81,7 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 			auth:              authenticator,
 		}
 
-		log.Info("Successfully parsed Spotify token from environment variable")
+		log.Debug("Successfully parsed Spotify token from environment variable")
 
 		return instance, nil
 	}
