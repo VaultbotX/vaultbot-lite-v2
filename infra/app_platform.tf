@@ -1,5 +1,5 @@
 resource "digitalocean_app" "vaultbot_app" {
-  depends_on = [digitalocean_database_cluster.vaultbot_postgres_cluster]
+  depends_on = [digitalocean_database_cluster.vaultbot_postgres_cluster, digitalocean_app.vaultbot_migration_runner]
   spec {
     name   = "vaultbot-app-${var.environment}"
     region = var.do_region
@@ -10,10 +10,6 @@ resource "digitalocean_app" "vaultbot_app" {
 
     alert {
       rule = "DEPLOYMENT_CANCELED"
-    }
-
-    alert {
-      rule = "DEPLOYMENT_LIVE"
     }
 
     service {
@@ -31,12 +27,12 @@ resource "digitalocean_app" "vaultbot_app" {
       }
 
       health_check {
-        http_path = "/api/healthz"
-        port = 8080
-        period_seconds = 10
-        timeout_seconds = 3
-        failure_threshold = 3
-        success_threshold = 1
+        http_path             = "/api/healthz"
+        port                  = 8080
+        period_seconds        = 10
+        timeout_seconds       = 3
+        failure_threshold     = 3
+        success_threshold     = 1
         initial_delay_seconds = 5
       }
 
@@ -102,11 +98,29 @@ resource "digitalocean_app" "vaultbot_app" {
         deploy_on_push = true
       }
     }
+  }
+}
 
-    job {
-      name            = "migration-runner-${var.environment}"
-      source_dir      = "."
-      dockerfile_path = "MigrationRunner.Dockerfile"
+resource "digitalocean_app" "vaultbot_migration_runner" {
+  depends_on = [digitalocean_database_cluster.vaultbot_postgres_cluster]
+  spec {
+    name   = "vaultbot-migration-runner-${var.environment}"
+    region = var.do_region
+
+    alert {
+      rule = "DEPLOYMENT_FAILED"
+    }
+
+    alert {
+      rule = "DEPLOYMENT_CANCELED"
+    }
+
+    service {
+      name               = "migration-runner-${var.environment}"
+      instance_count     = 1
+      instance_size_slug = "basic-xxs"
+      source_dir         = "."
+      dockerfile_path    = "MigrationRunner.Dockerfile"
 
       env {
         key   = "POSTGRES_HOST"
