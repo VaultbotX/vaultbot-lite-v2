@@ -12,7 +12,27 @@ resource "digitalocean_database_cluster" "vaultbot_postgres_cluster" {
   }
 }
 
-resource "digitalocean_database_firewall" "vaultbot-postgres-firewall" {
+resource "digitalocean_database_postgresql_config" "vaultbot_postgres_config" {
   cluster_id = digitalocean_database_cluster.vaultbot_postgres_cluster.id
-  # no inbound rules configured here. will try to manage this via the UI
+  timezone   = "UTC"
+}
+
+resource "digitalocean_database_user" "vaultbot_user" {
+  cluster_id = digitalocean_database_cluster.vaultbot_postgres_cluster.id
+  name       = "vaultbot"
+}
+
+resource "digitalocean_database_db" "vaultbot_db" {
+  cluster_id = digitalocean_database_cluster.vaultbot_postgres_cluster.id
+  // Application code currently requires a database named "vaultbot"
+  name       = "vaultbot"
+}
+
+resource "digitalocean_database_connection_pool" "vaultbot_pool" {
+  cluster_id    = digitalocean_database_cluster.vaultbot_postgres_cluster.id
+  name          = "vaultbot_pool"
+  mode          = "transaction"
+  size          = 10
+  db_name       = digitalocean_database_db.vaultbot_db.name
+  user          = digitalocean_database_user.vaultbot_user.name
 }

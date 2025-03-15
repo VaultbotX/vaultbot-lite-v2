@@ -8,7 +8,7 @@ resource "digitalocean_app" "vaultbot_app" {
       name         = "vaultbot-postgres-${var.environment}"
       engine       = "pg"
       cluster_name = digitalocean_database_cluster.vaultbot_postgres_cluster.name
-      db_name      = "vaultbot"
+      db_name      = digitalocean_database_db.vaultbot_db.name
     }
 
     service {
@@ -18,23 +18,34 @@ resource "digitalocean_app" "vaultbot_app" {
       source_dir         = "."
       dockerfile_path    = "Vaultbot.Dockerfile"
 
+      autoscaling {
+        min_instance_count = 1
+        max_instance_count = 2
+
+        metrics {
+          cpu {
+            percent = 70
+          }
+        }
+      }
+
       env {
         key   = "POSTGRES_HOST"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.host
+        value = digitalocean_database_connection_pool.vaultbot_pool.host
         scope = "RUN_TIME"
         type = "SECRET"
       }
 
       env {
         key   = "POSTGRES_USER"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.user
+        value = digitalocean_database_connection_pool.vaultbot_pool.user
         scope = "RUN_TIME"
         type = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PASSWORD"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.password
+        value = digitalocean_database_user.vaultbot_user.password
         scope = "RUN_TIME"
         type = "SECRET"
       }
@@ -88,21 +99,21 @@ resource "digitalocean_app" "vaultbot_app" {
 
       env {
         key   = "POSTGRES_HOST"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.host
+        value = digitalocean_database_connection_pool.vaultbot_pool.host
         scope = "RUN_TIME"
         type = "SECRET"
       }
 
       env {
         key   = "POSTGRES_USER"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.user
+        value = digitalocean_database_connection_pool.vaultbot_pool.user
         scope = "RUN_TIME"
         type = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PASSWORD"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.password
+        value = digitalocean_database_user.vaultbot_user.password
         scope = "RUN_TIME"
         type = "SECRET"
       }
