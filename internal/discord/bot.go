@@ -9,6 +9,7 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -67,11 +68,17 @@ func Run() {
 
 	registeredCommands := addDiscordCommands()
 
+	ctx, cancel := context.WithCancel(context.Background())
+
+	addHealthCheck(ctx)
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, os.Kill)
 
 	// Block until a signal is received
 	<-stop
+	log.Info("Received shutdown signal, exiting gracefully")
+	cancel()
 
 	// Teardown
 	_, envPresent := os.LookupEnv("ENVIRONMENT")
@@ -86,6 +93,36 @@ func Run() {
 	}
 
 	log.Info("Gracefully shutting down.")
+}
+
+// addHealthCheck spins up a health check on /api/healthz
+func addHealthCheck(ctx context.Context) {
+	go func() {
+		log.Info("Starting health check server")
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("/api/healthz", func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case <-ctx.Done():
+				log.Warn("Health check request cancelled")
+				http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+				return
+			default:
+				// continue processing the request
+			}
+
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte("OK"))
+			if err != nil {
+				log.Errorf("Failed to write health check response: %v", err)
+			}
+		})
+
+		err := http.ListenAndServe(":8080", mux)
+		if err != nil {
+			log.Fatalf("Failed to start health check server: %v", err)
+		}
+	}()
 }
 
 func addDiscordCommands() []*discordgo.ApplicationCommand {
