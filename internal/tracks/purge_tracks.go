@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func PurgeTracks(ctx context.Context, preferenceService *domain.PreferenceService, spotifyPlaylistService *domain.SpotifyPlaylistService) (int, error) {
+func PurgeTracks(ctx context.Context, nowUtc time.Time, preferenceService *domain.PreferenceService, spotifyPlaylistService *domain.SpotifyPlaylistService) (int, error) {
 	tracks := persistence.TrackCache.GetAll()
 	pref, err := preferenceService.Repo.Get(ctx, domain.MaxTrackAgeKey)
 	if err != nil {
@@ -22,7 +22,7 @@ func PurgeTracks(ctx context.Context, preferenceService *domain.PreferenceServic
 	}
 
 	maxTrackAge := time.Duration(num) * time.Millisecond
-	oldestAllowed := time.Now().UTC().Add(-maxTrackAge)
+	oldestAllowed := nowUtc.Add(-maxTrackAge)
 	log.Debugf("Threshold: %s", oldestAllowed)
 	var expiredTracks []spotify.ID
 	for _, track := range tracks {
