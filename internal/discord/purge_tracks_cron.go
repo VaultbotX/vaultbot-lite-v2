@@ -117,7 +117,7 @@ func purgeTracks() {
 		Client: spClient,
 	})
 
-	err = tracks.PurgeTracks(newCtx, preferenceService, spPlaylistService)
+	_, err = tracks.PurgeTracks(newCtx, preferenceService, spPlaylistService)
 	if err != nil {
 		log.Fatalf("Failed to purge tracks: %v", err)
 	}
