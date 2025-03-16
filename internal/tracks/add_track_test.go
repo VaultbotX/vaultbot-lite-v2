@@ -10,17 +10,6 @@ import (
 	"testing"
 )
 
-/*
-Cases:
-1. Invalid track ID
-2. Track already in playlist
-3. Track not found
-4. Artist blacklisted
-5. Track blacklisted
-6. Track too long
-7. Happy path
-*/
-
 func TestAddTrack_ShortCircuits_WithInvalidSongId(t *testing.T) {
 	// Arrange
 	input := &AddTrackInput{
@@ -271,6 +260,62 @@ func TestAddTrack_ShortCircuits_IfTrackTooLong(t *testing.T) {
 	// Assert
 	if !errors.Is(err, domain.ErrTrackTooLong) {
 		t.Errorf("Expected %v, got %v", domain.ErrTrackTooLong, err)
+	}
+}
+
+func TestAddTrack_ShortCircuits_IfArtistGenreBlacklisted(t *testing.T) {
+	// Arrange
+	spotifyTrackService := domain.NewSpotifyTrackService(&mockSpotifyTrackRepo{
+		getTrackResponse: &spotify.FullTrack{
+			SimpleTrack: spotify.SimpleTrack{
+				ID:       "trackid",
+				Duration: 300_000,
+			},
+		},
+	})
+	spotifyArtistService := domain.NewSpotifyArtistService(&mockSpotifyArtistRepo{
+		getArtistsResponse: []*spotify.FullArtist{
+			{
+				SimpleArtist: spotify.SimpleArtist{
+					ID:   "artistid",
+					Name: "Artist With Blacklisted Genre",
+				},
+				Genres: []string{"blacklistedgenre"},
+			},
+		},
+	})
+	blacklistService := domain.NewBlacklistService(&mockBlacklistRepo{
+		blacklistedItems: []blacklistedItem{
+			{
+				blacklistType: domain.Genre,
+				id:            "blacklistedgenre",
+			},
+		},
+	})
+	preferenceService := domain.NewPreferenceService(&mockPreferenceRepo{
+		preferences: map[domain.PreferenceKey]domain.Preference{
+			domain.MaxDurationKey: {
+				Key:   domain.MaxDurationKey,
+				Value: toBytes(600_000), // 10 minutes
+			},
+		},
+	})
+	input := &AddTrackInput{
+		TrackId:           "trackid",
+		SpTrackService:    spotifyTrackService,
+		SpArtistService:   spotifyArtistService,
+		BlacklistService:  blacklistService,
+		PreferenceService: preferenceService,
+	}
+
+	// Act
+	_, err := AddTrack(input)
+
+	// Assert
+	var etb *domain.ErrGenreBlacklisted
+	ok := errors.As(err, &etb)
+	if !ok {
+		t.Errorf("Expected %v, got %v", &domain.ErrGenreBlacklisted{}, err)
 	}
 }
 
