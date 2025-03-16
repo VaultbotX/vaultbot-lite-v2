@@ -8,15 +8,15 @@ import (
 )
 
 // TrackCache is a very simple in-memory cache for storing track IDs that are currently in the dynamic playlist
-// Deprecated: in favor of Redis once that is implemented
-var TrackCache = newCache()
+// Consider removing in favor of Redis once that is implemented. See https://github.com/VaultbotX/vaultbot-lite-v2/issues/19
+var TrackCache = NewCache()
 
 type trackCache struct {
 	data map[spotify.ID]*time.Time
 	mu   sync.RWMutex
 }
 
-func newCache() *trackCache {
+func NewCache() *trackCache {
 	return &trackCache{
 		data: make(map[spotify.ID]*time.Time),
 	}
