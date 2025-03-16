@@ -9,16 +9,16 @@ import (
 	"time"
 )
 
-func PurgeTracks(ctx context.Context, preferenceService *domain.PreferenceService, spotifyPlaylistService *domain.SpotifyPlaylistService) error {
+func PurgeTracks(ctx context.Context, preferenceService *domain.PreferenceService, spotifyPlaylistService *domain.SpotifyPlaylistService) (int, error) {
 	tracks := persistence.TrackCache.GetAll()
 	pref, err := preferenceService.Repo.Get(ctx, domain.MaxTrackAgeKey)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	num, err := pref.IntValue()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	maxTrackAge := time.Duration(num) * time.Millisecond
@@ -33,15 +33,15 @@ func PurgeTracks(ctx context.Context, preferenceService *domain.PreferenceServic
 
 	if len(expiredTracks) == 0 {
 		log.Debug("No expired tracks found")
-		return nil
+		return 0, nil
 	}
 
 	log.Debugf("Found %d expired tracks", len(expiredTracks))
 
 	err = RemoveTracks(ctx, expiredTracks, spotifyPlaylistService)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return len(expiredTracks), nil
 }
