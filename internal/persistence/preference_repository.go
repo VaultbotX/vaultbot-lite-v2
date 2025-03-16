@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
+	"time"
 )
 
 type PreferenceRepo struct {
@@ -26,11 +27,28 @@ type PreferenceRecord struct {
 }
 
 func (p PreferenceRepo) Set(ctx context.Context, preferenceKey domain.PreferenceKey, value any) error {
+	now := time.Now().UTC()
+	// update the existing preference to have an end date of now
 	_, err := p.db.ExecContext(ctx, `
-		INSERT INTO preferences (key, value)
-		VALUES ($1, $2)
-		ON CONFLICT (key) DO UPDATE SET value = $2
-	`, preferenceKey, value)
+		WITH current_record_id AS (
+			SELECT id
+			FROM preferences
+			WHERE key = $1
+			ORDER BY id DESC
+			LIMIT 1
+		)
+		UPDATE preferences
+		SET end_time = $2
+		WHERE key = $1
+	`, preferenceKey, now)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.db.ExecContext(ctx, `
+		INSERT INTO preferences (key, value, start_time)
+		VALUES ($1, $2, $3)
+	`, preferenceKey, value, now)
 	if err != nil {
 		return err
 	}
@@ -44,6 +62,7 @@ func (p PreferenceRepo) Get(ctx context.Context, preferenceKey domain.Preference
 		SELECT key, value
 		FROM preferences
 		WHERE key = $1
+		ORDER BY id DESC
 	`, preferenceKey)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -63,6 +82,7 @@ func (p PreferenceRepo) GetAll(ctx context.Context) (map[domain.PreferenceKey]do
 	rows, err := p.db.QueryxContext(ctx, `
 		SELECT key, value
 		FROM preferences
+		WHERE end_time IS NULL
 	`)
 	if err != nil {
 		return nil, err
