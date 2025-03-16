@@ -5,28 +5,17 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
-	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
-	"github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	sp "github.com/zmb3/spotify/v2"
 	"time"
 )
 
-func CacheTracks(ctx context.Context) error {
+func CacheTracks(ctx context.Context, playlistService *domain.SpotifyPlaylistService) error {
 	log.Debug("Caching tracks")
 	errorChan := make(chan error)
 	playlistItemChan := make(chan *sp.PlaylistItem)
 
-	spClient, err := spotify.NewSpotifyClient(ctx)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	spPlaylistService := domain.NewSpotifyPlaylistService(&commands.SpotifyPlaylistRepo{
-		Client: spClient,
-	})
-
 	go func(c chan<- error) {
-		err := spPlaylistService.Repo.GetPlaylistTracks(playlistItemChan, ctx)
+		err := playlistService.Repo.GetPlaylistTracks(playlistItemChan, ctx)
 		if err != nil {
 			c <- err
 		}
