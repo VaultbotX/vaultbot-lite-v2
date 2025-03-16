@@ -6,7 +6,10 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
+	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
+	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 	"io"
 	"net/http"
@@ -168,7 +171,18 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 func startBackgroundTasks() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	log.Debug("Caching tracks")
-	err := tracks.CacheTracks(ctx)
+
+	spClient, err := spotify.NewSpotifyClient(ctx)
+	if err != nil {
+		log.Fatalf("Cannot create Spotify client: %v", err)
+		cancel()
+		return
+	}
+	spPlaylistService := domain.NewSpotifyPlaylistService(&spcommands.SpotifyPlaylistRepo{
+		Client: spClient,
+	})
+
+	err = tracks.CacheTracks(ctx, spPlaylistService)
 	if err != nil {
 		log.Fatalf("Cannot cache playlist tracks: %v", err)
 	}
