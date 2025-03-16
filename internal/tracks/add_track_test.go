@@ -2,6 +2,7 @@ package tracks
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
@@ -59,6 +60,7 @@ type mockSpotifyTrackRepo struct {
 
 func (m *mockSpotifyTrackRepo) GetTrack(_ spotify.ID, trackChan chan<- *spotify.FullTrack, _ context.Context) error {
 	trackChan <- m.getTrackResponse
+	close(trackChan)
 	return nil
 }
 
@@ -70,6 +72,7 @@ func (m *mockSpotifyArtistRepo) GetArtists(_ []spotify.ID, artistChan chan<- *sp
 	for _, artist := range m.getArtistsResponse {
 		artistChan <- artist
 	}
+	close(artistChan)
 	return nil
 }
 
@@ -201,5 +204,148 @@ func TestAddTrack_ShortCircuits_IfTrackBlacklisted(t *testing.T) {
 	ok := errors.As(err, &etb)
 	if !ok {
 		t.Errorf("Expected %v, got %v", &domain.ErrTrackBlacklisted{}, err)
+	}
+}
+
+type mockPreferenceRepo struct {
+	preferences map[domain.PreferenceKey]domain.Preference
+}
+
+func (m *mockPreferenceRepo) Set(_ context.Context, _ domain.PreferenceKey, _ any) error {
+	return nil
+}
+
+func (m *mockPreferenceRepo) Get(_ context.Context, _ domain.PreferenceKey) (*domain.Preference, error) {
+	if pref, ok := m.preferences[domain.MaxDurationKey]; ok {
+		return &pref, nil
+	}
+
+	return nil, nil
+}
+
+func (m *mockPreferenceRepo) GetAll(_ context.Context) (map[domain.PreferenceKey]domain.Preference, error) {
+	return m.preferences, nil
+}
+
+func toBytes(value int64) []byte {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return nil
+	}
+
+	return b
+}
+
+func TestAddTrack_ShortCircuits_IfTrackTooLong(t *testing.T) {
+	// Arrange
+	spotifyTrackService := domain.NewSpotifyTrackService(&mockSpotifyTrackRepo{
+		getTrackResponse: &spotify.FullTrack{
+			SimpleTrack: spotify.SimpleTrack{
+				ID:       "toolongtrackid",
+				Duration: 600_001, // 10 minutes and 1 millisecond
+			},
+		},
+	})
+	blacklistService := domain.NewBlacklistService(&mockBlacklistRepo{
+		blacklistedItems: []blacklistedItem{},
+	})
+	preferenceService := domain.NewPreferenceService(&mockPreferenceRepo{
+		preferences: map[domain.PreferenceKey]domain.Preference{
+			domain.MaxDurationKey: {
+				Key:   domain.MaxDurationKey,
+				Value: toBytes(600_000), // 10 minutes
+			},
+		},
+	})
+
+	input := &AddTrackInput{
+		TrackId:           "toolongtrackid",
+		SpTrackService:    spotifyTrackService,
+		PreferenceService: preferenceService,
+		BlacklistService:  blacklistService,
+	}
+
+	// Act
+	_, err := AddTrack(input)
+
+	// Assert
+	if !errors.Is(err, domain.ErrTrackTooLong) {
+		t.Errorf("Expected %v, got %v", domain.ErrTrackTooLong, err)
+	}
+}
+
+type mockPlaylistService struct{}
+
+func (m *mockPlaylistService) GetPlaylistTracks(_ chan<- *spotify.PlaylistItem, _ context.Context) error {
+	return nil
+}
+
+func (m *mockPlaylistService) AddTracksToPlaylist(_ context.Context, _ []spotify.ID) error {
+	return nil
+}
+
+func (m *mockPlaylistService) RemoveTracksFromPlaylist(_ context.Context, _ []spotify.ID) error {
+	return nil
+}
+
+type mockTrackRepository struct{}
+
+func (m *mockTrackRepository) AddTrackToDatabase(_ *domain.UserFields, _ *spotify.FullTrack, _ []*spotify.FullArtist) error {
+	return nil
+}
+
+func TestAddTrack_ReturnsTrack_WhenValidTrack(t *testing.T) {
+	// Arrange
+	spotifyTrackService := domain.NewSpotifyTrackService(&mockSpotifyTrackRepo{
+		getTrackResponse: &spotify.FullTrack{
+			SimpleTrack: spotify.SimpleTrack{
+				ID:       "validtrackidhappy",
+				Duration: 300_000, // 5 minutes
+			},
+		},
+	})
+	spotifyArtistService := domain.NewSpotifyArtistService(&mockSpotifyArtistRepo{
+		getArtistsResponse: []*spotify.FullArtist{
+			{
+				SimpleArtist: spotify.SimpleArtist{
+					ID:   "artistidhappy",
+					Name: "Artist Happy",
+				},
+			},
+		},
+	})
+	blacklistService := domain.NewBlacklistService(&mockBlacklistRepo{
+		blacklistedItems: []blacklistedItem{},
+	})
+	preferenceService := domain.NewPreferenceService(&mockPreferenceRepo{
+		preferences: map[domain.PreferenceKey]domain.Preference{
+			domain.MaxDurationKey: {
+				Key:   domain.MaxDurationKey,
+				Value: toBytes(600_000), // 10 minutes
+			},
+		},
+	})
+	playlistService := domain.NewSpotifyPlaylistService(&mockPlaylistService{})
+	trackService := domain.NewTrackService(&mockTrackRepository{})
+
+	input := &AddTrackInput{
+		TrackId:           "validtrackidhappy",
+		SpTrackService:    spotifyTrackService,
+		SpArtistService:   spotifyArtistService,
+		PreferenceService: preferenceService,
+		BlacklistService:  blacklistService,
+		SpPlaylistService: playlistService,
+		TrackService:      trackService,
+	}
+
+	// Act
+	result, err := AddTrack(input)
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if result == nil {
+		t.Errorf("Expected a track, got nil")
 	}
 }
