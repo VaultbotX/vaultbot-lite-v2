@@ -319,9 +319,15 @@ func TestAddTrack_ShortCircuits_IfArtistGenreBlacklisted(t *testing.T) {
 	}
 }
 
-type mockPlaylistService struct{}
+type mockPlaylistService struct {
+	getPlaylistTracksResponse []*spotify.PlaylistItem
+}
 
-func (m *mockPlaylistService) GetPlaylistTracks(_ chan<- *spotify.PlaylistItem, _ context.Context) error {
+func (m *mockPlaylistService) GetPlaylistTracks(playlistItemChan chan<- *spotify.PlaylistItem, _ context.Context) error {
+	for _, item := range m.getPlaylistTracksResponse {
+		playlistItemChan <- item
+	}
+	close(playlistItemChan)
 	return nil
 }
 
