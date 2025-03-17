@@ -33,6 +33,12 @@ variable "discord_token" {
   sensitive   = true
 }
 
+variable "discord_administrator_user_id" {
+  type        = string
+  description = "Discord bot owner user ID"
+  sensitive   = true
+}
+
 variable "spotify_playlist_id" {
   type        = string
   description = "Spotify playlist ID"

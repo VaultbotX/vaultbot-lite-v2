@@ -72,6 +72,13 @@ resource "digitalocean_app" "vaultbot_app" {
       }
 
       env {
+        key   = "DISCORD_ADMINISTRATOR_USER_ID"
+        value = var.discord_administrator_user_id
+        scope = "RUN_TIME"
+        type  = "SECRET"
+      }
+
+      env {
         key   = "SPOTIFY_PLAYLIST_ID"
         value = var.spotify_playlist_id
         scope = "RUN_TIME"
