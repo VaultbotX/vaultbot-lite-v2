@@ -3,7 +3,7 @@
 ## Requirements
 
 - Go 1.24
-- Docker (recommended for running Postgres)
+- Docker (recommended for running Postgres and/or the whole stack via Docker Compose)
 
 ## Configuration
 
