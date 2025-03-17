@@ -25,7 +25,7 @@ var (
 			content := "Pong!"
 			version, exists := os.LookupEnv("APP_VERSION")
 			if exists {
-				content += "(app version: " + version + ")"
+				content += " (app version: " + version + ")"
 			}
 
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

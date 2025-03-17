@@ -21,6 +21,7 @@ jobs:
         run: echo "BUILD_NUMBER=$(date +%Y%m%d)-${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Tag Merge Commit
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
