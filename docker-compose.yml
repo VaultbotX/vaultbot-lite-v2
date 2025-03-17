@@ -41,6 +41,7 @@ services:
       POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
+      DISCORD_ADMINISTRATOR_USER_ID: ${DISCORD_ADMINISTRATOR_USER_ID:?Discord administrator user ID is required}
     depends_on:
       - postgres
       - migration_runner
