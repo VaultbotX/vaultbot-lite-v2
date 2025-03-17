@@ -17,6 +17,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Generate Build Number
+        run: echo "BUILD_NUMBER=$(date +%Y%m%d)-${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Tag Merge Commit
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git tag -a "build-${{ env.BUILD_NUMBER }}" -m "Build ${{ env.BUILD_NUMBER }}"
+          git push origin "build-${{ env.BUILD_NUMBER }}"
+
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -51,6 +62,7 @@ jobs:
           TF_VAR_spotify_client_secret: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
           TF_VAR_spotify_token: ${{ secrets.SPOTIFY_TOKEN }}
           TF_VAR_discord_administrator_user_id: ${{ secrets.DISCORD_ADMINISTRATOR_USER_ID }}
+          TF_VAR_app_version: ${{ env.BUILD_NUMBER }}
 
       - name: Apply Terraform Changes
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outcome == 'success'
@@ -68,3 +80,4 @@ jobs:
           TF_VAR_spotify_client_secret: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
           TF_VAR_spotify_token: ${{ secrets.SPOTIFY_TOKEN }}
           TF_VAR_discord_administrator_user_id: ${{ secrets.DISCORD_ADMINISTRATOR_USER_ID }}
+          TF_VAR_app_version: ${{ env.BUILD_NUMBER }}

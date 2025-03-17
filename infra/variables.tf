@@ -62,3 +62,8 @@ variable "spotify_token" {
   description = "Spotify oauth token"
   sensitive   = true
 }
+
+variable "app_version" {
+  type        = string
+  description = "Version of the app"
+}

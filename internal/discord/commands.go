@@ -5,6 +5,7 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/blacklist"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
+	"os"
 )
 
 var (
@@ -21,10 +22,16 @@ var (
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"ping": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			content := "Pong!"
+			version, exists := os.LookupEnv("APP_VERSION")
+			if exists {
+				content += " (app version: " + version + ")"
+			}
+
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content: "Pong!",
+					Content: content,
 				},
 			})
 		},
