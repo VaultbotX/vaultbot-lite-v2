@@ -3,15 +3,17 @@ name: "Terraform CI/CD"
 on:
   push:
     branches:
-      - main  # Runs Terraform Apply when merging to main
+      - main
   pull_request:
     paths:
-      - 'infra/**'  # Runs only if files in infra/ change
+      - 'infra/**'
 
 jobs:
   terraform:
     name: "Terraform Validation & Deployment"
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -20,13 +22,17 @@ jobs:
       - name: Generate Build Number
         run: echo "BUILD_NUMBER=$(date +%Y%m%d)-${{ github.run_number }}" >> $GITHUB_ENV
 
-      - name: Tag Merge Commit
+      - name: Tag merge commit
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git tag -a "build-${{ env.BUILD_NUMBER }}" -m "Build ${{ env.BUILD_NUMBER }}"
-          git push origin "build-${{ env.BUILD_NUMBER }}"
+        uses: actions/github-script@v6
+        with:
+          script: |        
+            github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${process.env.BUILD_NUMBER}`,
+                sha: context.sha
+            })
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
