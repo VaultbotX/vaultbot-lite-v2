@@ -106,6 +106,13 @@ resource "digitalocean_app" "vaultbot_app" {
         type  = "SECRET"
       }
 
+      env {
+        key = "APP_VERSION"
+        value = var.app_version
+        scope = "RUN_TIME"
+        type = "GENERAL"
+      }
+
       github {
         repo           = var.github_repo
         branch         = var.github_repo_branch
