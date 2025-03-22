@@ -15,7 +15,7 @@ type AddTrackInput struct {
 	Ctx        context.Context
 	Meta       log.Fields
 
-	TrackService     *domain.TrackService
+	TrackService     *domain.AddTrackService
 	BlacklistService *domain.BlacklistService
 
 	SpTrackService    *domain.SpotifyTrackService
