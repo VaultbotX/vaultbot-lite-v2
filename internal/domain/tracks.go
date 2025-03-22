@@ -10,16 +10,16 @@ type CacheTrack struct {
 	AddedAt time.Time
 }
 
-type TrackRepository interface {
+type AddTrackRepository interface {
 	AddTrackToDatabase(fields *UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist) error
 }
 
-type TrackService struct {
-	Repo TrackRepository
+type AddTrackService struct {
+	Repo AddTrackRepository
 }
 
-func NewTrackService(repo TrackRepository) *TrackService {
-	return &TrackService{
+func NewTrackService(repo AddTrackRepository) *AddTrackService {
+	return &AddTrackService{
 		Repo: repo,
 	}
 }

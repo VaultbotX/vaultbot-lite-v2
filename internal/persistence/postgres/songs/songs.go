@@ -15,6 +15,9 @@ type Song struct {
 	ReleaseDate    time.Time `db:"release_date"`
 	SpotifyAlbumId string    `db:"spotify_album_id"`
 	CreatedAt      time.Time `db:"created_at"`
+	Duration       int       `db:"duration"`
+	Popularity     int       `db:"popularity"`
+	AlbumName      string    `db:"album_name"`
 }
 
 // AddSong adds a song to the database
@@ -22,7 +25,15 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 	var addSong Song
 
 	err := tx.QueryRowx(`
-		SELECT id, spotify_id, name, release_date, spotify_album_id, created_at
+		SELECT id,
+		       spotify_id,
+		       name,
+		       release_date,
+		       spotify_album_id,
+		       created_at,
+		       duration,
+		       popularity,
+		       album_name
 		FROM songs
 		WHERE spotify_id = $1
 	`, track.ID.String()).StructScan(&addSong)
@@ -33,11 +44,23 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 		}
 
 		err := tx.QueryRowx(`
-			INSERT INTO songs (spotify_id, name, release_date, spotify_album_id) 
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (spotify_id) DO NOTHING
-			RETURNING id, created_at
-		`, track.ID.String(), track.Name, track.Album.ReleaseDateTime(), track.Album.ID.String()).StructScan(&addSong)
+			INSERT INTO songs (
+			                   spotify_id, 
+			                   name, 
+			                   release_date, 
+			                   spotify_album_id,
+			                   duration,
+			                   popularity,
+			                   album_name
+		    ) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, track.ID.String(),
+			track.Name,
+			track.Album.ReleaseDateTime(),
+			track.Album.ID.String(),
+			int(track.Duration),
+			track.Popularity,
+			track.Album.Name).StructScan(&addSong)
 
 		if err != nil {
 			return Song{}, err
