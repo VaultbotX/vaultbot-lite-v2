@@ -23,3 +23,20 @@ func NewTrackService(repo AddTrackRepository) *AddTrackService {
 		Repo: repo,
 	}
 }
+
+type TrackPartial struct {
+	Id        int
+	SpotifyId spotify.ID
+}
+
+type TrackPartialWithMetadata struct {
+	TrackPartial
+	Length      time.Duration
+	AlbumId     spotify.ID
+	ReleaseDate time.Time
+}
+
+type DuplicateTrackCheckingRepository interface {
+	GetRelatedTracks(trackId spotify.ID) ([]TrackPartialWithMetadata, error)
+	SetDuplicateTrack(sourceTrackId spotify.ID, targetTrackId spotify.ID) error
+}
