@@ -54,6 +54,8 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 			                   album_name
 		    ) 
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (spotify_id) DO NOTHING
+			RETURNING id, created_at
 		`, track.ID.String(),
 			track.Name,
 			track.Album.ReleaseDateTime(),
