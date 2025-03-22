@@ -22,3 +22,17 @@ resource "digitalocean_database_db" "vaultbot_db" {
   // Application code currently requires a database named "vaultbot"
   name       = "vaultbot"
 }
+
+resource "digitalocean_database_firewall" "vaultbot_postgres_firewall" {
+  cluster_id = digitalocean_database_cluster.vaultbot_postgres_cluster.id
+
+  rule {
+    type  = "app"
+    value = digitalocean_app.vaultbot_migration_runner.id
+  }
+
+  rule {
+    type  = "app"
+    value = digitalocean_app.vaultbot_app.id
+  }
+}
