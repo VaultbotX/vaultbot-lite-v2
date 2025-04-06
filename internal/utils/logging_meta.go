@@ -5,10 +5,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetFieldsFromInteraction(interaction *discordgo.InteractionCreate) logrus.Fields {
+func GetFieldsFromInteraction(i *discordgo.InteractionCreate) logrus.Fields {
+	isDirectMessage := "" == i.GuildID
+
+	if isDirectMessage {
+		return logrus.Fields{
+			"userId":          i.User.ID,
+			"username":        i.User.Username + i.User.Discriminator,
+			"isDirectMessage": isDirectMessage,
+		}
+	}
+
 	return logrus.Fields{
-		"userId":   interaction.Member.User.ID,
-		"username": interaction.Member.User.Username + interaction.Member.User.Discriminator,
-		"guildId":  interaction.GuildID,
+		"userId":          i.Member.User.ID,
+		"username":        i.Member.User.Username + i.Member.User.Discriminator,
+		"guildId":         i.GuildID,
+		"isDirectMessage": isDirectMessage,
 	}
 }
