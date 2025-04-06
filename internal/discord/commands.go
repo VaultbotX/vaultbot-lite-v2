@@ -14,6 +14,10 @@ var (
 			Name:        "ping",
 			Description: "Ping the bot",
 		},
+		{
+			Name:        "get-playlist",
+			Description: "Get a link to the playlist",
+		},
 		preferences.Command,
 		tracks.Command,
 		blacklist.BlacklistCommand,
@@ -32,6 +36,17 @@ var (
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: content,
+				},
+			})
+		},
+		"get-playlist": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			playlistId := os.Getenv("SPOTIFY_PLAYLIST_ID")
+			playlistUrl := "https://open.spotify.com/playlist/" + playlistId
+
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Here is a link to the playlist: " + playlistUrl,
 				},
 			})
 		},
