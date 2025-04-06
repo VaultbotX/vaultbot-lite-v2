@@ -139,7 +139,7 @@ func AddTrack(input *AddTrackInput) (*spotify.FullTrack, error) {
 	}
 
 	log.WithFields(input.Meta).Debugf("Adding track %v to database", convertedTrackId.String())
-	// 5. Add to databases
+	// 5. Add to database
 	err = input.TrackService.Repo.AddTrackToDatabase(input.UserFields, track, artists)
 	if err != nil {
 		// Compensation steps in case of failure, since the track was already added to the playlist
