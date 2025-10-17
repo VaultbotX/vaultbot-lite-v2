@@ -17,7 +17,7 @@ var spotifyTrackUriRegex = regexp.MustCompile(`spotify:track:(\w+)`)
 var spotifyArtistUriRegex = regexp.MustCompile(`spotify:artist:(\w+)`)
 var spotifyTrackUrlRegex = regexp.MustCompile(`^https://open\.spotify\.com/track/(\w+)(\?.*)?$`)
 var spotifyArtistUrlRegex = regexp.MustCompile(`^https://open\.spotify\.com/artist/(\w+)(\?.*)?$`)
-var spotifyShortLinkRegex = regexp.MustCompile(`^https?://spotify\.link/[A-Za-z0-9_-]+`)
+var spotifyShortLinkRegex = regexp.MustCompile(`^https?://spotify\.link/[A-Za-z0-9_-]+$`)
 
 // hrefRegex matches href attributes (single-quoted, double-quoted, or unquoted) and is reused by resolveSpotifyLink.
 var hrefRegex = regexp.MustCompile(`href\s*=\s*(?:'([^']*)'|"([^"]*)"|([^>\s]+))`)
