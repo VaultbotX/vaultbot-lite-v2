@@ -3,6 +3,7 @@ package spotify
 import (
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -17,6 +18,9 @@ var spotifyArtistUriRegex = regexp.MustCompile(`spotify:artist:(\w+)`)
 var spotifyTrackUrlRegex = regexp.MustCompile(`^https://open\.spotify\.com/track/(\w+)(\?.*)?$`)
 var spotifyArtistUrlRegex = regexp.MustCompile(`^https://open\.spotify\.com/artist/(\w+)(\?.*)?$`)
 var spotifyShortLinkRegex = regexp.MustCompile(`^https?://spotify\.link/[A-Za-z0-9_-]+`)
+
+// hrefRegex matches href attributes (single-quoted, double-quoted, or unquoted) and is reused by resolveSpotifyLink.
+var hrefRegex = regexp.MustCompile(`href\s*=\s*(?:'([^']*)'|"([^"]*)"|([^>\s]+))`)
 
 // httpClientDo models the subset of http.Client we need (Do method). Tests can replace httpClient.
 type httpClientDo interface {
@@ -45,7 +49,7 @@ func resolveSpotifyLink(startURL string) string {
 	if err != nil {
 		return ""
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -56,7 +60,6 @@ func resolveSpotifyLink(startURL string) string {
 	// quick scan for hrefs that point to open.spotify.com
 	// crude but practical regex-like search: look for open.spotify.com in hrefs
 	// We'll search for href= patterns and resolve them relative to startURL using simple string resolution.
-	hrefRegex := regexp.MustCompile(`href\s*=\s*(?:'([^']*)'|"([^"]*)"|([^>\s]+))`)
 	matches := hrefRegex.FindAllStringSubmatch(body, -1)
 	for _, m := range matches {
 		raw := ""
@@ -70,18 +73,25 @@ func resolveSpotifyLink(startURL string) string {
 		if raw == "" {
 			continue
 		}
-		// normalize
+		// normalize and strip obvious trailing punctuation
 		raw = strings.TrimSpace(raw)
-		// If the href already contains open.spotify.com, return it (prefer absolute)
-		if strings.Contains(raw, "open.spotify.com") {
-			// strip trailing punctuation
-			raw = strings.TrimRight(raw, `"'`)
-			return raw
+		raw = strings.TrimRight(raw, `"'`)
+		// Parse the href and resolve relative URLs against the response request URL if necessary.
+		u, err := url.Parse(raw)
+		if err != nil {
+			continue
+		}
+		if !u.IsAbs() && resp.Request != nil && resp.Request.URL != nil {
+			u = resp.Request.URL.ResolveReference(u)
+		}
+		// validate scheme and host precisely
+		if (u.Scheme == "http" || u.Scheme == "https") && u.Hostname() == "open.spotify.com" {
+			return u.String()
 		}
 	}
 
 	// as a fallback, if the final request url itself is on open.spotify.com, return it
-	if resp.Request != nil && resp.Request.URL != nil && strings.Contains(resp.Request.URL.Host, "open.spotify.com") {
+	if resp.Request != nil && resp.Request.URL != nil && resp.Request.URL.Hostname() == "open.spotify.com" {
 		return resp.Request.URL.String()
 	}
 
