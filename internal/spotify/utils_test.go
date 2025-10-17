@@ -189,3 +189,74 @@ func TestParseSpotifyId_ShortLink_FromRespURL(t *testing.T) {
 		t.Fatalf("unexpected id: %s", string(*id))
 	}
 }
+
+// fakeClient implements httpClientDo for tests.
+type fakeClient struct {
+	resp *http.Response
+	err  error
+}
+
+func (f *fakeClient) Do(_ *http.Request) (*http.Response, error) {
+	return f.resp, f.err
+}
+
+func TestIsSpotifyHost(t *testing.T) {
+	cases := []struct {
+		host string
+		exp  bool
+	}{
+		{"spotify.com", true},
+		{"open.spotify.com", true},
+		{"sub.open.spotify.com", true},
+		{"evilspotify.com", false},
+		{"notspotify.co", false},
+	}
+	for _, c := range cases {
+		if got := isSpotifyHost(c.host); got != c.exp {
+			t.Fatalf("isSpotifyHost(%q) = %v; want %v", c.host, got, c.exp)
+		}
+	}
+}
+
+func TestResolveSpotifyLink_FindsOpenSpotifyHref(t *testing.T) {
+	origClient := httpClient
+	defer func() { httpClient = origClient }()
+
+	startURL := "https://spotify.link/short"
+	body := `<html><a href="https://open.spotify.com/track/ABC123">link</a></html>`
+	u, _ := url.Parse(startURL)
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    &http.Request{URL: u},
+	}
+	httpClient = &fakeClient{resp: resp, err: nil}
+
+	got := resolveSpotifyLink(startURL)
+	if got != "https://open.spotify.com/track/ABC123" {
+		t.Fatalf("unexpected resolveSpotifyLink result: %q", got)
+	}
+}
+
+func TestResolveSpotifyLink_RespectsBodyLimit(t *testing.T) {
+	origClient := httpClient
+	defer func() { httpClient = origClient }()
+
+	startURL := "https://spotify.link/short"
+	// create a body larger than the 1 MiB limit with the spotify link after the limit
+	link := `<a href="https://open.spotify.com/track/OUTSIDE_LIMIT">x</a>`
+	largePrefix := strings.Repeat("A", int(1<<20)+100)
+	body := largePrefix + link
+	u, _ := url.Parse(startURL)
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    &http.Request{URL: u},
+	}
+	httpClient = &fakeClient{resp: resp, err: nil}
+
+	got := resolveSpotifyLink(startURL)
+	if got != "" {
+		t.Fatalf("expected empty result due to body limit; got %q", got)
+	}
+}

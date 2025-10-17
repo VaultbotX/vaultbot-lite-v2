@@ -27,8 +27,28 @@ type httpClientDo interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// isSpotifyHost returns true for spotify.com and its subdomains.
+func isSpotifyHost(host string) bool {
+	if host == "spotify.com" {
+		return true
+	}
+	return strings.HasSuffix(host, ".spotify.com")
+}
+
 // httpClient is package-level client used for network calls; replace in tests to avoid real HTTP.
-var httpClient httpClientDo = &http.Client{Timeout: 15 * time.Second}
+var httpClient httpClientDo = &http.Client{
+	Timeout: 15 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		// Only allow redirects where the target hostname is spotify.com or a subdomain of spotify.com.
+		// This prevents following redirects to attacker-controlled domains.
+		h := req.URL.Hostname()
+		if isSpotifyHost(h) {
+			return nil
+		}
+		// otherwise, do not follow the redirect; return ErrUseLastResponse to return the previous response
+		return http.ErrUseLastResponse
+	},
+}
 
 // resolveSpotifyLink fetches the given spotify.link (or other intermediary) and attempts to find
 // an open.spotify.com link within the returned HTML. It returns the first found open.spotify.com URL
@@ -51,7 +71,8 @@ func resolveSpotifyLink(startURL string) string {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	maxBodySize := int64(1 << 20) // 1 MiB
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
 	if err != nil {
 		return ""
 	}
