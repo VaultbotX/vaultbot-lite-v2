@@ -27,9 +27,9 @@ type httpClientDo interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// isSpotifyHost returns true for spotify.com and its subdomains.
+// isSpotifyHost returns true for spotify.com and its subdomains, as well as the spotify.app.link domain.
 func isSpotifyHost(host string) bool {
-	if host == "spotify.com" {
+	if host == "spotify.com" || host == "spotify.app.link" {
 		return true
 	}
 	return strings.HasSuffix(host, ".spotify.com")
