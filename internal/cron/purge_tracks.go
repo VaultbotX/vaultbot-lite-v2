@@ -1,7 +1,9 @@
-package discord
+package cron
 
 import (
 	"context"
+	"time"
+
 	"github.com/go-co-op/gocron"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
@@ -10,7 +12,6 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
-	"time"
 )
 
 var (
@@ -18,11 +19,7 @@ var (
 	duration time.Duration
 )
 
-// Deprecated: remove gocron in favor of https://github.com/hibiken/asynq
-// so that we can have a more reliable task scheduler backed by Redis
-// that also supports general event scheduling
-func RunPurge() {
-	scheduler := gocron.NewScheduler(time.UTC)
+func RunPurge(scheduler *gocron.Scheduler) {
 	pref, err := getPurgeFrequencyPreference()
 	if err != nil {
 		log.Fatal(err)
