@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"errors"
+
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/zmb3/spotify/v2"
 )
@@ -13,36 +14,35 @@ type SpotifyPlaylistRepo struct {
 
 // GetPlaylistTracks gets all tracks from the dynamic playlist. It returns them as *spotify.PlaylistItems,
 // which includes information about when the track was added to the playlist.
-func (r *SpotifyPlaylistRepo) GetPlaylistTracks(playlistItemChan chan<- *spotify.PlaylistItem, ctx context.Context) error {
+func (r *SpotifyPlaylistRepo) GetPlaylistTracks(ctx context.Context) ([]spotify.PlaylistItem, error) {
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
 
-	playlistItems, err := r.Client.Client.GetPlaylistItems(ctx, r.Client.DynamicPlaylistId)
+	var playlistItems []spotify.PlaylistItem
+	playlistItemsCollection, err := r.Client.Client.GetPlaylistItems(ctx, r.Client.DynamicPlaylistId)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, playlistItem := range playlistItems.Items {
-		playlistItemChan <- &playlistItem
+	for _, playlistItem := range playlistItemsCollection.Items {
+		playlistItems = append(playlistItems, playlistItem)
 	}
 
 	for page := 1; ; page++ {
-		err = r.Client.Client.NextPage(ctx, playlistItems)
+		err = r.Client.Client.NextPage(ctx, playlistItemsCollection)
 		if errors.Is(err, spotify.ErrNoMorePages) {
 			break
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		for _, playlistItem := range playlistItems.Items {
-			playlistItemChan <- &playlistItem
+		for _, playlistItem := range playlistItemsCollection.Items {
+			playlistItems = append(playlistItems, playlistItem)
 		}
 	}
 
-	close(playlistItemChan)
-
-	return nil
+	return playlistItems, nil
 }
 
 func (r *SpotifyPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error {

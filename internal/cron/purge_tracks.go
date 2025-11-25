@@ -62,8 +62,6 @@ func RunPurge(scheduler *gocron.Scheduler) {
 		}
 	}()
 
-	scheduler.StartAsync()
-
 	go func() {
 		for {
 			select {

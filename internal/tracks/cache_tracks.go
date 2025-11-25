@@ -2,44 +2,19 @@ package tracks
 
 import (
 	"context"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	sp "github.com/zmb3/spotify/v2"
-	"time"
 )
 
 func CacheTracks(ctx context.Context, playlistService *domain.SpotifyPlaylistService) error {
 	log.Debug("Caching tracks")
-	errorChan := make(chan error)
-	playlistItemChan := make(chan *sp.PlaylistItem)
-
-	go func(c chan<- error) {
-		err := playlistService.Repo.GetPlaylistTracks(playlistItemChan, ctx)
-		if err != nil {
-			c <- err
-		}
-	}(errorChan)
-
-	var playlistItems []*sp.PlaylistItem
-	done := false
-	for !done {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case err := <-errorChan:
-			close(errorChan)
-			if err != nil {
-				return err
-			}
-			break
-		case track, ok := <-playlistItemChan:
-			if !ok {
-				done = true
-				break
-			}
-			playlistItems = append(playlistItems, track)
-		}
+	playlistItems, err := playlistService.Repo.GetPlaylistTracks(ctx)
+	if err != nil {
+		return err
 	}
 
 	tracks := make([]*domain.CacheTrack, len(playlistItems))
