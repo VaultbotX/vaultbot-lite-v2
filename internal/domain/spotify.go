@@ -14,6 +14,13 @@ const (
 	Genre
 )
 
+type Playlist int
+
+const (
+	DynamicPlaylist Playlist = iota
+	GenrePlaylist
+)
+
 type SpotifyTrackRepository interface {
 	GetTrack(trackId spotify.ID, trackChan chan<- *spotify.FullTrack, ctx context.Context) error
 }

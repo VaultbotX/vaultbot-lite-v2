@@ -27,7 +27,8 @@ func populatePlaylist() {
 		return
 	}
 	playlistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
-		Client: spClient,
+		Client:   spClient,
+		Playlist: domain.GenrePlaylist,
 	})
 
 	playlistItems, err := playlistService.Repo.GetPlaylistTracks(ctx)

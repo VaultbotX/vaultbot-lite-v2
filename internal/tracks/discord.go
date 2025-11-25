@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
@@ -13,7 +15,6 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
-	"time"
 )
 
 var Command = &discordgo.ApplicationCommand{
@@ -81,7 +82,8 @@ func AddTrackCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		Client: spClient,
 	})
 	spPlaylistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
-		Client: spClient,
+		Client:   spClient,
+		Playlist: domain.DynamicPlaylist,
 	})
 
 	input := &AddTrackInput{

@@ -182,7 +182,8 @@ func startBackgroundTasks() {
 		return
 	}
 	spPlaylistService := domain.NewSpotifyPlaylistService(&spcommands.SpotifyPlaylistRepo{
-		Client: spClient,
+		Client:   spClient,
+		Playlist: domain.DynamicPlaylist,
 	})
 
 	err = tracks.CacheTracks(ctx, spPlaylistService)
