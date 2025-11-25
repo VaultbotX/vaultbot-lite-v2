@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/zmb3/spotify/v2"
 )
 
 type SpotifyPlaylistRepo struct {
-	Client *sp.Client
+	Client   *sp.Client
+	Playlist domain.Playlist
 }
 
 // GetPlaylistTracks gets all tracks from the dynamic playlist. It returns them as *spotify.PlaylistItems,
@@ -18,8 +20,13 @@ func (r *SpotifyPlaylistRepo) GetPlaylistTracks(ctx context.Context) ([]spotify.
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
 
+	playlistId := r.getPlaylistId()
+	if playlistId == "" {
+		return nil, errors.New("invalid playlist type")
+	}
+
 	var playlistItems []spotify.PlaylistItem
-	playlistItemsCollection, err := r.Client.Client.GetPlaylistItems(ctx, r.Client.DynamicPlaylistId)
+	playlistItemsCollection, err := r.Client.Client.GetPlaylistItems(ctx, playlistId)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +56,11 @@ func (r *SpotifyPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds 
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
 
-	_, err := r.Client.Client.AddTracksToPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
+	playlistId := r.getPlaylistId()
+	if playlistId == "" {
+		return errors.New("invalid playlist type")
+	}
+	_, err := r.Client.Client.AddTracksToPlaylist(ctx, playlistId, trackIds...)
 	if err != nil {
 		return err
 	}
@@ -61,10 +72,25 @@ func (r *SpotifyPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trac
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()
 
-	_, err := r.Client.Client.RemoveTracksFromPlaylist(ctx, r.Client.DynamicPlaylistId, trackIds...)
+	playlistId := r.getPlaylistId()
+	if playlistId == "" {
+		return errors.New("invalid playlist type")
+	}
+	_, err := r.Client.Client.RemoveTracksFromPlaylist(ctx, playlistId, trackIds...)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (r *SpotifyPlaylistRepo) getPlaylistId() spotify.ID {
+	switch r.Playlist {
+	case domain.DynamicPlaylist:
+		return r.Client.DynamicPlaylistId
+	case domain.GenrePlaylist:
+		return r.Client.GenrePlaylistId
+	default:
+		return ""
+	}
 }

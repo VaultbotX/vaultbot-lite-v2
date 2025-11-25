@@ -109,7 +109,8 @@ func purgeTracks() {
 		return
 	}
 	spPlaylistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
-		Client: spClient,
+		Client:   spClient,
+		Playlist: domain.DynamicPlaylist,
 	})
 
 	now := time.Now().UTC()
