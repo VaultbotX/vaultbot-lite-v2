@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	job      *gocron.Job
-	duration time.Duration
+	purgeJob      *gocron.Job
+	purgeDuration time.Duration
 )
 
 func RunPurge(scheduler *gocron.Scheduler) {
@@ -30,9 +30,9 @@ func RunPurge(scheduler *gocron.Scheduler) {
 		log.Fatalf("Failed to convert preference value to int: %v", err)
 	}
 
-	duration = time.Duration(num) * time.Millisecond
-	log.Infof("Scheduling purge tracks every %v", duration)
-	job, err = scheduler.Every(duration).Do(purgeTracks)
+	purgeDuration = time.Duration(num) * time.Millisecond
+	log.Infof("Scheduling purge tracks every %v", purgeDuration)
+	purgeJob, err = scheduler.Every(purgeDuration).Do(purgeTracks)
 	if err != nil {
 		log.Fatalf("Failed to schedule purge tracks: %v", err)
 	}
@@ -53,10 +53,10 @@ func RunPurge(scheduler *gocron.Scheduler) {
 			}
 
 			newDuration := time.Duration(num) * time.Millisecond
-			if newDuration != duration {
+			if newDuration != purgeDuration {
 				frequencyChange <- newDuration
 			}
-			duration = newDuration
+			purgeDuration = newDuration
 
 			time.Sleep(5 * time.Minute)
 		}
@@ -68,9 +68,9 @@ func RunPurge(scheduler *gocron.Scheduler) {
 		for {
 			select {
 			case newDuration := <-frequencyChange:
-				log.Infof("Updating purge frequency to %v", duration)
-				scheduler.Remove(job)
-				job, err = scheduler.Every(newDuration).Do(purgeTracks)
+				log.Infof("Updating purge frequency to %v", purgeDuration)
+				scheduler.Remove(purgeJob)
+				purgeJob, err = scheduler.Every(newDuration).Do(purgeTracks)
 				if err != nil {
 					log.Fatalf("Failed to schedule purge tracks: %v", err)
 				}
