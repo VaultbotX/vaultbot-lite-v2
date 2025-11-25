@@ -1,8 +1,10 @@
 package domain
 
 import (
-	"github.com/zmb3/spotify/v2"
 	"time"
+
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/songs"
+	"github.com/zmb3/spotify/v2"
 )
 
 type CacheTrack struct {
@@ -12,6 +14,7 @@ type CacheTrack struct {
 
 type AddTrackRepository interface {
 	AddTrackToDatabase(fields *UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist) error
+	GetRandomGenreTracks() ([]songs.Song, error)
 }
 
 type AddTrackService struct {
