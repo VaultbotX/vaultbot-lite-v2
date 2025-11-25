@@ -3,9 +3,10 @@ package songs
 import (
 	"database/sql"
 	"errors"
+	"time"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/zmb3/spotify/v2"
-	"time"
 )
 
 type Song struct {
@@ -98,4 +99,64 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 	}
 
 	return addSong, nil
+}
+
+// GetOverallTopSongs retrieves the top 100 songs based on their occurrence in the song_archive table
+func GetOverallTopSongs(db *sqlx.DB) ([]Song, error) {
+	var songs []Song
+
+	err := db.Select(&songs, `
+		SELECT s.id,
+			   s.spotify_id,
+			   s.name,
+			   s.release_date,
+			   s.spotify_album_id,
+			   s.created_at,
+			   s.duration,
+			   s.popularity,
+			   s.album_name,
+			   COUNT(sa.id) AS count
+		FROM song_archive sa
+				 JOIN songs s ON sa.song_id = s.id
+		GROUP BY s.id
+		ORDER BY count DESC
+		LIMIT 100;
+	`)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return songs, nil
+}
+
+// GetTopSongsByGenre retrieves the top 100 songs for a given genre based on their occurrence in the song_archive table
+func GetTopSongsByGenre(db *sqlx.DB, genreId int) ([]Song, error) {
+	var songs []Song
+
+	err := db.Select(&songs, `
+		SELECT s.id,
+			   s.spotify_id,
+			   s.name,
+			   s.release_date,
+			   s.spotify_album_id,
+			   s.created_at,
+			   s.duration,
+			   s.popularity,
+			   s.album_name,
+			   COUNT(sa.id) AS count
+		FROM song_archive sa
+				 JOIN songs s ON sa.song_id = s.id
+				 JOIN link_song_genres lsg ON s.id = lsg.song_id
+		WHERE lsg.genre_id = $1
+		GROUP BY s.id
+		ORDER BY count DESC
+		LIMIT 100;
+	`, genreId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return songs, nil
 }
