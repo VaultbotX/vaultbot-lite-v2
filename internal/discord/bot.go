@@ -204,6 +204,12 @@ func startBackgroundTasks() {
 	cron.RunPurge(scheduler)
 	log.Debug("Finished starting purge tracks cron")
 
+	log.Debug("Starting populate genre playlist cron")
+	cron.PopulateGenrePlaylist(scheduler)
+	log.Debug("Finished starting populate genre playlist cron")
+
+	scheduler.StartAsync()
+
 	cancel()
 }
 
