@@ -2,12 +2,14 @@ package helpers
 
 import (
 	"errors"
-	"github.com/bwmarrin/discordgo"
-	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"os"
+
+	"github.com/bwmarrin/discordgo"
+	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 )
 
-func CheckUserPermissions(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func EnsureAdministratorRoleForUser(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	perms, err := s.State.UserChannelPermissions(i.Member.User.ID, i.ChannelID)
 	if err != nil {
 		return err
@@ -28,4 +30,23 @@ func CheckUserPermissions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	}
 
 	return nil
+}
+
+func HandleUserPermissionError(s *discordgo.Session, i *discordgo.InteractionCreate, originalError error, meta log.Fields) {
+	if errors.Is(originalError, domain.ErrUnauthorized) {
+		err := RespondImmediately(s, i, "You are not authorized to use this command")
+		if err != nil {
+			log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
+			return
+		}
+		return
+	}
+
+	log.WithFields(meta).Errorf("Error checking user permissions: %s", originalError)
+	err := RespondImmediately(s, i, "There was an error checking your permissions")
+	if err != nil {
+		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		return
+	}
+	return
 }

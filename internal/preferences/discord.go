@@ -2,8 +2,9 @@ package preferences
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"time"
+
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
@@ -11,7 +12,6 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
-	"time"
 )
 
 var Command = &discordgo.ApplicationCommand{
@@ -52,23 +52,9 @@ func EditPreferencesCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 
 	log.WithFields(meta).Infof("Received edit-preferences command with option: %s", selectedOption.Name)
 
-	err := helpers.CheckUserPermissions(s, i)
+	err := helpers.EnsureAdministratorRoleForUser(s, i)
 	if err != nil {
-		if errors.Is(err, domain.ErrUnauthorized) {
-			err := helpers.RespondImmediately(s, i, "You are not authorized to use this command")
-			if err != nil {
-				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
-				return
-			}
-			return
-		}
-
-		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
-		err := helpers.RespondImmediately(s, i, "There was an error checking your permissions")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
-			return
-		}
+		helpers.HandleUserPermissionError(s, i, err, meta)
 		return
 	}
 
