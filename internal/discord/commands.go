@@ -1,11 +1,12 @@
 package discord
 
 import (
+	"os"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/vaultbotx/vaultbot-lite/internal/blacklist"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
-	"os"
 )
 
 var (

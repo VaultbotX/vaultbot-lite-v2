@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/cron"
@@ -58,7 +58,8 @@ func Run() {
 	//s.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers
 	s.Identify.Intents = discordgo.IntentsAll
 
-	startBackgroundTasks()
+	scheduler := startBackgroundTasks()
+	defer func() { _ = (*scheduler).Shutdown() }()
 
 	err = s.Open()
 	if err != nil {
@@ -171,7 +172,7 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 	return registeredCommands
 }
 
-func startBackgroundTasks() {
+func startBackgroundTasks() *gocron.Scheduler {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	log.Debug("Caching tracks")
 
@@ -179,7 +180,7 @@ func startBackgroundTasks() {
 	if err != nil {
 		log.Fatalf("Cannot create Spotify client: %v", err)
 		cancel()
-		return
+		return nil
 	}
 	spPlaylistService := domain.NewSpotifyPlaylistService(&spcommands.SpotifyPlaylistRepo{
 		Client:   spClient,
@@ -199,19 +200,24 @@ func startBackgroundTasks() {
 	}
 	log.Debug("Finished checking default preferences")
 
-	scheduler := gocron.NewScheduler(time.UTC)
+	scheduler, err := gocron.NewScheduler()
+	if err != nil {
+		log.Fatalf("Cannot create scheduler: %v", err)
+	}
 
 	log.Debug("Starting purge tracks cron")
-	cron.RunPurge(scheduler)
+	cron.RunPurge(&scheduler)
 	log.Debug("Finished starting purge tracks cron")
 
 	log.Debug("Starting populate genre playlist cron")
-	cron.PopulateGenrePlaylist(scheduler)
+	cron.PopulateGenrePlaylist(&scheduler)
 	log.Debug("Finished starting populate genre playlist cron")
 
-	scheduler.StartAsync()
+	scheduler.Start()
 
 	cancel()
+
+	return &scheduler
 }
 
 func loadEnvVars() {
