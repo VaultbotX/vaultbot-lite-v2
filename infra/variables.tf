@@ -41,7 +41,13 @@ variable "discord_administrator_user_id" {
 
 variable "spotify_playlist_id" {
   type        = string
-  description = "Spotify playlist ID"
+  description = "Spotify playlist ID for the dynamic playlist"
+  sensitive   = true
+}
+
+variable "genre_spotify_playlist_id" {
+  type        = string
+  description = "Spotify playlist ID for the genre-based playlist"
   sensitive   = true
 }
 
