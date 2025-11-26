@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
@@ -15,11 +15,11 @@ import (
 )
 
 var (
-	purgeJob      *gocron.Job
+	purgeJob      gocron.Job
 	purgeDuration time.Duration
 )
 
-func RunPurge(scheduler *gocron.Scheduler) {
+func RunPurge(scheduler gocron.Scheduler) {
 	pref, err := getPurgeFrequencyPreference()
 	if err != nil {
 		log.Fatal(err)
@@ -32,7 +32,13 @@ func RunPurge(scheduler *gocron.Scheduler) {
 
 	purgeDuration = time.Duration(num) * time.Millisecond
 	log.Infof("Scheduling purge tracks every %v", purgeDuration)
-	purgeJob, err = scheduler.Every(purgeDuration).Do(purgeTracks)
+
+	job, err := scheduler.NewJob(
+		gocron.DurationJob(purgeDuration),
+		gocron.NewTask(purgeTracks),
+	)
+	purgeJob = job
+
 	if err != nil {
 		log.Fatalf("Failed to schedule purge tracks: %v", err)
 	}
@@ -67,8 +73,19 @@ func RunPurge(scheduler *gocron.Scheduler) {
 			select {
 			case newDuration := <-frequencyChange:
 				log.Infof("Updating purge frequency to %v", purgeDuration)
-				scheduler.Remove(purgeJob)
-				purgeJob, err = scheduler.Every(newDuration).Do(purgeTracks)
+				jobId := purgeJob.ID()
+				err := scheduler.RemoveJob(jobId)
+				if err != nil {
+					log.Fatalf("Failed to remove old purge job: %v", err)
+					return
+				}
+
+				job, err := scheduler.NewJob(
+					gocron.DurationJob(newDuration),
+					gocron.NewTask(purgeTracks),
+				)
+				purgeJob = job
+
 				if err != nil {
 					log.Fatalf("Failed to schedule purge tracks: %v", err)
 				}

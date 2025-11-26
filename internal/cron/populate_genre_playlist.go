@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
@@ -15,11 +15,35 @@ import (
 	zspotify "github.com/zmb3/spotify/v2"
 )
 
-func PopulateGenrePlaylist(scheduler *gocron.Scheduler) {
-	_, err := scheduler.Every(1).Day().At("00:00").Do(populatePlaylistOuter)
+var (
+	populateGenrePlaylistJob gocron.Job
+)
+
+func RunPopulateGenrePlaylist() error {
+	err := populateGenrePlaylistJob.RunNow()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func PopulateGenrePlaylist(scheduler gocron.Scheduler) {
+	job, err := scheduler.NewJob(
+		gocron.DailyJob(
+			1,
+			gocron.NewAtTimes(
+				gocron.NewAtTime(0, 0, 0),
+			),
+		),
+		gocron.NewTask(populatePlaylistOuter),
+	)
+
 	if err != nil {
 		log.Fatalf("Failed to schedule populate genre playlist job: %v", err)
 	}
+
+	populateGenrePlaylistJob = job
 }
 
 func populatePlaylistOuter() {

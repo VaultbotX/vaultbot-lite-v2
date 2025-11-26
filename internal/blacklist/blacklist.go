@@ -3,6 +3,9 @@ package blacklist
 import (
 	"context"
 	"errors"
+	"strings"
+	"time"
+
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
@@ -11,8 +14,6 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
-	"strings"
-	"time"
 )
 
 func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist bool) {
@@ -20,23 +21,9 @@ func blacklist(s *discordgo.Session, i *discordgo.InteractionCreate, isBlacklist
 
 	log.WithFields(meta).Infof("Received blacklist command with option: %s and is blacklist: %t", i.ApplicationCommandData().Options[0].Name, isBlacklist)
 
-	err := helpers.CheckUserPermissions(s, i)
+	err := helpers.EnsureAdministratorRoleForUser(s, i)
 	if err != nil {
-		if errors.Is(err, domain.ErrUnauthorized) {
-			err := helpers.RespondImmediately(s, i, "You are not authorized to use this command")
-			if err != nil {
-				log.WithFields(meta).Errorf("Error responding to unauthorized user: %s", err)
-				return
-			}
-			return
-		}
-
-		log.WithFields(meta).Errorf("Error checking user permissions: %s", err)
-		err := helpers.RespondImmediately(s, i, "There was an error checking your permissions")
-		if err != nil {
-			log.WithFields(meta).Errorf("Error responding to user: %s", err)
-			return
-		}
+		helpers.HandleUserPermissionError(s, i, err, meta)
 		return
 	}
 
