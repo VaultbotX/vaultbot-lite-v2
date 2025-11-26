@@ -144,14 +144,13 @@ func GetTopSongsByGenre(db *sqlx.DB, genreId int) ([]Song, error) {
 			   s.created_at,
 			   s.duration,
 			   s.popularity,
-			   s.album_name,
-			   COUNT(sa.id) AS count
+			   s.album_name
 		FROM song_archive sa
 				 JOIN songs s ON sa.song_id = s.id
 				 JOIN link_song_genres lsg ON s.id = lsg.song_id
 		WHERE lsg.genre_id = $1
 		GROUP BY s.id
-		ORDER BY count DESC
+		ORDER BY COUNT(sa.id) DESC
 		LIMIT 100;
 	`, genreId)
 
