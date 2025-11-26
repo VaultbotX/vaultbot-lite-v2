@@ -59,7 +59,12 @@ func Run() {
 	s.Identify.Intents = discordgo.IntentsAll
 
 	scheduler := startBackgroundTasks()
-	defer func() { _ = (*scheduler).Shutdown() }()
+	defer func() {
+		if scheduler == nil {
+			return
+		}
+		_ = scheduler.Shutdown()
+	}()
 
 	err = s.Open()
 	if err != nil {
@@ -172,7 +177,7 @@ func addDiscordCommands() []*discordgo.ApplicationCommand {
 	return registeredCommands
 }
 
-func startBackgroundTasks() *gocron.Scheduler {
+func startBackgroundTasks() gocron.Scheduler {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	log.Debug("Caching tracks")
 
@@ -206,18 +211,18 @@ func startBackgroundTasks() *gocron.Scheduler {
 	}
 
 	log.Debug("Starting purge tracks cron")
-	cron.RunPurge(&scheduler)
+	cron.RunPurge(scheduler)
 	log.Debug("Finished starting purge tracks cron")
 
 	log.Debug("Starting populate genre playlist cron")
-	cron.PopulateGenrePlaylist(&scheduler)
+	cron.PopulateGenrePlaylist(scheduler)
 	log.Debug("Finished starting populate genre playlist cron")
 
 	scheduler.Start()
 
 	cancel()
 
-	return &scheduler
+	return scheduler
 }
 
 func loadEnvVars() {

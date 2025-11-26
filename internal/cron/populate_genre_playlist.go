@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	populateGenrePlaylistJob *gocron.Job
+	populateGenrePlaylistJob gocron.Job
 )
 
 func RunPopulateGenrePlaylist() error {
-	err := (*populateGenrePlaylistJob).RunNow()
+	err := populateGenrePlaylistJob.RunNow()
 	if err != nil {
 		return err
 	}
@@ -28,8 +28,8 @@ func RunPopulateGenrePlaylist() error {
 	return nil
 }
 
-func PopulateGenrePlaylist(scheduler *gocron.Scheduler) {
-	job, err := (*scheduler).NewJob(
+func PopulateGenrePlaylist(scheduler gocron.Scheduler) {
+	job, err := scheduler.NewJob(
 		gocron.DailyJob(
 			1,
 			gocron.NewAtTimes(
@@ -43,7 +43,7 @@ func PopulateGenrePlaylist(scheduler *gocron.Scheduler) {
 		log.Fatalf("Failed to schedule populate genre playlist job: %v", err)
 	}
 
-	populateGenrePlaylistJob = &job
+	populateGenrePlaylistJob = job
 }
 
 func populatePlaylistOuter() {
