@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"testing"
+
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
+	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/songs"
 	"github.com/zmb3/spotify/v2"
-	"testing"
 )
 
 func TestAddTrack_ShortCircuits_WithInvalidSongId(t *testing.T) {
@@ -323,12 +325,18 @@ type mockPlaylistService struct {
 	getPlaylistTracksResponse []*spotify.PlaylistItem
 }
 
-func (m *mockPlaylistService) GetPlaylistTracks(playlistItemChan chan<- *spotify.PlaylistItem, _ context.Context) error {
-	for _, item := range m.getPlaylistTracksResponse {
-		playlistItemChan <- item
+func (m *mockPlaylistService) GetPlaylistTracks(_ context.Context) ([]spotify.PlaylistItem, error) {
+	// Convert stored pointers to a slice of values to match the current interface.
+	result := make([]spotify.PlaylistItem, 0, len(m.getPlaylistTracksResponse))
+	for _, p := range m.getPlaylistTracksResponse {
+		if p == nil {
+			// append zero value if nil
+			result = append(result, spotify.PlaylistItem{})
+		} else {
+			result = append(result, *p)
+		}
 	}
-	close(playlistItemChan)
-	return nil
+	return result, nil
 }
 
 func (m *mockPlaylistService) AddTracksToPlaylist(_ context.Context, _ []spotify.ID) error {
@@ -343,6 +351,10 @@ type mockTrackRepository struct{}
 
 func (m *mockTrackRepository) AddTrackToDatabase(_ *domain.UserFields, _ *spotify.FullTrack, _ []*spotify.FullArtist) error {
 	return nil
+}
+
+func (m *mockTrackRepository) GetRandomGenreTracks() (songs []songs.Song, genreName string, err error) {
+	return nil, "", nil
 }
 
 func TestAddTrack_ReturnsTrack_WhenValidTrack(t *testing.T) {

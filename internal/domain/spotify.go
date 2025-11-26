@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+
 	"github.com/zmb3/spotify/v2"
 )
 
@@ -11,6 +12,13 @@ const (
 	Track EntityType = iota
 	Artist
 	Genre
+)
+
+type Playlist int
+
+const (
+	DynamicPlaylist Playlist = iota
+	GenrePlaylist
 )
 
 type SpotifyTrackRepository interface {
@@ -28,7 +36,7 @@ func NewSpotifyTrackService(repo SpotifyTrackRepository) *SpotifyTrackService {
 }
 
 type SpotifyPlaylistRepository interface {
-	GetPlaylistTracks(playlistItemChan chan<- *spotify.PlaylistItem, ctx context.Context) error
+	GetPlaylistTracks(ctx context.Context) ([]spotify.PlaylistItem, error)
 	AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error
 	RemoveTracksFromPlaylist(ctx context.Context, trackIds []spotify.ID) error
 }

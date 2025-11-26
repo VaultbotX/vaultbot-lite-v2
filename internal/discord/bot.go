@@ -3,19 +3,22 @@ package discord
 import (
 	"context"
 	"errors"
-	"github.com/bwmarrin/discordgo"
-	"github.com/joho/godotenv"
-	log "github.com/sirupsen/logrus"
-	"github.com/vaultbotx/vaultbot-lite/internal/domain"
-	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
-	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
-	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
-	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/go-co-op/gocron"
+	"github.com/joho/godotenv"
+	log "github.com/sirupsen/logrus"
+	"github.com/vaultbotx/vaultbot-lite/internal/cron"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
+	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
+	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
+	spcommands "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
 )
 
 var (
@@ -179,7 +182,8 @@ func startBackgroundTasks() {
 		return
 	}
 	spPlaylistService := domain.NewSpotifyPlaylistService(&spcommands.SpotifyPlaylistRepo{
-		Client: spClient,
+		Client:   spClient,
+		Playlist: domain.DynamicPlaylist,
 	})
 
 	err = tracks.CacheTracks(ctx, spPlaylistService)
@@ -195,9 +199,17 @@ func startBackgroundTasks() {
 	}
 	log.Debug("Finished checking default preferences")
 
+	scheduler := gocron.NewScheduler(time.UTC)
+
 	log.Debug("Starting purge tracks cron")
-	RunPurge()
+	cron.RunPurge(scheduler)
 	log.Debug("Finished starting purge tracks cron")
+
+	log.Debug("Starting populate genre playlist cron")
+	cron.PopulateGenrePlaylist(scheduler)
+	log.Debug("Finished starting populate genre playlist cron")
+
+	scheduler.StartAsync()
 
 	cancel()
 }

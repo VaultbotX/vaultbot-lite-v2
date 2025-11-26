@@ -1,7 +1,9 @@
-package discord
+package cron
 
 import (
 	"context"
+	"time"
+
 	"github.com/go-co-op/gocron"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
@@ -10,19 +12,14 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
-	"time"
 )
 
 var (
-	job      *gocron.Job
-	duration time.Duration
+	purgeJob      *gocron.Job
+	purgeDuration time.Duration
 )
 
-// Deprecated: remove gocron in favor of https://github.com/hibiken/asynq
-// so that we can have a more reliable task scheduler backed by Redis
-// that also supports general event scheduling
-func RunPurge() {
-	scheduler := gocron.NewScheduler(time.UTC)
+func RunPurge(scheduler *gocron.Scheduler) {
 	pref, err := getPurgeFrequencyPreference()
 	if err != nil {
 		log.Fatal(err)
@@ -33,9 +30,9 @@ func RunPurge() {
 		log.Fatalf("Failed to convert preference value to int: %v", err)
 	}
 
-	duration = time.Duration(num) * time.Millisecond
-	log.Infof("Scheduling purge tracks every %v", duration)
-	job, err = scheduler.Every(duration).Do(purgeTracks)
+	purgeDuration = time.Duration(num) * time.Millisecond
+	log.Infof("Scheduling purge tracks every %v", purgeDuration)
+	purgeJob, err = scheduler.Every(purgeDuration).Do(purgeTracks)
 	if err != nil {
 		log.Fatalf("Failed to schedule purge tracks: %v", err)
 	}
@@ -56,24 +53,22 @@ func RunPurge() {
 			}
 
 			newDuration := time.Duration(num) * time.Millisecond
-			if newDuration != duration {
+			if newDuration != purgeDuration {
 				frequencyChange <- newDuration
 			}
-			duration = newDuration
+			purgeDuration = newDuration
 
 			time.Sleep(5 * time.Minute)
 		}
 	}()
 
-	scheduler.StartAsync()
-
 	go func() {
 		for {
 			select {
 			case newDuration := <-frequencyChange:
-				log.Infof("Updating purge frequency to %v", duration)
-				scheduler.Remove(job)
-				job, err = scheduler.Every(newDuration).Do(purgeTracks)
+				log.Infof("Updating purge frequency to %v", purgeDuration)
+				scheduler.Remove(purgeJob)
+				purgeJob, err = scheduler.Every(newDuration).Do(purgeTracks)
 				if err != nil {
 					log.Fatalf("Failed to schedule purge tracks: %v", err)
 				}
@@ -114,7 +109,8 @@ func purgeTracks() {
 		return
 	}
 	spPlaylistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
-		Client: spClient,
+		Client:   spClient,
+		Playlist: domain.DynamicPlaylist,
 	})
 
 	now := time.Now().UTC()
