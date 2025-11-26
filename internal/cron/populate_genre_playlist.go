@@ -16,13 +16,13 @@ import (
 )
 
 func PopulateGenrePlaylist(scheduler *gocron.Scheduler) {
-	_, err := scheduler.Every(1).Day().At("00:00").Do(populatePlaylist)
+	_, err := scheduler.Every(1).Day().At("00:00").Do(populatePlaylistOuter)
 	if err != nil {
 		log.Fatalf("Failed to schedule populate genre playlist job: %v", err)
 	}
 }
 
-func populatePlaylist() {
+func populatePlaylistOuter() {
 	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -36,12 +36,6 @@ func populatePlaylist() {
 		Playlist: domain.GenrePlaylist,
 	})
 
-	playlistItems, err := playlistService.Repo.GetPlaylistTracks(newCtx)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-
 	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
 		log.Error(err)
@@ -49,24 +43,33 @@ func populatePlaylist() {
 	}
 
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
-	tracksToAdd, err := trackService.Repo.GetRandomGenreTracks()
+
+	if err := populatePlaylist(newCtx, playlistService, trackService.Repo); err != nil {
+		log.Errorf("populatePlaylistOuter failed: %v", err)
+	}
+}
+
+func populatePlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
+	playlistItems, err := playlistService.Repo.GetPlaylistTracks(ctx)
 	if err != nil {
-		log.Error(err)
-		return
+		return err
 	}
 
-	// Build sets of current and desired track IDs using helper functions
+	tracksToAdd, err := trackRepo.GetRandomGenreTracks()
+	if err != nil {
+		return err
+	}
+
 	currentSet := playlistItemsToSet(playlistItems)
 	desiredOrder, desiredSet := songsToIDsAndSet(tracksToAdd)
 
-	// Calculate tracks to remove and to add using helpers
 	toRemove := diffToRemove(currentSet, desiredSet)
 	toAdd := diffToAdd(currentSet, desiredOrder)
 
 	// Remove obsolete tracks
 	if len(toRemove) > 0 {
 		log.Infof("Removing %d obsolete tracks from genre playlist", len(toRemove))
-		if err := playlistService.Repo.RemoveTracksFromPlaylist(newCtx, toRemove); err != nil {
+		if err := playlistService.Repo.RemoveTracksFromPlaylist(ctx, toRemove); err != nil {
 			log.Errorf("Failed to remove tracks from playlist: %v", err)
 			// continue to attempt adding new tracks
 		}
@@ -75,13 +78,14 @@ func populatePlaylist() {
 	// Add new tracks
 	if len(toAdd) > 0 {
 		log.Infof("Adding %d new tracks to genre playlist", len(toAdd))
-		if err := playlistService.Repo.AddTracksToPlaylist(newCtx, toAdd); err != nil {
+		if err := playlistService.Repo.AddTracksToPlaylist(ctx, toAdd); err != nil {
 			log.Errorf("Failed to add tracks to playlist: %v", err)
-			return
+			return err
 		}
 	}
 
 	log.Infof("Finished populating genre playlist. Added: %d, Removed: %d, Total desired: %d", len(toAdd), len(toRemove), len(desiredOrder))
+	return nil
 }
 
 // playlistItemsToSet converts a slice of spotify.PlaylistItem into a set of spotify IDs.
