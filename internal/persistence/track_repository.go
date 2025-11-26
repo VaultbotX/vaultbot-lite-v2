@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -87,6 +89,9 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, 
 func (r *PostgresTrackRepository) GetRandomGenreTracks() ([]songs.Song, error) {
 	genre, err := genres.GetRandomGenre(r.db)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
