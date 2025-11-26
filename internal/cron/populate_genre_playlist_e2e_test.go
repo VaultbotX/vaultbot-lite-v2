@@ -42,8 +42,8 @@ type mockTrackRepo struct {
 func (m *mockTrackRepo) AddTrackToDatabase(fields *domain.UserFields, track *zspotify.FullTrack, artist []*zspotify.FullArtist) error {
 	panic("not implemented")
 }
-func (m *mockTrackRepo) GetRandomGenreTracks() ([]psongs.Song, error) {
-	return m.rows, nil
+func (m *mockTrackRepo) GetRandomGenreTracks() (songs []psongs.Song, genreName string, err error) {
+	return m.rows, "genre", nil
 }
 
 func makePI(id string) zspotify.PlaylistItem {

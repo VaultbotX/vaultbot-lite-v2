@@ -14,7 +14,7 @@ type CacheTrack struct {
 
 type AddTrackRepository interface {
 	AddTrackToDatabase(fields *UserFields, track *spotify.FullTrack, artist []*spotify.FullArtist) error
-	GetRandomGenreTracks() ([]songs.Song, error)
+	GetRandomGenreTracks() (songs []songs.Song, genreName string, err error)
 }
 
 type AddTrackService struct {
