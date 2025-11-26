@@ -1,15 +1,18 @@
 package persistence
 
 import (
+	"database/sql"
+	"errors"
+	"time"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/archive"
 	artists2 "github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/artists"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/genres"
-	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/songs"
+	psongs "github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/songs"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/users"
 	"github.com/zmb3/spotify/v2"
-	"time"
 )
 
 type PostgresTrackRepository struct {
@@ -59,7 +62,7 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, 
 		allArtistIds = append(allArtistIds, addArtist.Id)
 	}
 
-	addTrack, err := songs.AddSong(tx, track, allGenreIds, allArtistIds)
+	addTrack, err := psongs.AddSong(tx, track, allGenreIds, allArtistIds)
 	if err != nil {
 		return err
 	}
@@ -81,4 +84,21 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(fields *domain.UserFields, 
 	})
 
 	return nil
+}
+
+func (r *PostgresTrackRepository) GetRandomGenreTracks() (songs []psongs.Song, genreName string, err error) {
+	genre, err := genres.GetRandomGenre(r.db)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", nil
+		}
+		return nil, "", err
+	}
+
+	tracks, err := psongs.GetTopSongsByGenre(r.db, genre.Id)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return tracks, genre.Name, nil
 }

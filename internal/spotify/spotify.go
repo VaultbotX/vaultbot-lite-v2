@@ -3,14 +3,15 @@ package spotify
 import (
 	"context"
 	"errors"
+	"net/http"
+	"os"
+	"sync"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"github.com/zmb3/spotify/v2"
 	auth "github.com/zmb3/spotify/v2/auth"
-	"net/http"
-	"os"
-	"sync"
 )
 
 var (
@@ -26,6 +27,7 @@ const (
 
 type Client struct {
 	DynamicPlaylistId spotify.ID
+	GenrePlaylistId   spotify.ID
 	Client            *spotify.Client
 	Mu                sync.Mutex
 	auth              *auth.Authenticator
@@ -49,6 +51,11 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 	playlistId, playlistIdPresent := os.LookupEnv("SPOTIFY_PLAYLIST_ID")
 	if !playlistIdPresent {
 		log.Fatal("Missing SPOTIFY_PLAYLIST_ID environment variable")
+	}
+
+	genrePlaylistId, genrePlaylistIdExists := os.LookupEnv("GENRE_SPOTIFY_PLAYLIST_ID")
+	if !genrePlaylistIdExists {
+		log.Fatal("Missing GENRE_SPOTIFY_PLAYLIST_ID environment variable")
 	}
 
 	authenticator := auth.New(
@@ -76,6 +83,7 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 
 		instance = &Client{
 			DynamicPlaylistId: spotify.ID(playlistId),
+			GenrePlaylistId:   spotify.ID(genrePlaylistId),
 			Client:            client,
 			Mu:                sync.Mutex{},
 			auth:              authenticator,
@@ -149,6 +157,7 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 
 	instance = &Client{
 		DynamicPlaylistId: spotify.ID(playlistId),
+		GenrePlaylistId:   spotify.ID(genrePlaylistId),
 		Client:            client,
 	}
 
