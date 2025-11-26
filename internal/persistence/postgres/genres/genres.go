@@ -47,23 +47,25 @@ func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
 	return addGenre, nil
 }
 
-// GetRandomGenre retrieves a random genre with more than 20 associated songs
-func GetRandomGenre(db *sqlx.DB) (Genre, error) {
+// GetRandomGenre retrieves a random genre with 20 or more associated songs
+func GetRandomGenre(db *sqlx.DB) (*Genre, error) {
 	var genre Genre
 
 	err := db.QueryRowx(`
-		SELECT g.id, g.name, g.created_at, COUNT(lsg.song_id) AS count
+		SELECT g.id, g.name, g.created_at
 		FROM genres g
 				 JOIN link_song_genres lsg ON g.id = lsg.genre_id
 		GROUP BY g.id
-		HAVING COUNT(lsg.song_id) > 20
+		HAVING COUNT(lsg.song_id) >= 20
 		ORDER BY RANDOM()
 		LIMIT 1;
 	`).StructScan(&genre)
 
+	// TODO: may need to handle case here that no genre is found
+
 	if err != nil {
-		return Genre{}, err
+		return nil, err
 	}
 
-	return genre, nil
+	return &genre, nil
 }

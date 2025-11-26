@@ -101,6 +101,7 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 	return addSong, nil
 }
 
+// TODO: this may fail due to missing the count field in the struct (for when this is implemented fully)
 // GetOverallTopSongs retrieves the top 100 songs based on their occurrence in the song_archive table
 func GetOverallTopSongs(db *sqlx.DB) ([]Song, error) {
 	var songs []Song
