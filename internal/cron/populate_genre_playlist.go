@@ -55,7 +55,8 @@ func populatePlaylist(ctx context.Context, playlistService *domain.SpotifyPlayli
 		return err
 	}
 
-	tracksToAdd, err := trackRepo.GetRandomGenreTracks()
+	// TODO: update the playlist description to indicate the genre name (currently discarded)
+	tracksToAdd, _, err := trackRepo.GetRandomGenreTracks()
 	if err != nil {
 		return err
 	}
