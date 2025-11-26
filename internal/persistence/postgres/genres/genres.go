@@ -61,8 +61,6 @@ func GetRandomGenre(db *sqlx.DB) (*Genre, error) {
 		LIMIT 1;
 	`).StructScan(&genre)
 
-	// TODO: may need to handle case here that no genre is found
-
 	if err != nil {
 		return nil, err
 	}
