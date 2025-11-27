@@ -17,6 +17,15 @@ var (
 	populateHighScoresPlaylistJob gocron.Job
 )
 
+func RunPopulateHighScoresPlaylist() error {
+	err := populateHighScoresPlaylistJob.RunNow()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func PopulateHighScoresPlaylist(scheduler gocron.Scheduler) {
 	job, err := scheduler.NewJob(
 		gocron.DailyJob(

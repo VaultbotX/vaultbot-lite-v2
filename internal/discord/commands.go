@@ -4,13 +4,10 @@ import (
 	"os"
 
 	"github.com/bwmarrin/discordgo"
-	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/blacklist"
 	"github.com/vaultbotx/vaultbot-lite/internal/cron"
-	"github.com/vaultbotx/vaultbot-lite/internal/discord/helpers"
 	"github.com/vaultbotx/vaultbot-lite/internal/preferences"
 	"github.com/vaultbotx/vaultbot-lite/internal/tracks"
-	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 )
 
 var (
@@ -23,10 +20,7 @@ var (
 			Name:        "get-playlist",
 			Description: "Get a link to the playlist",
 		},
-		{
-			Name:        "refresh-genre-playlist",
-			Description: "Refresh the genre playlist with a new genre (overrides daily schedule)",
-		},
+		cron.RefreshPlaylistCommand,
 		preferences.Command,
 		tracks.Command,
 		blacklist.BlacklistCommand,
@@ -59,40 +53,10 @@ var (
 				},
 			})
 		},
-		"refresh-genre-playlist": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			meta := utils.GetFieldsFromInteraction(i)
-
-			err := helpers.RespondImmediately(s, i, "Processing your request...")
-			if err != nil {
-				log.WithFields(meta).Errorf("Error responding to user: %s", err)
-				return
-			}
-
-			err = helpers.EnsureAdministratorRoleForUser(s, i)
-			if err != nil {
-				helpers.HandleUserPermissionError(s, i, err, meta)
-				return
-			}
-
-			err = cron.RunPopulateGenrePlaylist()
-			if err != nil {
-				log.WithFields(meta).Errorf("Error refreshing genre playlist: %s", err)
-				err2 := helpers.RespondDelayed(s, i, "There was an error refreshing the genre playlist. Please try again later :(")
-				if err2 != nil {
-					log.WithFields(meta).Errorf("Error responding to user: %s", err2)
-				}
-				return
-			}
-
-			err = helpers.RespondDelayed(s, i, "Successfully refreshed the genre playlist!")
-			if err != nil {
-				log.WithFields(meta).Errorf("Error responding to user: %s", err)
-				return
-			}
-		},
-		"add-track":        tracks.AddTrackCommandHandler,
-		"edit-preferences": preferences.EditPreferencesCommandHandler,
-		"blacklist":        blacklist.BlacklistCommandHandler,
-		"unblacklist":      blacklist.UnblacklistCommandHandler,
+		cron.RefreshPlaylistCommand.Name:  cron.RefreshPlaylistCommandHandler,
+		tracks.Command.Name:               tracks.AddTrackCommandHandler,
+		preferences.Command.Name:          preferences.EditPreferencesCommandHandler,
+		blacklist.BlacklistCommand.Name:   blacklist.BlacklistCommandHandler,
+		blacklist.UnblacklistCommand.Name: blacklist.UnblacklistCommandHandler,
 	}
 )
