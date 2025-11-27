@@ -11,7 +11,7 @@ import (
 
 var RefreshPlaylistCommand = &discordgo.ApplicationCommand{
 	Name:        "refresh-playlist",
-	Description: "Refresh a the selected playlist (outside of the normal schedule)",
+	Description: "Refresh the selected playlist (outside of the normal schedule)",
 	Options: []*discordgo.ApplicationCommandOption{
 		{
 			Name:        "playlist",
