@@ -93,6 +93,13 @@ resource "digitalocean_app" "vaultbot_app" {
       }
 
       env {
+        key   = "HIGH_SCORES_SPOTIFY_PLAYLIST_ID"
+        value = var.high_scores_spotify_playlist_id
+        scope = "RUN_TIME"
+        type  = "SECRET"
+      }
+
+      env {
         key   = "SPOTIFY_CLIENT_ID"
         value = var.spotify_client_id
         scope = "RUN_TIME"

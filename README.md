@@ -17,6 +17,8 @@ Set the following environment variables:
 - `DISCORD_ADMINISTRATOR_USER_ID` (required, this is the user ID of the bot owner)
 - `DISCORD_TOKEN` (more information below)
 - `SPOTIFY_PLAYLIST_ID` (ID of the playlist that songs will be stored in)
+- `GENRE_SPOTIFY_PLAYLIST_ID` (ID of the playlist that will be a rotating selection of songs from various genres)
+- `HIGH_SCORES_SPOTIFY_PLAYLIST_ID` (ID of the playlist that will contain the most frequently added songs)
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
 - `SPOTIFY_TOKEN` (very important, see below)

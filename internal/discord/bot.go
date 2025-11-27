@@ -214,6 +214,10 @@ func startBackgroundTasks() gocron.Scheduler {
 	cron.RunPurge(scheduler)
 	log.Debug("Finished starting purge tracks cron")
 
+	log.Debug("Starting populate high scores playlist cron")
+	cron.PopulateHighScoresPlaylist(scheduler)
+	log.Debug("Finished starting populate high scores playlist cron")
+
 	log.Debug("Starting populate genre playlist cron")
 	cron.PopulateGenrePlaylist(scheduler)
 	log.Debug("Finished starting populate genre playlist cron")
