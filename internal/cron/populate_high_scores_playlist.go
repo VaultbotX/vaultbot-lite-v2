@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	populateTop50PlaylistJob gocron.Job
+	populateHighScoresPlaylistJob gocron.Job
 )
 
-func PopulateTop50Playlist(scheduler gocron.Scheduler) {
+func PopulateHighScoresPlaylist(scheduler gocron.Scheduler) {
 	job, err := scheduler.NewJob(
 		gocron.DailyJob(
 			1,
@@ -25,17 +25,17 @@ func PopulateTop50Playlist(scheduler gocron.Scheduler) {
 				gocron.NewAtTime(0, 0, 0),
 			),
 		),
-		gocron.NewTask(populateTop50PlaylistOuter),
+		gocron.NewTask(populateHighScoresPlaylistOuter),
 	)
 
 	if err != nil {
-		log.Fatalf("Failed to schedule populate genre playlist job: %v", err)
+		log.Fatalf("Failed to schedule populate high scores playlist job: %v", err)
 	}
 
-	populateTop50PlaylistJob = job
+	populateHighScoresPlaylistJob = job
 }
 
-func populateTop50PlaylistOuter() {
+func populateHighScoresPlaylistOuter() {
 	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -46,7 +46,7 @@ func populateTop50PlaylistOuter() {
 	}
 	playlistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
 		Client:   spClient,
-		Playlist: domain.Top50Playlist,
+		Playlist: domain.HighScoresPlaylist,
 	})
 
 	pgConn, err := postgres.NewPostgresConnection()
@@ -57,12 +57,12 @@ func populateTop50PlaylistOuter() {
 
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
 
-	if err := populateTop50Playlist(newCtx, playlistService, trackService.Repo); err != nil {
-		log.Errorf("populateTop50PlaylistOuter failed: %v", err)
+	if err := populateHighScoresPlaylist(newCtx, playlistService, trackService.Repo); err != nil {
+		log.Errorf("populateHighScoresPlaylistOuter failed: %v", err)
 	}
 }
 
-func populateTop50Playlist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
+func populateHighScoresPlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
 	playlistItems, err := playlistService.Repo.GetPlaylistTracks(ctx)
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func populateTop50Playlist(ctx context.Context, playlistService *domain.SpotifyP
 
 	// Remove obsolete tracks
 	if len(toRemove) > 0 {
-		log.Infof("Removing %d obsolete tracks from top 50 playlist", len(toRemove))
+		log.Infof("Removing %d obsolete tracks from high scores playlist", len(toRemove))
 		if err := playlistService.Repo.RemoveTracksFromPlaylist(ctx, toRemove); err != nil {
 			log.Errorf("Failed to remove tracks from playlist: %v", err)
 			// continue to attempt adding new tracks
@@ -90,13 +90,13 @@ func populateTop50Playlist(ctx context.Context, playlistService *domain.SpotifyP
 
 	// Add new tracks
 	if len(toAdd) > 0 {
-		log.Infof("Adding %d new tracks to top 50 playlist", len(toAdd))
+		log.Infof("Adding %d new tracks to high scores playlist", len(toAdd))
 		if err := playlistService.Repo.AddTracksToPlaylist(ctx, toAdd); err != nil {
 			log.Errorf("Failed to add tracks to playlist: %v", err)
 			return err
 		}
 	}
 
-	log.Infof("Finished populating top 50 playlist. Added: %d, Removed: %d, Total desired: %d", len(toAdd), len(toRemove), len(desiredOrder))
+	log.Infof("Finished populating high scores playlist. Added: %d, Removed: %d, Total desired: %d", len(toAdd), len(toRemove), len(desiredOrder))
 	return nil
 }
