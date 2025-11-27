@@ -51,6 +51,12 @@ variable "genre_spotify_playlist_id" {
   sensitive   = true
 }
 
+variable "high_scores_spotify_playlist_id" {
+  type        = string
+  description = "Spotify playlist ID for the high scores playlist"
+  sensitive   = true
+}
+
 variable "spotify_client_id" {
   type        = string
   description = "Spotify client ID"
