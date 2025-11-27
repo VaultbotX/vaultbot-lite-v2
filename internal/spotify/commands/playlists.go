@@ -84,6 +84,22 @@ func (r *SpotifyPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trac
 	return nil
 }
 
+func (r *SpotifyPlaylistRepo) UpdatePlaylistDescription(ctx context.Context, description string) error {
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
+
+	playlistId := r.getPlaylistId()
+	if playlistId == "" {
+		return errors.New("invalid playlist type")
+	}
+	err := r.Client.Client.ChangePlaylistDescription(ctx, playlistId, description)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *SpotifyPlaylistRepo) getPlaylistId() spotify.ID {
 	switch r.Playlist {
 	case domain.DynamicPlaylist:

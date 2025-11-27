@@ -39,6 +39,7 @@ type SpotifyPlaylistRepository interface {
 	GetPlaylistTracks(ctx context.Context) ([]spotify.PlaylistItem, error)
 	AddTracksToPlaylist(ctx context.Context, trackIds []spotify.ID) error
 	RemoveTracksFromPlaylist(ctx context.Context, trackIds []spotify.ID) error
+	UpdatePlaylistDescription(ctx context.Context, description string) error
 }
 
 type SpotifyPlaylistService struct {
