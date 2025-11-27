@@ -101,8 +101,8 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 	return addSong, nil
 }
 
-// GetOverallTopSongs retrieves the top 100 songs based on their occurrence in the song_archive table
-func GetOverallTopSongs(db *sqlx.DB) ([]Song, error) {
+// GetOverallTopSongs retrieves the top songs based on their occurrence in the song_archive table
+func GetOverallTopSongs(db *sqlx.DB, limit int) ([]Song, error) {
 	var songs []Song
 
 	err := db.Select(&songs, `
@@ -119,8 +119,8 @@ func GetOverallTopSongs(db *sqlx.DB) ([]Song, error) {
 				 JOIN songs s ON sa.song_id = s.id
 		GROUP BY s.id
 		ORDER BY COUNT(sa.id) DESC
-		LIMIT 100;
-	`)
+		LIMIT $1;
+	`, limit)
 
 	if err != nil {
 		return nil, err
