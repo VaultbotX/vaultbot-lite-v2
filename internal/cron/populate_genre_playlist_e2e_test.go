@@ -18,6 +18,7 @@ type mockPlaylistRepo struct {
 	getPlaylistTracksResponse []zspotify.PlaylistItem
 	removed                   []zspotify.ID
 	added                     []zspotify.ID
+	updatedDescription        string
 }
 
 func (m *mockPlaylistRepo) GetPlaylistTracks(ctx context.Context) ([]zspotify.PlaylistItem, error) {
@@ -35,6 +36,7 @@ func (m *mockPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trackId
 }
 
 func (m *mockPlaylistRepo) UpdatePlaylistDescription(ctx context.Context, description string) error {
+	m.updatedDescription = description
 	return nil
 }
 

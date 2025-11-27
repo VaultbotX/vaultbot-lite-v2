@@ -92,12 +92,7 @@ func (r *SpotifyPlaylistRepo) UpdatePlaylistDescription(ctx context.Context, des
 	if playlistId == "" {
 		return errors.New("invalid playlist type")
 	}
-	err := r.Client.Client.ChangePlaylistDescription(ctx, playlistId, description)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return r.Client.Client.ChangePlaylistDescription(ctx, playlistId, description)
 }
 
 func (r *SpotifyPlaylistRepo) getPlaylistId() spotify.ID {
