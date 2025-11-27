@@ -47,9 +47,9 @@ func RefreshPlaylistCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 	var refreshErr error
 	switch selectedOption.StringValue() {
 	case "genre":
-		refreshErr = RunPopulateGenrePlaylist()
+		refreshErr = runPopulateGenrePlaylist()
 	case "high_scores":
-		refreshErr = RunPopulateHighScoresPlaylist()
+		refreshErr = runPopulateHighScoresPlaylist()
 	default:
 		refreshErr = errors.New("invalid playlist option selected: " + selectedOption.StringValue())
 		return
