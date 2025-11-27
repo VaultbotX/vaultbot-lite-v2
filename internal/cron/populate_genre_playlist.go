@@ -73,14 +73,17 @@ func populatePlaylistOuter() {
 	}
 }
 
+var (
+	baseGenrePlaylistDescription = "A randomly selected genre tracked by Vaultbot. Revived as of 11/25/25 :)"
+)
+
 func populatePlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
 	playlistItems, err := playlistService.Repo.GetPlaylistTracks(ctx)
 	if err != nil {
 		return err
 	}
 
-	// TODO: update the playlist description to indicate the genre name (currently discarded)
-	tracksToAdd, _, err := trackRepo.GetRandomGenreTracks()
+	tracksToAdd, genreName, err := trackRepo.GetRandomGenreTracks()
 	if err != nil {
 		return err
 	}
@@ -107,6 +110,17 @@ func populatePlaylist(ctx context.Context, playlistService *domain.SpotifyPlayli
 			log.Errorf("Failed to add tracks to playlist: %v", err)
 			return err
 		}
+	}
+
+	// Update playlist description
+	newDescription := baseGenrePlaylistDescription
+	if genreName != "" {
+		newDescription += " Current genre: " + genreName + "."
+	}
+
+	if err := playlistService.Repo.UpdatePlaylistDescription(ctx, newDescription); err != nil {
+		log.Errorf("Failed to update playlist description: %v", err)
+		// Not a critical error, continue
 	}
 
 	log.Infof("Finished populating genre playlist. Added: %d, Removed: %d, Total desired: %d", len(toAdd), len(toRemove), len(desiredOrder))

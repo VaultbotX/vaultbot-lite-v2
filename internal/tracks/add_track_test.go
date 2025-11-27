@@ -347,6 +347,10 @@ func (m *mockPlaylistService) RemoveTracksFromPlaylist(_ context.Context, _ []sp
 	return nil
 }
 
+func (m *mockPlaylistService) UpdatePlaylistDescription(_ context.Context, _ string) error {
+	return nil
+}
+
 type mockTrackRepository struct{}
 
 func (m *mockTrackRepository) AddTrackToDatabase(_ *domain.UserFields, _ *spotify.FullTrack, _ []*spotify.FullArtist) error {
