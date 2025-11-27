@@ -1,106 +1,94 @@
 package cron
 
 import (
+	"context"
+	"reflect"
 	"testing"
+
 	"time"
 
-	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/songs"
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
+	psongs "github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/songs"
 	"github.com/zmb3/spotify/v2"
+	zspotify "github.com/zmb3/spotify/v2"
 )
 
-func makePlaylistItem(id string) spotify.PlaylistItem {
-	return spotify.PlaylistItem{
-		AddedAt: time.Now().Format(spotify.TimestampLayout),
-		Track: spotify.PlaylistItemTrack{
-			Track: &spotify.FullTrack{
-				SimpleTrack: spotify.SimpleTrack{ID: spotify.ID(id)},
-			},
-		},
+// mockPlaylistRepo implements the SpotifyPlaylistRepository used by domain.NewSpotifyPlaylistService
+type mockPlaylistRepo struct {
+	getPlaylistTracksResponse []zspotify.PlaylistItem
+	removed                   []zspotify.ID
+	added                     []zspotify.ID
+	updatedDescription        string
+}
+
+func (m *mockPlaylistRepo) GetPlaylistTracks(ctx context.Context) ([]zspotify.PlaylistItem, error) {
+	return m.getPlaylistTracksResponse, nil
+}
+
+func (m *mockPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds []zspotify.ID) error {
+	m.added = append(m.added, trackIds...)
+	return nil
+}
+
+func (m *mockPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trackIds []zspotify.ID) error {
+	m.removed = append(m.removed, trackIds...)
+	return nil
+}
+
+func (m *mockPlaylistRepo) UpdatePlaylistDescription(ctx context.Context, description string) error {
+	m.updatedDescription = description
+	return nil
+}
+
+// mockTrackRepo implements domain.AddTrackRepository
+type mockTrackRepo struct {
+	rows []psongs.Song
+}
+
+func (m *mockTrackRepo) AddTrackToDatabase(fields *domain.UserFields, track *zspotify.FullTrack, artist []*zspotify.FullArtist) error {
+	panic("not implemented")
+}
+func (m *mockTrackRepo) GetRandomGenreTracks() (songs []psongs.Song, genreName string, err error) {
+	return m.rows, "genre", nil
+}
+func (m *mockTrackRepo) GetTop50Tracks() (songs []psongs.Song, err error) {
+	return m.rows, nil
+}
+
+func makePI(id string) zspotify.PlaylistItem {
+	return zspotify.PlaylistItem{AddedAt: time.Now().Format(spotify.TimestampLayout), Track: zspotify.PlaylistItemTrack{Track: &zspotify.FullTrack{SimpleTrack: zspotify.SimpleTrack{ID: zspotify.ID(id)}}}}
+}
+
+func TestPopulatePlaylistWithDeps_E2E(t *testing.T) {
+	// current playlist has 1 and 2
+	mockRepo := &mockPlaylistRepo{getPlaylistTracksResponse: []zspotify.PlaylistItem{makePI("1"), makePI("2")}}
+	// desired rows are 2,3,4 -> should remove 1, add 3,4, keep 2
+	mockTrack := &mockTrackRepo{rows: []psongs.Song{{SpotifyId: "2"}, {SpotifyId: "3"}, {SpotifyId: "4"}}}
+
+	service := &domain.SpotifyPlaylistService{Repo: mockRepo}
+
+	ctx := context.Background()
+	err := populateGenrePlaylist(ctx, service, mockTrack)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// verify removed contains 1
+	if !containsID(mockRepo.removed, zspotify.ID("1")) || len(mockRepo.removed) != 1 {
+		t.Fatalf("unexpected removed: %v", mockRepo.removed)
+	}
+
+	// verify added contains 3 and 4 in order
+	if !reflect.DeepEqual(mockRepo.added, []zspotify.ID{zspotify.ID("3"), zspotify.ID("4")}) {
+		t.Fatalf("unexpected added order: %v", mockRepo.added)
 	}
 }
 
-// Test playlistItemsToSet with typical items and an item missing a track
-func TestPlaylistItemsToSet(t *testing.T) {
-	items := []spotify.PlaylistItem{
-		makePlaylistItem("1"),
-		makePlaylistItem("2"),
-		// item with nil track
-		{Track: spotify.PlaylistItemTrack{Track: nil}},
+func containsID(slice []zspotify.ID, id zspotify.ID) bool {
+	for _, s := range slice {
+		if s == id {
+			return true
+		}
 	}
-
-	set := playlistItemsToSet(items)
-	if len(set) != 2 {
-		t.Fatalf("expected set length 2, got %d", len(set))
-	}
-	if _, ok := set[spotify.ID("1")]; !ok {
-		t.Fatalf("expected id 1 in set")
-	}
-	if _, ok := set[spotify.ID("2")]; !ok {
-		t.Fatalf("expected id 2 in set")
-	}
-}
-
-// Test songsToIDsAndSet handles empty SpotifyId and preserves order
-func TestSongsToIDsAndSet(t *testing.T) {
-	rows := []songs.Song{{SpotifyId: "a"}, {SpotifyId: ""}, {SpotifyId: "b"}, {SpotifyId: "c"}}
-
-	order, set := songsToIDsAndSet(rows)
-	if len(order) != 3 {
-		t.Fatalf("expected order len 3, got %d", len(order))
-	}
-	if order[0] != spotify.ID("a") || order[1] != spotify.ID("b") || order[2] != spotify.ID("c") {
-		t.Fatalf("order mismatch: %+v", order)
-	}
-	if len(set) != 3 {
-		t.Fatalf("expected set len 3, got %d", len(set))
-	}
-}
-
-// Test songsToIDsAndSet handles an empty slice (should return empty order and set)
-func TestSongsToIDsAndSet_EmptyRows(t *testing.T) {
-	var rows []songs.Song
-
-	order, set := songsToIDsAndSet(rows)
-	if len(order) != 0 {
-		t.Fatalf("expected empty order for empty rows, got %d", len(order))
-	}
-	if len(set) != 0 {
-		t.Fatalf("expected empty set for empty rows, got %d", len(set))
-	}
-}
-
-// Test diffToRemove identifies items present in current but not desired
-func TestDiffToRemove(t *testing.T) {
-	current := map[spotify.ID]struct{}{spotify.ID("1"): {}, spotify.ID("2"): {}, spotify.ID("3"): {}}
-	desired := map[spotify.ID]struct{}{spotify.ID("2"): {}, spotify.ID("4"): {}}
-
-	rem := diffToRemove(current, desired)
-	// rem should contain 1 and 3 in any order
-	if len(rem) != 2 {
-		t.Fatalf("expected 2 to remove, got %d", len(rem))
-	}
-	m := map[spotify.ID]struct{}{}
-	for _, id := range rem {
-		m[id] = struct{}{}
-	}
-	if _, ok := m[spotify.ID("1")]; !ok {
-		t.Fatalf("expected 1 in remove list")
-	}
-	if _, ok := m[spotify.ID("3")]; !ok {
-		t.Fatalf("expected 3 in remove list")
-	}
-}
-
-// Test diffToAdd returns desired order items not present in current
-func TestDiffToAdd(t *testing.T) {
-	current := map[spotify.ID]struct{}{spotify.ID("1"): {}, spotify.ID("3"): {}}
-	desiredOrder := []spotify.ID{spotify.ID("2"), spotify.ID("3"), spotify.ID("4")}
-
-	add := diffToAdd(current, desiredOrder)
-	if len(add) != 2 {
-		t.Fatalf("expected 2 to add, got %d", len(add))
-	}
-	if add[0] != spotify.ID("2") || add[1] != spotify.ID("4") {
-		t.Fatalf("unexpected add order: %+v", add)
-	}
+	return false
 }

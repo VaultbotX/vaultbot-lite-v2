@@ -34,7 +34,7 @@ func PopulateGenrePlaylist(scheduler gocron.Scheduler) {
 				gocron.NewAtTime(0, 0, 0),
 			),
 		),
-		gocron.NewTask(populatePlaylistOuter),
+		gocron.NewTask(populateGenrePlaylistOuter),
 	)
 
 	if err != nil {
@@ -44,7 +44,7 @@ func PopulateGenrePlaylist(scheduler gocron.Scheduler) {
 	populateGenrePlaylistJob = job
 }
 
-func populatePlaylistOuter() {
+func populateGenrePlaylistOuter() {
 	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -66,8 +66,8 @@ func populatePlaylistOuter() {
 
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
 
-	if err := populatePlaylist(newCtx, playlistService, trackService.Repo); err != nil {
-		log.Errorf("populatePlaylistOuter failed: %v", err)
+	if err := populateGenrePlaylist(newCtx, playlistService, trackService.Repo); err != nil {
+		log.Errorf("populateGenrePlaylistOuter failed: %v", err)
 	}
 }
 
@@ -75,7 +75,7 @@ var (
 	baseGenrePlaylistDescription = "A randomly selected genre tracked by Vaultbot. Revived as of 11/25/25 :)"
 )
 
-func populatePlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
+func populateGenrePlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
 	playlistItems, err := playlistService.Repo.GetPlaylistTracks(ctx)
 	if err != nil {
 		return err
@@ -121,6 +121,6 @@ func populatePlaylist(ctx context.Context, playlistService *domain.SpotifyPlayli
 		// Not a critical error, continue
 	}
 
-	log.Infof("Finished populating genre playlist. Added: %d, Removed: %d, Total desired: %d", len(toAdd), len(toRemove), len(desiredOrder))
+	log.Infof("Finished populating genre playlist. Added: %d, Removed: %d, Total desired: %d. Genre: %s", len(toAdd), len(toRemove), len(desiredOrder), genreName)
 	return nil
 }

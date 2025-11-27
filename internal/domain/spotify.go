@@ -19,6 +19,7 @@ type Playlist int
 const (
 	DynamicPlaylist Playlist = iota
 	GenrePlaylist
+	Top50Playlist
 )
 
 type SpotifyTrackRepository interface {
