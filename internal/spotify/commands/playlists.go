@@ -101,6 +101,8 @@ func (r *SpotifyPlaylistRepo) getPlaylistId() spotify.ID {
 		return r.Client.DynamicPlaylistId
 	case domain.GenrePlaylist:
 		return r.Client.GenrePlaylistId
+	case domain.HighScoresPlaylist:
+		return r.Client.HighScoresPlaylistId
 	default:
 		return ""
 	}
