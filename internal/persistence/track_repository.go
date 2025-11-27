@@ -102,3 +102,7 @@ func (r *PostgresTrackRepository) GetRandomGenreTracks() (songs []psongs.Song, g
 
 	return tracks, genre.Name, nil
 }
+
+func (r *PostgresTrackRepository) GetTop50Tracks() (songs []psongs.Song, err error) {
+	return psongs.GetOverallTopSongs(r.db, 50)
+}

@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	populateGenrePlaylistJob gocron.Job
+	populateHighScoresPlaylistJob gocron.Job
 )
 
-func runPopulateGenrePlaylist() error {
-	err := populateGenrePlaylistJob.RunNow()
+func runPopulateHighScoresPlaylist() error {
+	err := populateHighScoresPlaylistJob.RunNow()
 	if err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func runPopulateGenrePlaylist() error {
 	return nil
 }
 
-func PopulateGenrePlaylist(scheduler gocron.Scheduler) {
+func PopulateHighScoresPlaylist(scheduler gocron.Scheduler) {
 	job, err := scheduler.NewJob(
 		gocron.DailyJob(
 			1,
@@ -34,17 +34,17 @@ func PopulateGenrePlaylist(scheduler gocron.Scheduler) {
 				gocron.NewAtTime(0, 0, 0),
 			),
 		),
-		gocron.NewTask(populateGenrePlaylistOuter),
+		gocron.NewTask(populateHighScoresPlaylistOuter),
 	)
 
 	if err != nil {
-		log.Fatalf("Failed to schedule populate genre playlist job: %v", err)
+		log.Fatalf("Failed to schedule populate high scores playlist job: %v", err)
 	}
 
-	populateGenrePlaylistJob = job
+	populateHighScoresPlaylistJob = job
 }
 
-func populateGenrePlaylistOuter() {
+func populateHighScoresPlaylistOuter() {
 	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -55,7 +55,7 @@ func populateGenrePlaylistOuter() {
 	}
 	playlistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
 		Client:   spClient,
-		Playlist: domain.GenrePlaylist,
+		Playlist: domain.HighScoresPlaylist,
 	})
 
 	pgConn, err := postgres.NewPostgresConnection()
@@ -66,22 +66,18 @@ func populateGenrePlaylistOuter() {
 
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
 
-	if err := populateGenrePlaylist(newCtx, playlistService, trackService.Repo); err != nil {
-		log.Errorf("populateGenrePlaylistOuter failed: %v", err)
+	if err := populateHighScoresPlaylist(newCtx, playlistService, trackService.Repo); err != nil {
+		log.Errorf("populateHighScoresPlaylistOuter failed: %v", err)
 	}
 }
 
-var (
-	baseGenrePlaylistDescription = "A randomly selected genre tracked by Vaultbot. Revived as of 11/25/25 :)"
-)
-
-func populateGenrePlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
+func populateHighScoresPlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
 	playlistItems, err := playlistService.Repo.GetPlaylistTracks(ctx)
 	if err != nil {
 		return err
 	}
 
-	tracksToAdd, genreName, err := trackRepo.GetRandomGenreTracks()
+	tracksToAdd, err := trackRepo.GetTop50Tracks()
 	if err != nil {
 		return err
 	}
@@ -94,7 +90,7 @@ func populateGenrePlaylist(ctx context.Context, playlistService *domain.SpotifyP
 
 	// Remove obsolete tracks
 	if len(toRemove) > 0 {
-		log.Infof("Removing %d obsolete tracks from genre playlist", len(toRemove))
+		log.Infof("Removing %d obsolete tracks from high scores playlist", len(toRemove))
 		if err := playlistService.Repo.RemoveTracksFromPlaylist(ctx, toRemove); err != nil {
 			log.Errorf("Failed to remove tracks from playlist: %v", err)
 			// continue to attempt adding new tracks
@@ -103,24 +99,13 @@ func populateGenrePlaylist(ctx context.Context, playlistService *domain.SpotifyP
 
 	// Add new tracks
 	if len(toAdd) > 0 {
-		log.Infof("Adding %d new tracks to genre playlist", len(toAdd))
+		log.Infof("Adding %d new tracks to high scores playlist", len(toAdd))
 		if err := playlistService.Repo.AddTracksToPlaylist(ctx, toAdd); err != nil {
 			log.Errorf("Failed to add tracks to playlist: %v", err)
 			return err
 		}
 	}
 
-	// Update playlist description
-	newDescription := baseGenrePlaylistDescription
-	if genreName != "" {
-		newDescription += " Current genre: " + genreName + "."
-	}
-
-	if err := playlistService.Repo.UpdatePlaylistDescription(ctx, newDescription); err != nil {
-		log.Errorf("Failed to update playlist description: %v", err)
-		// Not a critical error, continue
-	}
-
-	log.Infof("Finished populating genre playlist. Added: %d, Removed: %d, Total desired: %d. Genre: %s", len(toAdd), len(toRemove), len(desiredOrder), genreName)
+	log.Infof("Finished populating high scores playlist. Added: %d, Removed: %d, Total desired: %d", len(toAdd), len(toRemove), len(desiredOrder))
 	return nil
 }

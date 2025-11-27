@@ -17,8 +17,12 @@ const (
 type Playlist int
 
 const (
+	// DynamicPlaylist represents the main playlist that is regularly updated with new tracks.
 	DynamicPlaylist Playlist = iota
+	// GenrePlaylist represents a playlist curated based on specific genres.
 	GenrePlaylist
+	// HighScoresPlaylist represents a playlist that features the tracks added most frequently.
+	HighScoresPlaylist
 )
 
 type SpotifyTrackRepository interface {

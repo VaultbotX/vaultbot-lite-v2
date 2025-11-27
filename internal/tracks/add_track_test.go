@@ -361,6 +361,10 @@ func (m *mockTrackRepository) GetRandomGenreTracks() (songs []songs.Song, genreN
 	return nil, "", nil
 }
 
+func (m *mockTrackRepository) GetTop50Tracks() (songs []songs.Song, err error) {
+	return nil, nil
+}
+
 func TestAddTrack_ReturnsTrack_WhenValidTrack(t *testing.T) {
 	// Arrange
 	spotifyTrackService := domain.NewSpotifyTrackService(&mockSpotifyTrackRepo{

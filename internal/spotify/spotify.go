@@ -26,11 +26,12 @@ const (
 )
 
 type Client struct {
-	DynamicPlaylistId spotify.ID
-	GenrePlaylistId   spotify.ID
-	Client            *spotify.Client
-	Mu                sync.Mutex
-	auth              *auth.Authenticator
+	DynamicPlaylistId    spotify.ID
+	GenrePlaylistId      spotify.ID
+	HighScoresPlaylistId spotify.ID
+	Client               *spotify.Client
+	Mu                   sync.Mutex
+	auth                 *auth.Authenticator
 }
 
 func NewSpotifyClient(ctx context.Context) (*Client, error) {
@@ -48,14 +49,19 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 		log.Fatal("Missing SPOTIFY_CLIENT_SECRET environment variable")
 	}
 
-	playlistId, playlistIdPresent := os.LookupEnv("SPOTIFY_PLAYLIST_ID")
-	if !playlistIdPresent {
+	dynamicPlaylistId, dynamicPlaylistIdPresent := os.LookupEnv("SPOTIFY_PLAYLIST_ID")
+	if !dynamicPlaylistIdPresent {
 		log.Fatal("Missing SPOTIFY_PLAYLIST_ID environment variable")
 	}
 
 	genrePlaylistId, genrePlaylistIdExists := os.LookupEnv("GENRE_SPOTIFY_PLAYLIST_ID")
 	if !genrePlaylistIdExists {
 		log.Fatal("Missing GENRE_SPOTIFY_PLAYLIST_ID environment variable")
+	}
+
+	highScoresPlaylistId, highScoresPlaylistIdExists := os.LookupEnv("HIGH_SCORES_SPOTIFY_PLAYLIST_ID")
+	if !highScoresPlaylistIdExists {
+		log.Fatal("Missing HIGH_SCORES_SPOTIFY_PLAYLIST_ID environment variable")
 	}
 
 	authenticator := auth.New(
@@ -82,11 +88,12 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 		validateUserPresent(ctx, client)
 
 		instance = &Client{
-			DynamicPlaylistId: spotify.ID(playlistId),
-			GenrePlaylistId:   spotify.ID(genrePlaylistId),
-			Client:            client,
-			Mu:                sync.Mutex{},
-			auth:              authenticator,
+			DynamicPlaylistId:    spotify.ID(dynamicPlaylistId),
+			GenrePlaylistId:      spotify.ID(genrePlaylistId),
+			HighScoresPlaylistId: spotify.ID(highScoresPlaylistId),
+			Client:               client,
+			Mu:                   sync.Mutex{},
+			auth:                 authenticator,
 		}
 
 		log.Debug("Successfully parsed Spotify token from environment variable")
@@ -156,9 +163,10 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 	log.Warn("Token written to file. Please set the SPOTIFY_TOKEN environment variable to the contents of the file")
 
 	instance = &Client{
-		DynamicPlaylistId: spotify.ID(playlistId),
-		GenrePlaylistId:   spotify.ID(genrePlaylistId),
-		Client:            client,
+		DynamicPlaylistId:    spotify.ID(dynamicPlaylistId),
+		GenrePlaylistId:      spotify.ID(genrePlaylistId),
+		HighScoresPlaylistId: spotify.ID(highScoresPlaylistId),
+		Client:               client,
 	}
 
 	log.Info("Successfully retrieved new Spotify token")
