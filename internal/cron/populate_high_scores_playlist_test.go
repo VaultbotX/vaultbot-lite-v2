@@ -10,7 +10,7 @@ import (
 	zspotify "github.com/zmb3/spotify/v2"
 )
 
-func TestPopulateHighScoresPlaylist_E2E(t *testing.T) {
+func TestPopulateHighScoresPlaylist(t *testing.T) {
 	// current playlist has 1 and 2
 	mockRepo := &mockPlaylistRepo{getPlaylistTracksResponse: []zspotify.PlaylistItem{makePI("1"), makePI("2")}}
 	// desired rows are 2,3,4 -> should remove 1, add 3,4, keep 2
