@@ -34,6 +34,10 @@ func (m *mockPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trackId
 	return nil
 }
 
+func (m *mockPlaylistRepo) UpdatePlaylistDescription(ctx context.Context, description string) error {
+	return nil
+}
+
 // mockTrackRepo implements domain.AddTrackRepository
 type mockTrackRepo struct {
 	rows []psongs.Song
