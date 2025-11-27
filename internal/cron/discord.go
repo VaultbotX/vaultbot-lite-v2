@@ -44,6 +44,12 @@ func RefreshPlaylistCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 		return
 	}
 
+	err = helpers.RespondImmediately(s, i, "Processing your request...")
+	if err != nil {
+		log.WithFields(meta).Errorf("Error responding to user: %s", err)
+		return
+	}
+
 	var refreshErr error
 	switch selectedOption.StringValue() {
 	case "genre":
@@ -52,11 +58,10 @@ func RefreshPlaylistCommandHandler(s *discordgo.Session, i *discordgo.Interactio
 		refreshErr = runPopulateHighScoresPlaylist()
 	default:
 		refreshErr = errors.New("invalid playlist option selected: " + selectedOption.StringValue())
-		return
 	}
 
 	if refreshErr != nil {
-		log.WithFields(meta).Errorf("Error refreshing playlist: %s", err)
+		log.WithFields(meta).Errorf("Error refreshing playlist: %s", refreshErr)
 		err2 := helpers.RespondDelayed(s, i, "There was an error refreshing the selected playlist. Please try again later :(")
 		if err2 != nil {
 			log.WithFields(meta).Errorf("Error responding to user: %s", err2)
