@@ -17,7 +17,7 @@ var (
 	populateGenrePlaylistJob gocron.Job
 )
 
-func RunPopulateGenrePlaylist() error {
+func runPopulateGenrePlaylist() error {
 	err := populateGenrePlaylistJob.RunNow()
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ var (
 	populateHighScoresPlaylistJob gocron.Job
 )
 
-func RunPopulateHighScoresPlaylist() error {
+func runPopulateHighScoresPlaylist() error {
 	err := populateHighScoresPlaylistJob.RunNow()
 	if err != nil {
 		return err
