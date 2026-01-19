@@ -8,7 +8,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/zmb3/spotify/v2 v2.4.3
 	golang.org/x/oauth2 v0.34.0
 )
