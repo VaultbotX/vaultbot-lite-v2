@@ -10,7 +10,7 @@ require (
 	github.com/lib/pq v1.12.1
 	github.com/sirupsen/logrus v1.9.4
 	github.com/zmb3/spotify/v2 v2.4.3
-	golang.org/x/oauth2 v0.35.0
+	golang.org/x/oauth2 v0.36.0
 )
 
 require (
