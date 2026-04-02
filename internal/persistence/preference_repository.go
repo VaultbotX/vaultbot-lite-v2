@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"time"
+
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
-	"time"
 )
 
 type PreferenceRepo struct {
@@ -27,9 +28,14 @@ type PreferenceRecord struct {
 }
 
 func (p PreferenceRepo) Set(ctx context.Context, preferenceKey domain.PreferenceKey, value any) error {
+	jsonValue, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
 	now := time.Now().UTC()
 	// update the existing preference to have an end date of now
-	_, err := p.db.ExecContext(ctx, `
+	_, err = p.db.ExecContext(ctx, `
 		WITH current_record_id AS (
 			SELECT id
 			FROM preferences
@@ -48,7 +54,7 @@ func (p PreferenceRepo) Set(ctx context.Context, preferenceKey domain.Preference
 	_, err = p.db.ExecContext(ctx, `
 		INSERT INTO preferences (key, value, start_time)
 		VALUES ($1, $2, $3)
-	`, preferenceKey, value, now)
+	`, preferenceKey, json.RawMessage(jsonValue), now)
 	if err != nil {
 		return err
 	}
