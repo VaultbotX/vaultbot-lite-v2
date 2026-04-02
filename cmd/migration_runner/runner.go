@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/migrations"
 )
@@ -45,7 +45,7 @@ func main() {
 		dsn += " sslmode=require"
 	}
 
-	db := sqlx.MustConnect("postgres", dsn)
+	db := sqlx.MustConnect("pgx", dsn)
 
 	db.MustExec(`
 		CREATE TABLE IF NOT EXISTS migrations (

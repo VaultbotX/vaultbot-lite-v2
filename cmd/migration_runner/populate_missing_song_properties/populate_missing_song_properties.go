@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"os"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	spotify2 "github.com/zmb3/spotify/v2"
-	"os"
 )
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 		dsn += " sslmode=require"
 	}
 
-	db := sqlx.MustConnect("postgres", dsn)
+	db := sqlx.MustConnect("pgx", dsn)
 	defer func(db *sqlx.DB) {
 		err := db.Close()
 		if err != nil {
