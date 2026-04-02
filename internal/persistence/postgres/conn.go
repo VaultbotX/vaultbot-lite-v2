@@ -1,11 +1,12 @@
 package postgres
 
 import (
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"sync"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -44,7 +45,7 @@ func NewPostgresConnection() (*sqlx.DB, error) {
 		dsn += " sslmode=require"
 	}
 
-	newDb, err := sqlx.Open("postgres", dsn)
+	newDb, err := sqlx.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
