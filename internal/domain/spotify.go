@@ -6,12 +6,12 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-type EntityType int
+type EntityType string
 
 const (
-	Track EntityType = iota
-	Artist
-	Genre
+	Track  EntityType = "track"
+	Artist EntityType = "artist"
+	Genre  EntityType = "genre"
 )
 
 type Playlist int
