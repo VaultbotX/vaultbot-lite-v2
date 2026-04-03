@@ -2,9 +2,7 @@ package cron
 
 import (
 	"context"
-	"time"
 
-	"github.com/go-co-op/gocron/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
@@ -13,45 +11,10 @@ import (
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 )
 
-var (
-	populateHighScoresPlaylistJob gocron.Job
-)
-
-func runPopulateHighScoresPlaylist() error {
-	err := populateHighScoresPlaylistJob.RunNow()
+func RunPopulateHighScoresPlaylist(ctx context.Context) error {
+	spClient, err := spotify.NewSpotifyClient(ctx)
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func PopulateHighScoresPlaylist(scheduler gocron.Scheduler) {
-	job, err := scheduler.NewJob(
-		gocron.DailyJob(
-			1,
-			gocron.NewAtTimes(
-				gocron.NewAtTime(0, 0, 0),
-			),
-		),
-		gocron.NewTask(populateHighScoresPlaylistOuter),
-	)
-
-	if err != nil {
-		log.Fatalf("Failed to schedule populate high scores playlist job: %v", err)
-	}
-
-	populateHighScoresPlaylistJob = job
-}
-
-func populateHighScoresPlaylistOuter() {
-	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	spClient, err := spotify.NewSpotifyClient(newCtx)
-	if err != nil {
-		log.Error(err)
-		return
 	}
 	playlistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
 		Client:   spClient,
@@ -60,15 +23,11 @@ func populateHighScoresPlaylistOuter() {
 
 	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
-		log.Error(err)
-		return
+		return err
 	}
 
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
-
-	if err := populateHighScoresPlaylist(newCtx, playlistService, trackService.Repo); err != nil {
-		log.Errorf("populateHighScoresPlaylistOuter failed: %v", err)
-	}
+	return populateHighScoresPlaylist(ctx, playlistService, trackService.Repo)
 }
 
 func populateHighScoresPlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
@@ -88,16 +47,13 @@ func populateHighScoresPlaylist(ctx context.Context, playlistService *domain.Spo
 	toRemove := diffToRemove(currentSet, desiredSet)
 	toAdd := diffToAdd(currentSet, desiredOrder)
 
-	// Remove obsolete tracks
 	if len(toRemove) > 0 {
 		log.Infof("Removing %d obsolete tracks from high scores playlist", len(toRemove))
 		if err := playlistService.Repo.RemoveTracksFromPlaylist(ctx, toRemove); err != nil {
 			log.Errorf("Failed to remove tracks from playlist: %v", err)
-			// continue to attempt adding new tracks
 		}
 	}
 
-	// Add new tracks
 	if len(toAdd) > 0 {
 		log.Infof("Adding %d new tracks to high scores playlist", len(toAdd))
 		if err := playlistService.Repo.AddTracksToPlaylist(ctx, toAdd); err != nil {

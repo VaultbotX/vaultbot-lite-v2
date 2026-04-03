@@ -8,8 +8,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/zmb3/spotify/v2"
+)
+
+type EntityType string
+
+const (
+	Track  EntityType = "track"
+	Artist EntityType = "artist"
+	Genre  EntityType = "genre"
 )
 
 var alphanumericRegex = regexp.MustCompile(`^[a-zA-Z0-9]{1,50}$`)
@@ -121,8 +128,8 @@ func resolveSpotifyLink(startURL string) string {
 
 // ParseSpotifyId parses a string and returns a spotify ID for a Spotify URL, URI, or track/artist ID.
 // It does not handle genres, which do not have externally facing Spotify IDs.
-func ParseSpotifyId(text string, entityType domain.EntityType) *spotify.ID {
-	if entityType == domain.Genre {
+func ParseSpotifyId(text string, entityType EntityType) *spotify.ID {
+	if entityType == Genre {
 		return nil
 	}
 
@@ -139,7 +146,7 @@ func ParseSpotifyId(text string, entityType domain.EntityType) *spotify.ID {
 		}
 	}
 	switch entityType {
-	case domain.Track:
+	case Track:
 		if spotifyTrackUriRegex.MatchString(text) {
 			match := spotifyTrackUriRegex.FindStringSubmatch(text)
 			if len(match) > 0 {
@@ -156,7 +163,7 @@ func ParseSpotifyId(text string, entityType domain.EntityType) *spotify.ID {
 			}
 		}
 		break
-	case domain.Artist:
+	case Artist:
 		if spotifyArtistUriRegex.MatchString(text) {
 			match := spotifyArtistUriRegex.FindStringSubmatch(text)
 			if len(match) > 0 {

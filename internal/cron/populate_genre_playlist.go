@@ -2,9 +2,7 @@ package cron
 
 import (
 	"context"
-	"time"
 
-	"github.com/go-co-op/gocron/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
@@ -13,45 +11,12 @@ import (
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
 )
 
-var (
-	populateGenrePlaylistJob gocron.Job
-)
+var baseGenrePlaylistDescription = "A randomly selected genre tracked by Vaultbot. Revived as of 11/25/25 :)"
 
-func runPopulateGenrePlaylist() error {
-	err := populateGenrePlaylistJob.RunNow()
+func RunPopulateGenrePlaylist(ctx context.Context) error {
+	spClient, err := spotify.NewSpotifyClient(ctx)
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func PopulateGenrePlaylist(scheduler gocron.Scheduler) {
-	job, err := scheduler.NewJob(
-		gocron.DailyJob(
-			1,
-			gocron.NewAtTimes(
-				gocron.NewAtTime(0, 0, 0),
-			),
-		),
-		gocron.NewTask(populateGenrePlaylistOuter),
-	)
-
-	if err != nil {
-		log.Fatalf("Failed to schedule populate genre playlist job: %v", err)
-	}
-
-	populateGenrePlaylistJob = job
-}
-
-func populateGenrePlaylistOuter() {
-	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	spClient, err := spotify.NewSpotifyClient(newCtx)
-	if err != nil {
-		log.Error(err)
-		return
 	}
 	playlistService := domain.NewSpotifyPlaylistService(&sp.SpotifyPlaylistRepo{
 		Client:   spClient,
@@ -60,20 +25,12 @@ func populateGenrePlaylistOuter() {
 
 	pgConn, err := postgres.NewPostgresConnection()
 	if err != nil {
-		log.Error(err)
-		return
+		return err
 	}
 
 	trackService := domain.NewTrackService(persistence.NewPostgresTrackRepository(pgConn))
-
-	if err := populateGenrePlaylist(newCtx, playlistService, trackService.Repo); err != nil {
-		log.Errorf("populateGenrePlaylistOuter failed: %v", err)
-	}
+	return populateGenrePlaylist(ctx, playlistService, trackService.Repo)
 }
-
-var (
-	baseGenrePlaylistDescription = "A randomly selected genre tracked by Vaultbot. Revived as of 11/25/25 :)"
-)
 
 func populateGenrePlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
 	playlistItems, err := playlistService.Repo.GetPlaylistTracks(ctx)
@@ -92,16 +49,13 @@ func populateGenrePlaylist(ctx context.Context, playlistService *domain.SpotifyP
 	toRemove := diffToRemove(currentSet, desiredSet)
 	toAdd := diffToAdd(currentSet, desiredOrder)
 
-	// Remove obsolete tracks
 	if len(toRemove) > 0 {
 		log.Infof("Removing %d obsolete tracks from genre playlist", len(toRemove))
 		if err := playlistService.Repo.RemoveTracksFromPlaylist(ctx, toRemove); err != nil {
 			log.Errorf("Failed to remove tracks from playlist: %v", err)
-			// continue to attempt adding new tracks
 		}
 	}
 
-	// Add new tracks
 	if len(toAdd) > 0 {
 		log.Infof("Adding %d new tracks to genre playlist", len(toAdd))
 		if err := playlistService.Repo.AddTracksToPlaylist(ctx, toAdd); err != nil {
@@ -110,7 +64,6 @@ func populateGenrePlaylist(ctx context.Context, playlistService *domain.SpotifyP
 		}
 	}
 
-	// Update playlist description
 	newDescription := baseGenrePlaylistDescription
 	if genreName != "" {
 		newDescription += " Current genre: " + genreName + "."
@@ -118,7 +71,6 @@ func populateGenrePlaylist(ctx context.Context, playlistService *domain.SpotifyP
 
 	if err := playlistService.Repo.UpdatePlaylistDescription(ctx, newDescription); err != nil {
 		log.Errorf("Failed to update playlist description: %v", err)
-		// Not a critical error, continue
 	}
 
 	log.Infof("Finished populating genre playlist. Added: %d, Removed: %d, Total desired: %d. Genre: %s", len(toAdd), len(toRemove), len(desiredOrder), genreName)
