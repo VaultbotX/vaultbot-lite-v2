@@ -1,0 +1,32 @@
+name: Run Migrations
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'internal/persistence/postgres/migrations/**'
+      - 'cmd/migration_runner/**'
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.26'
+
+      - name: Build
+        run: go build -o bin/migration_runner ./cmd/migration_runner
+
+      - name: Run
+        env:
+          POSTGRES_HOST: ${{ secrets.NEON_HOST }}
+          POSTGRES_PORT: ${{ secrets.NEON_PORT }}
+          POSTGRES_USER: ${{ secrets.NEON_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.NEON_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.NEON_DB }}
+        run: ./bin/migration_runner

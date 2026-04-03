@@ -2,71 +2,87 @@ package tracks
 
 import (
 	"context"
-	"github.com/vaultbotx/vaultbot-lite/internal/domain"
-	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"testing"
 	"time"
+
+	"github.com/vaultbotx/vaultbot-lite/internal/domain"
+	"github.com/zmb3/spotify/v2"
 )
 
-func TestPurgeTracks_RemovesExpiredTracks(t *testing.T) {
-	// Arrange
-	date := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
-	existingTracks := []*domain.CacheTrack{
-		// Added on 2024-01-13
-		{
-			TrackId: "1",
-			AddedAt: date.Add(-2 * 24 * time.Hour),
-		},
-		// Added 8 days prior to 2025-01-15
-		{
-			TrackId: "2",
-			AddedAt: date.Add(-8 * 24 * time.Hour),
-		},
-		// Added 15 days prior to 2025-01-15
-		{
-			TrackId: "3",
-			AddedAt: date.Add(-15 * 24 * time.Hour),
+type mockPlaylistService struct {
+	items []spotify.PlaylistItem
+}
+
+func (m *mockPlaylistService) GetPlaylistTracks(_ context.Context) ([]spotify.PlaylistItem, error) {
+	return m.items, nil
+}
+
+func (m *mockPlaylistService) AddTracksToPlaylist(_ context.Context, _ []spotify.ID) error {
+	return nil
+}
+
+func (m *mockPlaylistService) RemoveTracksFromPlaylist(_ context.Context, _ []spotify.ID) error {
+	return nil
+}
+
+func (m *mockPlaylistService) UpdatePlaylistDescription(_ context.Context, _ string) error {
+	return nil
+}
+
+func makeItem(id string, addedAt time.Time) spotify.PlaylistItem {
+	return spotify.PlaylistItem{
+		AddedAt: addedAt.UTC().Format(spotify.TimestampLayout),
+		Track: spotify.PlaylistItemTrack{
+			Track: &spotify.FullTrack{
+				SimpleTrack: spotify.SimpleTrack{ID: spotify.ID(id)},
+			},
 		},
 	}
+}
+
+func TestPurgeTracks_RemovesExpiredTracks(t *testing.T) {
+	now := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name            string
-		purgeDaysInPast int64
-		expected        int
+		name     string
+		items    []spotify.PlaylistItem
+		expected int
 	}{
-		{"Purges tracks older than 1 day", 1, 3},
-		{"Purges tracks older than 1 week", 7, 2},
-		{"Purges tracks older than 2 weeks", 14, 1},
-		{"Purges tracks older than 3 weeks", 21, 0},
+		{
+			name: "Removes track added 15 days ago",
+			items: []spotify.PlaylistItem{
+				makeItem("old", now.Add(-15*24*time.Hour)),
+				makeItem("recent", now.Add(-2*24*time.Hour)),
+			},
+			expected: 1,
+		},
+		{
+			name: "Removes nothing when all tracks are recent",
+			items: []spotify.PlaylistItem{
+				makeItem("a", now.Add(-1*24*time.Hour)),
+				makeItem("b", now.Add(-7*24*time.Hour)),
+			},
+			expected: 0,
+		},
+		{
+			name: "Removes all tracks when all are expired",
+			items: []spotify.PlaylistItem{
+				makeItem("x", now.Add(-15*24*time.Hour)),
+				makeItem("y", now.Add(-20*24*time.Hour)),
+			},
+			expected: 2,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			persistence.TrackCache = persistence.NewCache()
-			persistence.TrackCache.SetMulti(existingTracks)
-
-			purgeDaysInPastMillis := tt.purgeDaysInPast * 24 * time.Hour.Milliseconds()
-			preferenceService := domain.NewPreferenceService(&mockPreferenceRepo{
-				preferences: map[domain.PreferenceKey]domain.Preference{
-					domain.MaxDurationKey: {
-						Key:   domain.MaxTrackAgeKey,
-						Value: toBytes(purgeDaysInPastMillis),
-					},
-				},
-			})
-
-			spotifyPlaylistService := domain.NewSpotifyPlaylistService(&mockPlaylistService{})
-
-			// Act
-			numRemoved, err := PurgeTracks(context.Background(), date, preferenceService, spotifyPlaylistService)
-
-			// Assert
+			svc := domain.NewSpotifyPlaylistService(&mockPlaylistService{items: tt.items})
+			numRemoved, err := PurgeTracks(context.Background(), now, svc)
 			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-				return
+				t.Fatalf("Unexpected error: %v", err)
 			}
 			if numRemoved != tt.expected {
-				t.Errorf("Expected %d, got %d", tt.expected, numRemoved)
+				t.Errorf("Expected %d removed, got %d", tt.expected, numRemoved)
 			}
 		})
 	}

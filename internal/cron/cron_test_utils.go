@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 	psongs "github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/songs"
 	zspotify "github.com/zmb3/spotify/v2"
 )
@@ -41,7 +40,7 @@ type mockTrackRepo struct {
 	rows []psongs.Song
 }
 
-func (m *mockTrackRepo) AddTrackToDatabase(fields *domain.UserFields, track *zspotify.FullTrack, artist []*zspotify.FullArtist) error {
+func (m *mockTrackRepo) AddTrackToDatabase(track *zspotify.FullTrack, artist []*zspotify.FullArtist) error {
 	panic("not implemented")
 }
 func (m *mockTrackRepo) GetRandomGenreTracks() (songs []psongs.Song, genreName string, err error) {
