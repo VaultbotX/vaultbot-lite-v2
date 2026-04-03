@@ -79,3 +79,33 @@ variable "app_version" {
   type        = string
   description = "Version of the app"
 }
+
+variable "neon_host" {
+  type        = string
+  description = "Neon PostgreSQL host"
+  sensitive   = true
+}
+
+variable "neon_port" {
+  type        = string
+  description = "Neon PostgreSQL port"
+  sensitive   = true
+}
+
+variable "neon_user" {
+  type        = string
+  description = "Neon PostgreSQL user"
+  sensitive   = true
+}
+
+variable "neon_password" {
+  type        = string
+  description = "Neon PostgreSQL password"
+  sensitive   = true
+}
+
+variable "neon_db" {
+  type        = string
+  description = "Neon PostgreSQL database name"
+  sensitive   = true
+}
