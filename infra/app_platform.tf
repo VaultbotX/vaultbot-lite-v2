@@ -1,5 +1,5 @@
 resource "digitalocean_app" "vaultbot_app" {
-  depends_on = [digitalocean_database_cluster.vaultbot_postgres_cluster, digitalocean_app.vaultbot_migration_runner]
+  depends_on = [digitalocean_app.vaultbot_migration_runner]
   spec {
     name   = "vaultbot-app-${var.environment}"
     region = var.do_region
@@ -38,28 +38,35 @@ resource "digitalocean_app" "vaultbot_app" {
 
       env {
         key   = "POSTGRES_HOST"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.host
+        value = var.neon_host
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PORT"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.port
+        value = var.neon_port
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_USER"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.user
+        value = var.neon_user
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PASSWORD"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.password
+        value = var.neon_password
+        scope = "RUN_TIME"
+        type  = "SECRET"
+      }
+
+      env {
+        key   = "POSTGRES_DB"
+        value = var.neon_db
         scope = "RUN_TIME"
         type  = "SECRET"
       }
@@ -121,10 +128,10 @@ resource "digitalocean_app" "vaultbot_app" {
       }
 
       env {
-        key = "APP_VERSION"
+        key   = "APP_VERSION"
         value = var.app_version
         scope = "RUN_TIME"
-        type = "GENERAL"
+        type  = "GENERAL"
       }
 
       github {
@@ -137,7 +144,6 @@ resource "digitalocean_app" "vaultbot_app" {
 }
 
 resource "digitalocean_app" "vaultbot_migration_runner" {
-  depends_on = [digitalocean_database_cluster.vaultbot_postgres_cluster]
   spec {
     name   = "vaultbot-migration-runner-${var.environment}"
     region = var.do_region
@@ -159,28 +165,35 @@ resource "digitalocean_app" "vaultbot_migration_runner" {
 
       env {
         key   = "POSTGRES_HOST"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.host
+        value = var.neon_host
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PORT"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.port
+        value = var.neon_port
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_USER"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.user
+        value = var.neon_user
         scope = "RUN_TIME"
         type  = "SECRET"
       }
 
       env {
         key   = "POSTGRES_PASSWORD"
-        value = digitalocean_database_cluster.vaultbot_postgres_cluster.password
+        value = var.neon_password
+        scope = "RUN_TIME"
+        type  = "SECRET"
+      }
+
+      env {
+        key   = "POSTGRES_DB"
+        value = var.neon_db
         scope = "RUN_TIME"
         type  = "SECRET"
       }
