@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-
-	"github.com/vaultbotx/vaultbot-lite/internal/domain"
 )
 
 type mockClient struct {
@@ -32,7 +30,7 @@ func TestParseTrackId_ParsesAlphanumericText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseSpotifyId(tt.input, domain.Track)
+			actual := ParseSpotifyId(tt.input, Track)
 			if tt.expected == "" {
 				if actual != nil {
 					t.Errorf("Expected nil, got %s", actual)
@@ -59,7 +57,7 @@ func TestParseTrackId_InvalidLengthString_ReturnsNil(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseSpotifyId(tt.input, domain.Track)
+			actual := ParseSpotifyId(tt.input, Track)
 			if actual != nil {
 				t.Errorf("Expected nil, got %s", actual)
 			}
@@ -79,7 +77,7 @@ func TestParseTrackId_ParsesSpotifyUri(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseSpotifyId(tt.input, domain.Track)
+			actual := ParseSpotifyId(tt.input, Track)
 			if tt.expected == "" {
 				if actual != nil {
 					t.Errorf("Expected nil, got %s", actual)
@@ -108,7 +106,7 @@ func TestParseTrackId_DoesNotParseOtherSpotifyEntityTypeUris(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseSpotifyId(tt.input, domain.Track)
+			actual := ParseSpotifyId(tt.input, Track)
 			if actual != nil {
 				t.Errorf("Expected nil, got %s", actual)
 			}
@@ -128,7 +126,7 @@ func TestParseTrackId_ParsesSpotifyUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := ParseSpotifyId(tt.input, domain.Track)
+			actual := ParseSpotifyId(tt.input, Track)
 			if tt.expected == "" {
 				if actual != nil {
 					t.Errorf("Expected nil, got %s", actual)
@@ -160,7 +158,7 @@ func TestParseSpotifyId_ShortLink_FromHTML(t *testing.T) {
 
 	httpClient = &mockClient{resp: resp}
 
-	id := ParseSpotifyId("https://spotify.link/short", domain.Track)
+	id := ParseSpotifyId("https://spotify.link/short", Track)
 	if id == nil {
 		t.Fatal("expected non-nil id")
 	}
@@ -181,7 +179,7 @@ func TestParseSpotifyId_ShortLink_FromRespURL(t *testing.T) {
 
 	httpClient = &mockClient{resp: resp}
 
-	id := ParseSpotifyId("https://spotify.link/short2", domain.Track)
+	id := ParseSpotifyId("https://spotify.link/short2", Track)
 	if id == nil {
 		t.Fatal("expected non-nil id")
 	}
