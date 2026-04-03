@@ -1,0 +1,35 @@
+name: Poll Playlist
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.26'
+
+      - name: Build
+        run: go build -o bin/poll ./cmd/poll
+
+      - name: Run
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          SPOTIFY_TOKEN: ${{ secrets.SPOTIFY_TOKEN }}
+          SPOTIFY_PLAYLIST_ID: ${{ secrets.SPOTIFY_PLAYLIST_ID }}
+          GENRE_SPOTIFY_PLAYLIST_ID: ${{ secrets.GENRE_SPOTIFY_PLAYLIST_ID }}
+          HIGH_SCORES_SPOTIFY_PLAYLIST_ID: ${{ secrets.HIGH_SCORES_SPOTIFY_PLAYLIST_ID }}
+          POSTGRES_HOST: ${{ secrets.NEON_HOST }}
+          POSTGRES_PORT: ${{ secrets.NEON_PORT }}
+          POSTGRES_USER: ${{ secrets.NEON_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.NEON_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.NEON_DB }}
+        run: ./bin/poll
