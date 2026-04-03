@@ -71,6 +71,11 @@ jobs:
           TF_VAR_spotify_token: ${{ secrets.SPOTIFY_TOKEN }}
           TF_VAR_discord_administrator_user_id: ${{ secrets.DISCORD_ADMINISTRATOR_USER_ID }}
           TF_VAR_app_version: ${{ env.BUILD_NUMBER }}
+          TF_VAR_neon_host: ${{ secrets.NEON_HOST }}
+          TF_VAR_neon_port: ${{ secrets.NEON_PORT }}
+          TF_VAR_neon_user: ${{ secrets.NEON_USER }}
+          TF_VAR_neon_password: ${{ secrets.NEON_PASSWORD }}
+          TF_VAR_neon_db: ${{ secrets.NEON_DB }}
 
       - name: Apply Terraform Changes
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outcome == 'success'
@@ -91,3 +96,8 @@ jobs:
           TF_VAR_spotify_token: ${{ secrets.SPOTIFY_TOKEN }}
           TF_VAR_discord_administrator_user_id: ${{ secrets.DISCORD_ADMINISTRATOR_USER_ID }}
           TF_VAR_app_version: ${{ env.BUILD_NUMBER }}
+          TF_VAR_neon_host: ${{ secrets.NEON_HOST }}
+          TF_VAR_neon_port: ${{ secrets.NEON_PORT }}
+          TF_VAR_neon_user: ${{ secrets.NEON_USER }}
+          TF_VAR_neon_password: ${{ secrets.NEON_PASSWORD }}
+          TF_VAR_neon_db: ${{ secrets.NEON_DB }}
