@@ -1,53 +1,67 @@
 # vaultbot-lite-v2
 
+Catalogs music listening by managing a Spotify playlist. Tracks added directly to the playlist are detected and recorded in a Neon PostgreSQL database. Tracks older than two weeks are automatically purged. Two curated playlists — a rotating genre selection and a top-50 all-time chart — are refreshed daily.
+
+All jobs run as stateless GitHub Actions cron jobs. There is no long-running service.
+
+## How it works
+
+| Workflow | Schedule | Description |
+|---|---|---|
+| **Poll Playlist** | Every 6 hours | Detects tracks manually added to the main playlist and records them in the DB |
+| **Purge Expired Tracks** | Twice daily | Removes tracks older than 2 weeks from the main playlist |
+| **Curated Playlists** | Daily at midnight UTC | Refreshes the genre rotation playlist and the top-50 high scores playlist |
+| **Run Migrations** | On push to `main` (migration files only) | Runs any new database migrations against Neon |
+
+All workflows can also be triggered manually from the GitHub Actions UI via `workflow_dispatch`.
+
 ## Requirements
 
-- Go 1.25
-- Docker (recommended for running Postgres and/or the whole stack via Docker Compose)
+- Go 1.26
+- A [Neon](https://neon.tech) PostgreSQL database
+- A Spotify Developer application
 
 ## Configuration
 
-Set the following environment variables:
-
-- `POSTGRES_HOST`
-- `POSTGRES_PORT`
-- `POSTGRES_USER`
-- `POSTGRES_PASSWORD`
-- `DISCORD_GUILD_ID` (optional, recommended during development for immediate setting of Discord slash commands)
-- `DISCORD_ADMINISTRATOR_USER_ID` (required, this is the user ID of the bot owner)
-- `DISCORD_TOKEN` (more information below)
-- `SPOTIFY_PLAYLIST_ID` (ID of the playlist that songs will be stored in)
-- `GENRE_SPOTIFY_PLAYLIST_ID` (ID of the playlist that will be a rotating selection of songs from various genres)
-- `HIGH_SCORES_SPOTIFY_PLAYLIST_ID` (ID of the playlist that will contain the most frequently added songs)
-- `SPOTIFY_CLIENT_ID`
-- `SPOTIFY_CLIENT_SECRET`
-- `SPOTIFY_TOKEN` (very important, see below)
-
-If running locally, you can set these in a `.env` file in the root directory, then make sure that you set an additional environment variable `ENVIRONMENT=local`. (it can technically be any non-empty string)
-
-### Discord
-
-Create a new Discord application and bot. You will need the bot token to authenticate with the Discord API. You may need to enable some additional opt-in intents in the Discord Developer Dashboard.
+The following environment variables are required. In GitHub Actions they are stored as repository secrets. For local development, set them in a `.env` file in the root directory and also set `ENVIRONMENT=local` (any non-empty string) to disable SSL on the database connection.
 
 ### Spotify
 
-Create a Spotify Developer account and create a new application. You will need the client ID and client secret to authenticate with the Spotify API.
+| Variable | Description |
+|---|---|
+| `SPOTIFY_CLIENT_ID` | Spotify application client ID |
+| `SPOTIFY_CLIENT_SECRET` | Spotify application client secret |
+| `SPOTIFY_TOKEN` | Serialized OAuth token (see below) |
+| `SPOTIFY_PLAYLIST_ID` | ID of the main dynamic playlist |
+| `GENRE_SPOTIFY_PLAYLIST_ID` | ID of the genre rotation playlist |
+| `HIGH_SCORES_SPOTIFY_PLAYLIST_ID` | ID of the top-50 playlist |
 
-Make sure to register the redirect URI as `http://localhost:8080/callback` in the Spotify Developer Dashboard.
+### Database
 
-Run the application ONCE locally. A Spotify authentication page should appear in your browser. After logging in, you will be redirected to `http://localhost:8888/callback`. The app will have created a new file in the root `token.txt`. Copy the contents of this file and set it as the `SPOTIFY_TOKEN` environment variable.
+| Variable | Description |
+|---|---|
+| `POSTGRES_HOST` | Neon hostname |
+| `POSTGRES_PORT` | Neon port |
+| `POSTGRES_USER` | Neon user |
+| `POSTGRES_PASSWORD` | Neon password |
+| `POSTGRES_DB` | Database name (defaults to `vaultbot` if unset) |
 
-This is critical because some scopes necessary for this app are not available via Client Credentials Flow, so this is a one-time Authorization Code Flow to get the necessary refresh token so that the app can programmatically retrieve new access tokens with the necessary scopes.
+### Spotify token setup
 
-The token generation by the app may be subject to change in the future.
+The Spotify token is required because some playlist write scopes are only available via the Authorization Code flow, not Client Credentials.
 
-#### Notes
+To generate the token for the first time:
 
-The audio features endpoint is deprecated. This means that measurements of individual song features, like valence or energy, are unavailable
-1. https://community.spotify.com/t5/Spotify-for-Developers/Changes-to-Web-API/td-p/6540414
-2. https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api
+1. Register `http://localhost:8080/callback` as a redirect URI in the Spotify Developer Dashboard
+2. Run the app locally without `SPOTIFY_TOKEN` set — a browser window will open for Spotify login
+3. After authenticating, a `token.txt` file is created in the project root
+4. Copy its contents and store them as the `SPOTIFY_TOKEN` secret
 
-## Misc
+The token string contains a refresh token. The `golang.org/x/oauth2` library automatically exchanges it for a fresh access token on each run, so the secret value never needs to be updated.
 
-Very simple schema
+> **Note:** The audio features endpoint is deprecated and not used.
+> See: https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api
+
+## Database schema
+
 ![db schema](assets/schema.png "schema")
