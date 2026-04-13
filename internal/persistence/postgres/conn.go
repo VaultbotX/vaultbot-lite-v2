@@ -28,17 +28,13 @@ func NewPostgresConnection() (*sqlx.DB, error) {
 	port, portExists := os.LookupEnv("POSTGRES_PORT")
 	user, userExists := os.LookupEnv("POSTGRES_USER")
 	password, passwordExists := os.LookupEnv("POSTGRES_PASSWORD")
+	dbName, dbNameExists := os.LookupEnv("POSTGRES_DB")
 
-	if !hostExists || !portExists || !userExists || !passwordExists {
-		log.Fatal("POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, and POSTGRES_PASSWORD must be set")
+	if !hostExists || !portExists || !userExists || !passwordExists || !dbNameExists {
+		log.Fatal("POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, and POSTGRES_DB must be set")
 	}
 
 	log.Infof("Initializing db pool connection to %s@%s", user, host)
-
-	dbName, dbNameExists := os.LookupEnv("POSTGRES_DB")
-	if !dbNameExists {
-		dbName = "vaultbot"
-	}
 
 	dsn := "host=" + host + " port=" + port + " user=" + user + " password=" + password + " dbname=" + dbName + " sslmode=require channel_binding=require"
 
