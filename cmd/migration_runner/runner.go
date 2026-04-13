@@ -43,15 +43,7 @@ func main() {
 		dbName = "vaultbot"
 	}
 
-	dsn := "host=" + host + " port=" + port + " user=" + user + " password=" + password + " dbname=" + dbName
-	_, envPresent := os.LookupEnv("ENVIRONMENT")
-	if envPresent {
-		// append sslmode=disable - local dev only
-		dsn += " sslmode=disable"
-	} else {
-		// append sslmode=require and channel_binding=require - prod
-		dsn += " sslmode=require channel_binding=require"
-	}
+	dsn := "host=" + host + " port=" + port + " user=" + user + " password=" + password + " dbname=" + dbName + " sslmode=require channel_binding=require"
 
 	db := sqlx.MustConnect("pgx", dsn)
 

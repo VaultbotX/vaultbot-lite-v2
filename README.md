@@ -23,28 +23,9 @@ All workflows can also be triggered manually from the GitHub Actions UI via `wor
 
 ## Configuration
 
-The following environment variables are required. In GitHub Actions they are stored as repository secrets. For local development, set them in a `.env` file in the root directory and also set `ENVIRONMENT=local` (any non-empty string) to disable SSL on the database connection.
+All required environment variables are documented in [`.env.example`](.env.example). Copy it to `.env` for local development — `godotenv` loads it automatically.
 
-### Spotify
-
-| Variable | Description |
-|---|---|
-| `SPOTIFY_CLIENT_ID` | Spotify application client ID |
-| `SPOTIFY_CLIENT_SECRET` | Spotify application client secret |
-| `SPOTIFY_TOKEN` | Serialized OAuth token (see below) |
-| `SPOTIFY_PLAYLIST_ID` | ID of the main dynamic playlist |
-| `GENRE_SPOTIFY_PLAYLIST_ID` | ID of the genre rotation playlist |
-| `HIGH_SCORES_SPOTIFY_PLAYLIST_ID` | ID of the top-50 playlist |
-
-### Database
-
-| Variable | Description |
-|---|---|
-| `POSTGRES_HOST` | Neon hostname |
-| `POSTGRES_PORT` | Neon port |
-| `POSTGRES_USER` | Neon user |
-| `POSTGRES_PASSWORD` | Neon password |
-| `POSTGRES_DB` | Database name (defaults to `vaultbot` if unset) |
+In GitHub Actions, all variables are stored as repository secrets.
 
 ### Spotify token setup
 
@@ -61,6 +42,27 @@ The token string contains a refresh token. The `golang.org/x/oauth2` library aut
 
 > **Note:** The audio features endpoint is deprecated and not used.
 > See: https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api
+
+## GitHub Codespaces
+
+This repo includes a devcontainer configuration for use with GitHub Codespaces. When a codespace starts, it automatically creates a Neon database branch scoped to the current git branch — no local Postgres container needed.
+
+### Required Codespaces secrets
+
+Set these in your GitHub account or repository Codespaces secrets before opening a codespace:
+
+| Secret | Description |
+|---|---|
+| `SPOTIFY_CLIENT_ID` | Spotify application client ID |
+| `SPOTIFY_CLIENT_SECRET` | Spotify application client secret |
+| `SPOTIFY_TOKEN` | Serialized Spotify OAuth token (see above) |
+| `SPOTIFY_PLAYLIST_ID` | ID of the main dynamic playlist |
+| `GENRE_SPOTIFY_PLAYLIST_ID` | ID of the genre rotation playlist |
+| `HIGH_SCORES_SPOTIFY_PLAYLIST_ID` | ID of the top-50 playlist |
+| `NEON_API_KEY` | Neon API key for branch management |
+| `NEON_PROJECT_ID` | Neon project ID |
+
+On container creation, `.devcontainer/scripts/neon-branch-setup.sh` creates a Neon branch named `dev-<git-branch>` and writes the connection details into `.env`. When you are done with the branch, run `.devcontainer/scripts/neon-branch-teardown.sh` to delete it.
 
 ## Database schema
 
