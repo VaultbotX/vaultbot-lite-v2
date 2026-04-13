@@ -4,6 +4,11 @@
   "features": {
     "ghcr.io/devcontainers/features/node:1": {}
   },
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go"]
+    }
+  },
   "postCreateCommand": "npm install -g neonctl && bash .devcontainer/scripts/neon-branch-setup.sh",
   "forwardPorts": [8080],
   "portsAttributes": {
