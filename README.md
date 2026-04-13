@@ -29,9 +29,7 @@ In GitHub Actions, variables are stored as repository secrets. See [`.devcontain
 
 ### Spotify token
 
-`SPOTIFY_TOKEN` is a serialized OAuth2 token in the format `accessToken|refreshToken|tokenType|expiryUnix`. It must be obtained via Spotify's Authorization Code flow using the scopes listed below, then stored as a secret. The `golang.org/x/oauth2` library automatically refreshes it on each run using the embedded refresh token, so it never needs to be manually updated after the initial setup.
-
-Required scopes: `playlist-modify-public`, `playlist-modify-private`, `playlist-read-private`, `playlist-read-collaborative`
+`SPOTIFY_TOKEN` is a serialized OAuth2 token in the format `accessToken|refreshToken|tokenType|expiryUnix`. Use the auth tool in `scripts/spotify-auth-code-flow/` to obtain it — see [`.devcontainer/SETUP.md`](.devcontainer/SETUP.md) §1c for the full steps. Once stored, the embedded refresh token means the access token is renewed automatically on every run.
 
 ## GitHub Codespaces
 
