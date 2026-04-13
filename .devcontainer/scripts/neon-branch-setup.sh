@@ -9,94 +9,95 @@ set -euo pipefail
 # Neon branch names support alphanumeric, hyphens, underscores, and dots.
 # Forward slashes (common in git branch names) are replaced with hyphens.
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-NEON_BRANCH_NAME="dev-$(echo "${GIT_BRANCH}" | tr '/' '-')"
+NEON_BRANCH_NAME="dev-$(printf '%s' "${GIT_BRANCH}" | tr '/' '-')"
 
-echo "Git branch:   ${GIT_BRANCH}"
-echo "Neon branch:  ${NEON_BRANCH_NAME}"
+echo "Git branch:  ${GIT_BRANCH}"
+echo "Neon branch: ${NEON_BRANCH_NAME}"
 echo ""
 
-# Create the branch if it does not already exist.
-# neonctl exits non-zero if the branch name conflicts, so we check first.
-EXISTING=$(neonctl branch list --project-id "${NEON_PROJECT_ID}" --output json \
-  | python3 -c "
-import json, sys, os
-branches = json.load(sys.stdin)
-name = os.environ['NEON_BRANCH_NAME']
-print('true' if any(b['name'] == name for b in branches) else 'false')
-")
+# Try to fetch the connection string first — if the branch already exists
+# (e.g. container rebuild) this short-circuits without creating a duplicate.
+echo "Checking for existing Neon branch..."
+if ! CONN_URI=$(neonctl connection-string \
+  --project-id "${NEON_PROJECT_ID}" \
+  --branch "${NEON_BRANCH_NAME}" 2>/dev/null); then
 
-if [ "${EXISTING}" = "true" ]; then
-  echo "Neon branch '${NEON_BRANCH_NAME}' already exists — skipping creation."
-else
-  echo "Creating Neon branch '${NEON_BRANCH_NAME}'..."
+  echo "Branch not found — creating '${NEON_BRANCH_NAME}'..."
   neonctl branch create \
     --project-id "${NEON_PROJECT_ID}" \
     --name "${NEON_BRANCH_NAME}"
-  echo "Branch created."
+
+  CONN_URI=$(neonctl connection-string \
+    --project-id "${NEON_PROJECT_ID}" \
+    --branch "${NEON_BRANCH_NAME}")
+else
+  echo "Branch already exists — skipping creation."
 fi
-
-echo ""
-echo "Fetching connection details..."
-
-# Retrieve the connection URI for the branch.
-# neonctl handles waiting for the endpoint to become ready.
-CONN_URI=$(neonctl connection-string \
-  --project-id "${NEON_PROJECT_ID}" \
-  --branch "${NEON_BRANCH_NAME}")
 
 echo "Connection URI retrieved."
 echo ""
 
-# Parse the connection URI and update .env, using Python to avoid
-# shell quoting issues with passwords containing special characters.
-export CONN_URI
-
-python3 - <<'PYEOF'
-import os
-import re
-from urllib.parse import urlparse
-
-conn_uri = os.environ["CONN_URI"]
-p = urlparse(conn_uri)
-
-updates = {
-    "POSTGRES_HOST": p.hostname,
-    "POSTGRES_PORT": str(p.port or 5432),
-    "POSTGRES_USER": p.username,
-    "POSTGRES_PASSWORD": p.password,
-    "POSTGRES_DB": p.path.lstrip("/").split("?")[0],
+# URL-decode a percent-encoded string using only printf and bash.
+# e.g. "p%40ssword" -> "p@ssword"
+urldecode() {
+  printf '%b' "${1//%/\\x}"
 }
 
-env_path = ".env"
+# Parse the connection URI with pure bash string operations.
+# Format: postgresql://user:password@host:port/dbname?query
+_rest="${CONN_URI#postgresql://}"
+_userinfo="${_rest%%@*}"
+_hostpath="${_rest#*@}"
+
+PG_USER="${_userinfo%%:*}"
+PG_PASSWORD="$(urldecode "${_userinfo#*:}")"
+
+_hostport="${_hostpath%%/*}"
+_pathquery="${_hostpath#*/}"
+
+PG_HOST="${_hostport%%:*}"
+if [[ "${_hostport}" == *:* ]]; then
+  PG_PORT="${_hostport##*:}"
+else
+  PG_PORT="5432"
+fi
+
+PG_DB="${_pathquery%%\?*}"
+
+# Upsert a KEY=VALUE line in .env using only bash + standard POSIX utilities.
+# Replaces the existing line for KEY if present; appends otherwise.
+set_env_var() {
+  local key="$1" value="$2" tmp
+  tmp="$(mktemp)"
+  if grep -q "^${key}=" .env 2>/dev/null; then
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      if [[ "${line}" == "${key}="* ]]; then
+        printf '%s=%s\n' "${key}" "${value}"
+      else
+        printf '%s\n' "${line}"
+      fi
+    done < .env > "${tmp}"
+    mv "${tmp}" .env
+  else
+    rm -f "${tmp}"
+    printf '%s=%s\n' "${key}" "${value}" >> .env
+  fi
+}
 
 # Seed .env from .env.example if it doesn't exist yet
-if not os.path.exists(env_path):
-    if os.path.exists(".env.example"):
-        with open(".env.example") as f:
-            content = f.read()
-        print(f"Created .env from .env.example")
-    else:
-        content = ""
-else:
-    with open(env_path) as f:
-        content = f.read()
+if [[ ! -f .env ]]; then
+  cp .env.example .env
+  echo "Created .env from .env.example"
+fi
 
-# Update existing keys or append missing ones
-for key, value in updates.items():
-    pattern = rf"^{key}=.*$"
-    replacement = f"{key}={value}"
-    if re.search(pattern, content, re.MULTILINE):
-        content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
-    else:
-        content = content.rstrip("\n") + f"\n{key}={value}\n"
+set_env_var "POSTGRES_HOST"     "${PG_HOST}"
+set_env_var "POSTGRES_PORT"     "${PG_PORT}"
+set_env_var "POSTGRES_USER"     "${PG_USER}"
+set_env_var "POSTGRES_PASSWORD" "${PG_PASSWORD}"
+set_env_var "POSTGRES_DB"       "${PG_DB}"
 
-with open(env_path, "w") as f:
-    f.write(content)
-
-print("Postgres connection vars written to .env")
-PYEOF
-
+echo "Postgres connection vars written to .env"
 echo ""
 echo "Done! Neon branch '${NEON_BRANCH_NAME}' is ready."
-echo "Run migrations if this is a freshly created branch:"
+echo "If this is a freshly created branch, run migrations:"
 echo "  go run ./cmd/migration_runner"
