@@ -1,19 +1,6 @@
 # vaultbot-lite-v2
 
-Catalogs music listening by managing a Spotify playlist. Tracks added directly to the playlist are detected and recorded in a Neon PostgreSQL database. Tracks older than two weeks are automatically purged. Two curated playlists — a rotating genre selection and a top-50 all-time chart — are refreshed daily.
-
-All jobs run as stateless GitHub Actions cron jobs. There is no long-running service.
-
-## How it works
-
-| Workflow | Schedule | Description |
-|---|---|---|
-| **Poll Playlist** | Every 6 hours | Detects tracks manually added to the main playlist and records them in the DB |
-| **Purge Expired Tracks** | Twice daily | Removes tracks older than 2 weeks from the main playlist |
-| **Curated Playlists** | Daily at midnight UTC | Refreshes the genre rotation playlist and the top-50 high scores playlist |
-| **Run Migrations** | On push to `main` (migration files only) | Runs any new database migrations against Neon |
-
-All workflows can also be triggered manually from the GitHub Actions UI via `workflow_dispatch`.
+Tracks music listening by monitoring a Spotify playlist. Tracks added to the playlist are recorded in a Neon PostgreSQL database. Scheduled jobs handle polling, cleanup, and curated playlist generation — all run as stateless GitHub Actions workflows with no long-running service.
 
 ## Requirements
 
