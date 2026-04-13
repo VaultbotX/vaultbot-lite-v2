@@ -10,7 +10,7 @@ This document covers everything that must be configured manually in GitHub, Neon
 
 1. Go to [developer.spotify.com](https://developer.spotify.com) → **Dashboard** → **Create app**
 2. Fill in a name and description
-3. Add `http://localhost:8080/callback` as a redirect URI
+3. Add `http://localhost:8888/callback` as a redirect URI
 4. Note the **Client ID** and **Client Secret**
 
 ### 1b. Create the three playlists
@@ -27,15 +27,35 @@ The playlist ID is the string after `/playlist/` in the Spotify share URL, e.g. 
 
 ### 1c. Obtain the OAuth token
 
-`SPOTIFY_TOKEN` must be obtained once via Spotify's Authorization Code flow and then stored as a secret. The app serializes it as `accessToken|refreshToken|tokenType|expiryUnix`.
+`SPOTIFY_TOKEN` is a one-time setup using the auth tool in `scripts/spotify-auth-code-flow/`:
 
-Required scopes:
-- `playlist-modify-public`
-- `playlist-modify-private`
-- `playlist-read-private`
-- `playlist-read-collaborative`
+```sh
+cd scripts/spotify-auth-code-flow
+cp .env.example .env
+# fill in SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in .env
+npm install
+npm start
+```
 
-Once stored, the refresh token embedded in the value means the access token is renewed automatically on every run — the secret does not need to be updated again.
+Then visit `http://localhost:8888/login` in a browser. After authorizing, the callback returns a JSON response like:
+
+```json
+{
+  "access_token": "...",
+  "refresh_token": "...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+Construct `SPOTIFY_TOKEN` from that response in the format `accessToken|refreshToken|tokenType|expiryUnix`, where `expiryUnix` is the current Unix timestamp plus `expires_in`:
+
+```sh
+# example (replace values from the JSON response)
+echo "ACCESS_TOKEN|REFRESH_TOKEN|Bearer|$(( $(date +%s) + 3600 ))"
+```
+
+Store the resulting string as the `SPOTIFY_TOKEN` secret. Once stored, the embedded refresh token means the access token renews automatically on every run — the secret never needs to be updated again.
 
 ---
 
