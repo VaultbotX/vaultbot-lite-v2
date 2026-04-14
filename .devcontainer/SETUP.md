@@ -37,6 +37,8 @@ npm install
 npm start
 ```
 
+> **Codespaces note:** this tool works from inside a Codespace only when using **VS Code Desktop**. Desktop tunnels forwarded ports to your local machine, so `localhost:8888` resolves correctly and the Spotify redirect URI works as registered. If you are using **VS Code Web** (browser-only), `localhost:8888` does not resolve to the Codespace — run the tool locally instead.
+
 Then visit `http://localhost:8888/login` in a browser. After authorizing, the callback returns a JSON response like:
 
 ```json
