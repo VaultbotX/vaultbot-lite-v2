@@ -1,19 +1,6 @@
 # vaultbot-lite-v2
 
-Catalogs music listening by managing a Spotify playlist. Tracks added directly to the playlist are detected and recorded in a Neon PostgreSQL database. Tracks older than two weeks are automatically purged. Two curated playlists — a rotating genre selection and a top-50 all-time chart — are refreshed daily.
-
-All jobs run as stateless GitHub Actions cron jobs. There is no long-running service.
-
-## How it works
-
-| Workflow | Schedule | Description |
-|---|---|---|
-| **Poll Playlist** | Every 6 hours | Detects tracks manually added to the main playlist and records them in the DB |
-| **Purge Expired Tracks** | Twice daily | Removes tracks older than 2 weeks from the main playlist |
-| **Curated Playlists** | Daily at midnight UTC | Refreshes the genre rotation playlist and the top-50 high scores playlist |
-| **Run Migrations** | On push to `main` (migration files only) | Runs any new database migrations against Neon |
-
-All workflows can also be triggered manually from the GitHub Actions UI via `workflow_dispatch`.
+Tracks music listening by monitoring a Spotify playlist. Tracks added to the playlist are recorded in a Neon PostgreSQL database. Scheduled jobs handle polling, cleanup, and curated playlist generation — all run as stateless GitHub Actions workflows with no long-running service.
 
 ## Requirements
 
@@ -23,44 +10,25 @@ All workflows can also be triggered manually from the GitHub Actions UI via `wor
 
 ## Configuration
 
-The following environment variables are required. In GitHub Actions they are stored as repository secrets. For local development, set them in a `.env` file in the root directory and also set `ENVIRONMENT=local` (any non-empty string) to disable SSL on the database connection.
+All required environment variables are documented in [`.env.example`](.env.example). Copy it to `.env` for local development — `godotenv` loads it automatically.
 
-### Spotify
+In GitHub Actions, variables are stored as repository secrets. See [`.devcontainer/SETUP.md`](.devcontainer/SETUP.md) for the complete list of secret names as they must be configured.
 
-| Variable | Description |
-|---|---|
-| `SPOTIFY_CLIENT_ID` | Spotify application client ID |
-| `SPOTIFY_CLIENT_SECRET` | Spotify application client secret |
-| `SPOTIFY_TOKEN` | Serialized OAuth token (see below) |
-| `SPOTIFY_PLAYLIST_ID` | ID of the main dynamic playlist |
-| `GENRE_SPOTIFY_PLAYLIST_ID` | ID of the genre rotation playlist |
-| `HIGH_SCORES_SPOTIFY_PLAYLIST_ID` | ID of the top-50 playlist |
+### Spotify token
 
-### Database
+`SPOTIFY_TOKEN` is a serialized OAuth2 token in the format `accessToken|refreshToken|tokenType|expiryUnix`. Use the auth tool in `scripts/spotify-auth-code-flow/` to obtain it — see [`.devcontainer/SETUP.md`](.devcontainer/SETUP.md) §1c for the full steps. Once stored, the embedded refresh token means the access token is renewed automatically on every run.
 
-| Variable | Description |
-|---|---|
-| `POSTGRES_HOST` | Neon hostname |
-| `POSTGRES_PORT` | Neon port |
-| `POSTGRES_USER` | Neon user |
-| `POSTGRES_PASSWORD` | Neon password |
-| `POSTGRES_DB` | Database name (defaults to `vaultbot` if unset) |
+## GitHub Codespaces
 
-### Spotify token setup
+This repo includes a devcontainer for use with GitHub Codespaces. When a codespace starts, it automatically creates a Neon database branch scoped to the current git branch and writes the connection details into `.env` — no local Postgres container needed.
 
-The Spotify token is required because some playlist write scopes are only available via the Authorization Code flow, not Client Credentials.
+See [`.devcontainer/SETUP.md`](.devcontainer/SETUP.md) for first-time setup instructions.
 
-To generate the token for the first time:
+When finished with a branch, delete its Neon branch by running:
 
-1. Register `http://localhost:8080/callback` as a redirect URI in the Spotify Developer Dashboard
-2. Run the app locally without `SPOTIFY_TOKEN` set — a browser window will open for Spotify login
-3. After authenticating, a `token.txt` file is created in the project root
-4. Copy its contents and store them as the `SPOTIFY_TOKEN` secret
-
-The token string contains a refresh token. The `golang.org/x/oauth2` library automatically exchanges it for a fresh access token on each run, so the secret value never needs to be updated.
-
-> **Note:** The audio features endpoint is deprecated and not used.
-> See: https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api
+```sh
+bash .devcontainer/scripts/neon-branch-teardown.sh
+```
 
 ## Database schema
 

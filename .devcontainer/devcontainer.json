@@ -1,0 +1,53 @@
+{
+  "name": "vaultbot-lite-v2",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.26"
+    },
+    "ghcr.io/devcontainers/features/node:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go"]
+    }
+  },
+  "postCreateCommand": "npm install -g neonctl && bash .devcontainer/scripts/neon-branch-setup.sh",
+  "forwardPorts": [8080, 8888],
+  "portsAttributes": {
+    "8080": {
+      "label": "Spotify OAuth Callback",
+      "onAutoForward": "silent"
+    },
+    "8888": {
+      "label": "Spotify Auth Tool",
+      "onAutoForward": "silent"
+    }
+  },
+  "secrets": {
+    "SPOTIFY_CLIENT_ID": {
+      "description": "Spotify application client ID"
+    },
+    "SPOTIFY_CLIENT_SECRET": {
+      "description": "Spotify application client secret"
+    },
+    "SPOTIFY_TOKEN": {
+      "description": "Serialized Spotify OAuth token (see README for generation instructions)"
+    },
+    "SPOTIFY_PLAYLIST_ID": {
+      "description": "ID of the main dynamic playlist"
+    },
+    "GENRE_SPOTIFY_PLAYLIST_ID": {
+      "description": "ID of the genre rotation playlist"
+    },
+    "HIGH_SCORES_SPOTIFY_PLAYLIST_ID": {
+      "description": "ID of the top-50 playlist"
+    },
+    "NEON_API_KEY": {
+      "description": "Neon API key for creating and managing database branches"
+    },
+    "NEON_PROJECT_ID": {
+      "description": "Neon project ID"
+    }
+  }
+}

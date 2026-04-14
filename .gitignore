@@ -1,4 +1,6 @@
 /.idea/
+.vscode/*
+!.vscode/launch.json
 *.env
 token.txt
 ### Terraform template
