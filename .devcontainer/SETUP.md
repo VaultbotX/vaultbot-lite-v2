@@ -10,7 +10,7 @@ This document covers everything that must be configured manually in GitHub, Neon
 
 1. Go to [developer.spotify.com](https://developer.spotify.com) → **Dashboard** → **Create app**
 2. Fill in a name and description
-3. Add `http://localhost:8888/callback` as a redirect URI
+3. Add `https://localhost:8888/callback` as a redirect URI
 4. Note the **Client ID** and **Client Secret**
 
 ### 1b. Create the three playlists
@@ -29,6 +29,28 @@ The playlist ID is the string after `/playlist/` in the Spotify share URL, e.g. 
 
 `SPOTIFY_TOKEN` is a one-time setup using the auth tool in `scripts/spotify-auth-code-flow/`:
 
+Spotify requires HTTPS for redirect URIs. Use [mkcert](https://github.com/FiloSottile/mkcert) to generate a locally-trusted certificate — this avoids browser security warnings without any manual cert trust steps.
+
+Install mkcert (once per machine):
+
+```sh
+# macOS
+brew install mkcert
+
+# Linux
+apt install mkcert        # Debian/Ubuntu
+# or download the binary from https://github.com/FiloSottile/mkcert/releases
+```
+
+Generate the certificate (run from inside `scripts/spotify-auth-code-flow/`):
+
+```sh
+mkcert -install   # installs the local CA into your system trust store (once)
+mkcert localhost  # generates localhost.pem and localhost-key.pem
+```
+
+Then start the server:
+
 ```sh
 cd scripts/spotify-auth-code-flow
 cp .env.example .env
@@ -37,9 +59,9 @@ npm install
 npm start
 ```
 
-> **Codespaces note:** this tool works from inside a Codespace only when using **VS Code Desktop**. Desktop tunnels forwarded ports to your local machine, so `localhost:8888` resolves correctly and the Spotify redirect URI works as registered. If you are using **VS Code Web** (browser-only), `localhost:8888` does not resolve to the Codespace — run the tool locally instead.
+> **Codespaces note:** run this tool on your **local machine**, not inside a Codespace. `mkcert -install` adds the CA to your local system trust store — running it inside a container installs it there instead, so your browser still shows a cert warning. VS Code Desktop users can alternatively run the tool inside a Codespace (ports tunnel to localhost), but they must run `mkcert -install` locally first and copy the generated `.pem` files into the container.
 
-Then visit `http://localhost:8888/login` in a browser. After authorizing, the callback returns a JSON response like:
+Then visit `https://localhost:8888/login` in a browser. After authorizing, the callback returns a JSON response like:
 
 ```json
 {
