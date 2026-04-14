@@ -10,10 +10,14 @@
     }
   },
   "postCreateCommand": "npm install -g neonctl && bash .devcontainer/scripts/neon-branch-setup.sh",
-  "forwardPorts": [8080],
+  "forwardPorts": [8080, 8888],
   "portsAttributes": {
     "8080": {
       "label": "Spotify OAuth Callback",
+      "onAutoForward": "silent"
+    },
+    "8888": {
+      "label": "Spotify Auth Tool",
       "onAutoForward": "silent"
     }
   },
