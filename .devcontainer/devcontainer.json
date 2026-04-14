@@ -5,11 +5,15 @@
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.26"
     },
-    "ghcr.io/devcontainers/features/node:1": {}
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "customizations": {
     "vscode": {
-      "extensions": ["golang.go"]
+      "extensions": [
+        "golang.go",
+        "anthropic.claude-code"
+      ]
     }
   },
   "postCreateCommand": "npm install -g neonctl && bash .devcontainer/scripts/neon-branch-setup.sh",
