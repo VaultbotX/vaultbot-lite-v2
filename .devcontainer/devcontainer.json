@@ -1,7 +1,10 @@
 {
   "name": "vaultbot-lite-v2",
-  "image": "mcr.microsoft.com/devcontainers/go:1",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
   "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.26"
+    },
     "ghcr.io/devcontainers/features/node:1": {}
   },
   "customizations": {
