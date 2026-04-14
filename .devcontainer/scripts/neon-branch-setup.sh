@@ -90,6 +90,7 @@ if [[ ! -f .env ]]; then
   echo "Created .env from .env.example"
 fi
 
+set_env_var "NEON_BRANCH_NAME"  "${NEON_BRANCH_NAME}"
 set_env_var "POSTGRES_HOST"     "${PG_HOST}"
 set_env_var "POSTGRES_PORT"     "${PG_PORT}"
 set_env_var "POSTGRES_USER"     "${PG_USER}"

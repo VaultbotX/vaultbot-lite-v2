@@ -5,11 +5,17 @@ set -euo pipefail
 : "${NEON_API_KEY:?NEON_API_KEY secret is required}"
 : "${NEON_PROJECT_ID:?NEON_PROJECT_ID secret is required}"
 
-GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-NEON_BRANCH_NAME="dev-$(echo "${GIT_BRANCH}" | tr '/' '-')"
+# Read the branch name written by neon-branch-setup.sh — this is the
+# authoritative name actually used when the branch was created, which
+# may differ from what we'd derive from the current git branch name.
+NEON_BRANCH_NAME=$(grep "^NEON_BRANCH_NAME=" .env 2>/dev/null | cut -d'=' -f2-)
 
-echo "Git branch:   ${GIT_BRANCH}"
-echo "Neon branch:  ${NEON_BRANCH_NAME}"
+if [[ -z "${NEON_BRANCH_NAME}" ]]; then
+  echo "NEON_BRANCH_NAME not found in .env — was neon-branch-setup.sh run in this environment?" >&2
+  exit 1
+fi
+
+echo "Neon branch: ${NEON_BRANCH_NAME}"
 echo ""
 
 # Confirm before deleting
