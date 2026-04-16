@@ -166,7 +166,8 @@ func GetTopSongsByYear(db *sqlx.DB, minCount int) ([]Song, int, error) {
 		         JOIN songs s ON sa.song_id = s.id
 		WHERE EXTRACT(YEAR FROM s.release_date)::int = $1
 		GROUP BY s.id
-		ORDER BY COUNT(sa.id) DESC;
+		ORDER BY COUNT(sa.id) DESC
+		LIMIT 100;
 	`, year)
 	if err != nil {
 		return nil, 0, err
