@@ -88,6 +88,10 @@ func (r *PostgresTrackRepository) GetTop50Tracks() (songs []psongs.Song, err err
 	return psongs.GetOverallTopSongs(r.db, 50)
 }
 
+func (r *PostgresTrackRepository) GetTopYearTracks(minCount int) (songs []psongs.Song, year int, err error) {
+	return psongs.GetTopSongsByYear(r.db, minCount)
+}
+
 // HasRecentArchiveEntry returns true if a song_archive row exists for the given
 // Spotify track ID with created_at >= since. Used by the poll job to detect
 // whether a playlist item has already been recorded for this addition event.

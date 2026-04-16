@@ -129,6 +129,52 @@ func GetOverallTopSongs(db *sqlx.DB, limit int) ([]Song, error) {
 	return songs, nil
 }
 
+// GetTopSongsByYear retrieves songs from the release year that has the most archived tracks, provided it meets
+// the minimum threshold. It returns the songs (ordered by archive count descending) and the year, or an empty
+// slice and 0 if no year meets the threshold.
+func GetTopSongsByYear(db *sqlx.DB, minCount int) ([]Song, int, error) {
+	// Find the year with the most tracks, subject to the minimum threshold.
+	var year int
+	err := db.QueryRowx(`
+		SELECT EXTRACT(YEAR FROM s.release_date)::int AS release_year
+		FROM song_archive sa
+		         JOIN songs s ON sa.song_id = s.id
+		GROUP BY release_year
+		HAVING COUNT(sa.id) >= $1
+		ORDER BY COUNT(sa.id) DESC
+		LIMIT 1;
+	`, minCount).Scan(&year)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, 0, nil
+		}
+		return nil, 0, err
+	}
+
+	var songs []Song
+	err = db.Select(&songs, `
+		SELECT s.id,
+		       s.spotify_id,
+		       s.name,
+		       s.release_date,
+		       s.spotify_album_id,
+		       s.created_at,
+		       s.duration,
+		       s.popularity,
+		       s.album_name
+		FROM song_archive sa
+		         JOIN songs s ON sa.song_id = s.id
+		WHERE EXTRACT(YEAR FROM s.release_date)::int = $1
+		GROUP BY s.id
+		ORDER BY COUNT(sa.id) DESC;
+	`, year)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return songs, year, nil
+}
+
 // GetTopSongsByGenre retrieves the top 100 songs for a given genre based on their occurrence in the song_archive table
 func GetTopSongsByGenre(db *sqlx.DB, genreId int) ([]Song, error) {
 	var songs []Song
