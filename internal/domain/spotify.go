@@ -15,6 +15,8 @@ const (
 	GenrePlaylist
 	// HighScoresPlaylist represents a playlist that features the tracks added most frequently.
 	HighScoresPlaylist
+	// ThrowbackPlaylist represents a playlist curated from the single release year with the most archived tracks.
+	ThrowbackPlaylist
 )
 
 type SpotifyTrackRepository interface {

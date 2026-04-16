@@ -9,6 +9,7 @@ type AddTrackRepository interface {
 	AddTrackToDatabase(track *spotify.FullTrack, artists []*spotify.FullArtist) error
 	GetRandomGenreTracks() (songs []songs.Song, genreName string, err error)
 	GetTop50Tracks() (songs []songs.Song, err error)
+	GetTopYearTracks(minCount int) (songs []songs.Song, year int, err error)
 }
 
 type AddTrackService struct {
