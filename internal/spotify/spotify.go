@@ -17,6 +17,7 @@ type Client struct {
 	DynamicPlaylistId    spotify.ID
 	GenrePlaylistId      spotify.ID
 	HighScoresPlaylistId spotify.ID
+	ThrowbackPlaylistId  spotify.ID
 	Client               *spotify.Client
 	Mu                   sync.Mutex
 }
@@ -49,6 +50,11 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 	highScoresPlaylistId, ok := os.LookupEnv("HIGH_SCORES_SPOTIFY_PLAYLIST_ID")
 	if !ok {
 		log.Fatal("Missing HIGH_SCORES_SPOTIFY_PLAYLIST_ID environment variable")
+	}
+
+	throwbackPlaylistId, ok := os.LookupEnv("THROWBACK_SPOTIFY_PLAYLIST_ID")
+	if !ok {
+		log.Fatal("Missing THROWBACK_SPOTIFY_PLAYLIST_ID environment variable")
 	}
 
 	tokenString, ok := os.LookupEnv("SPOTIFY_TOKEN")
@@ -84,6 +90,7 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 		DynamicPlaylistId:    spotify.ID(dynamicPlaylistId),
 		GenrePlaylistId:      spotify.ID(genrePlaylistId),
 		HighScoresPlaylistId: spotify.ID(highScoresPlaylistId),
+		ThrowbackPlaylistId:  spotify.ID(throwbackPlaylistId),
 		Client:               client,
 		Mu:                   sync.Mutex{},
 	}
