@@ -141,7 +141,7 @@ func GetTopSongsByYear(db *sqlx.DB, minCount int) ([]Song, int, error) {
 		         JOIN songs s ON sa.song_id = s.id
 		GROUP BY release_year
 		HAVING COUNT(sa.id) >= $1
-		ORDER BY COUNT(sa.id) DESC
+		ORDER BY RANDOM()
 		LIMIT 1;
 	`, minCount).Scan(&year)
 	if err != nil {
