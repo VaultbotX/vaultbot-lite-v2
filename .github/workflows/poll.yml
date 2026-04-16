@@ -30,6 +30,7 @@ jobs:
           SPOTIFY_PLAYLIST_ID: ${{ secrets.SPOTIFY_PLAYLIST_ID }}
           GENRE_SPOTIFY_PLAYLIST_ID: ${{ secrets.GENRE_SPOTIFY_PLAYLIST_ID }}
           HIGH_SCORES_SPOTIFY_PLAYLIST_ID: ${{ secrets.HIGH_SCORES_SPOTIFY_PLAYLIST_ID }}
+          THROWBACK_SPOTIFY_PLAYLIST_ID: ${{ secrets.THROWBACK_SPOTIFY_PLAYLIST_ID }}
           POSTGRES_HOST: ${{ secrets.NEON_HOST }}
           POSTGRES_PORT: ${{ secrets.NEON_PORT }}
           POSTGRES_USER: ${{ secrets.NEON_USER }}
