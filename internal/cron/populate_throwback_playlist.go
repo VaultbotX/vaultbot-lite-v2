@@ -14,7 +14,7 @@ import (
 
 const (
 	throwbackMinTrackCount          = 20
-	baseThrowbackPlaylistDescription = "The best tracks from a single release year, as voted by the Vaultbot community."
+	baseThrowbackPlaylistDescription = "A randomly selected release year tracked by Vaultbot."
 )
 
 func RunPopulateThrowbackPlaylist(ctx context.Context) error {
