@@ -52,6 +52,9 @@ func (m *mockTrackRepo) GetTop50Tracks() (songs []psongs.Song, err error) {
 func (m *mockTrackRepo) GetTopYearTracks(minCount int) (songs []psongs.Song, year int, err error) {
 	return m.rows, 2000, nil
 }
+func (m *mockTrackRepo) GetRandomTracks(limit int) (songs []psongs.Song, err error) {
+	return m.rows, nil
+}
 
 func makePI(id string) zspotify.PlaylistItem {
 	return zspotify.PlaylistItem{AddedAt: time.Now().Format(zspotify.TimestampLayout), Track: zspotify.PlaylistItemTrack{Track: &zspotify.FullTrack{SimpleTrack: zspotify.SimpleTrack{ID: zspotify.ID(id)}}}}

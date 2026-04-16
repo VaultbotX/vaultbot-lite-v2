@@ -105,6 +105,8 @@ func (r *SpotifyPlaylistRepo) getPlaylistId() spotify.ID {
 		return r.Client.HighScoresPlaylistId
 	case domain.ThrowbackPlaylist:
 		return r.Client.ThrowbackPlaylistId
+	case domain.VarietyPlaylist:
+		return r.Client.VarietyPlaylistId
 	default:
 		return ""
 	}

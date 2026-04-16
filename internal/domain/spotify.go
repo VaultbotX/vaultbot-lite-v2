@@ -17,6 +17,8 @@ const (
 	HighScoresPlaylist
 	// ThrowbackPlaylist represents a playlist curated from the single release year with the most archived tracks.
 	ThrowbackPlaylist
+	// VarietyPlaylist represents a playlist of 100 randomly selected tracks from the archive.
+	VarietyPlaylist
 )
 
 type SpotifyTrackRepository interface {
