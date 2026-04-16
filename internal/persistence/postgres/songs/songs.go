@@ -176,6 +176,31 @@ func GetTopSongsByYear(db *sqlx.DB, minCount int) ([]Song, int, error) {
 	return songs, year, nil
 }
 
+// GetRandomSongs retrieves a random selection of songs from the archive.
+func GetRandomSongs(db *sqlx.DB, limit int) ([]Song, error) {
+	var songs []Song
+	err := db.Select(&songs, `
+		SELECT s.id,
+		       s.spotify_id,
+		       s.name,
+		       s.release_date,
+		       s.spotify_album_id,
+		       s.created_at,
+		       s.duration,
+		       s.popularity,
+		       s.album_name
+		FROM song_archive sa
+		         JOIN songs s ON sa.song_id = s.id
+		GROUP BY s.id
+		ORDER BY RANDOM()
+		LIMIT $1;
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	return songs, nil
+}
+
 // GetTopSongsByGenre retrieves the top 100 songs for a given genre based on their occurrence in the song_archive table
 func GetTopSongsByGenre(db *sqlx.DB, genreId int) ([]Song, error) {
 	var songs []Song
