@@ -10,6 +10,7 @@ type AddTrackRepository interface {
 	GetRandomGenreTracks() (songs []songs.Song, genreName string, err error)
 	GetTop50Tracks() (songs []songs.Song, err error)
 	GetTopYearTracks(minCount int) (songs []songs.Song, year int, err error)
+	GetRandomTracks(limit int) (songs []songs.Song, err error)
 }
 
 type AddTrackService struct {
