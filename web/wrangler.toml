@@ -1,10 +1,13 @@
-# Cloudflare Pages build settings (configure in dashboard):
+# Build settings must be configured in the Cloudflare Pages dashboard
+# (Settings > Builds & deployments) since Pages ignores wrangler.toml for builds:
 #   Root directory:         /web
 #   Build command:          npm run build
 #   Build output directory: .svelte-kit/cloudflare
 #
-# Environment variables are set in the Cloudflare dashboard under
-# Settings > Environment variables (or in .dev.vars for local dev).
+# pages_build_output_dir below is only used by `wrangler pages deploy` (CLI deploys).
+#
+# Environment variables: set in the Cloudflare dashboard under
+# Settings > Environment variables. Use .dev.vars for local dev.
 
 name = "vaultbot"
 pages_build_output_dir = ".svelte-kit/cloudflare"
