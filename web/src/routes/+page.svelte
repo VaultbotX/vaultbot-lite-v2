@@ -1,4 +1,5 @@
 <script lang="ts">
+import { goto } from "$app/navigation";
 import StatsCharts from "$lib/StatsCharts.svelte";
 import type { PageData } from "./$types";
 
@@ -52,7 +53,7 @@ function fmtDate(iso: string): string {
 	</div>
 </div>
 
-<StatsCharts {data} />
+<StatsCharts {data} onGenreClick={(id) => goto(`/genre/${id}`)} />
 
 <style>
 	.meta {

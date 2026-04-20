@@ -14,6 +14,7 @@ export interface ArtistCount {
 }
 
 export interface GenreCount {
+	genre_id: number;
 	name: string;
 	song_count: number;
 }
@@ -72,7 +73,7 @@ export const GET: RequestHandler = async ({ platform }) => {
 				LIMIT 15
 			`),
 			genre_distribution: typed<GenreCount[]>(sql`
-				SELECT g.name, COUNT(DISTINCT lsg.song_id)::int AS song_count
+				SELECT g.id AS genre_id, g.name, COUNT(DISTINCT lsg.song_id)::int AS song_count
 				FROM genres g
 				JOIN link_song_genres lsg ON g.id = lsg.genre_id
 				GROUP BY g.id, g.name
