@@ -4,7 +4,13 @@ import type { PageLoad } from "./$types";
 export const load: PageLoad = async ({ fetch, params }) => {
 	const res = await fetch(`/api/genre/${params.id}`);
 	if (res.status === 404) {
-		return { notFound: true, genre_name: "", artists: [], tracks: [] };
+		return {
+			notFound: true,
+			genre_name: "",
+			artists: [],
+			tracks: [],
+			connected_genres: [],
+		};
 	}
 	if (!res.ok) {
 		throw new Error(`Failed to load genre: ${res.status}`);
