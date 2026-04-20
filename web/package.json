@@ -26,6 +26,7 @@
 		"vite": "8.0.9"
 	},
 	"dependencies": {
-		"@neondatabase/serverless": "1.1.0"
+		"@neondatabase/serverless": "1.1.0",
+		"cytoscape": "3.33.2"
 	}
 }
