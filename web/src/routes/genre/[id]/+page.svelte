@@ -82,7 +82,17 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 										class="spotify-link"
 									>{track.name}</a>
 								</td>
-								<td class="artist-list muted">{track.artist_names.join(", ")}</td>
+								<td class="artist-list muted">
+									{#each track.artist_names as name, i}
+										{#if i > 0}<span>, </span>{/if}
+										<a
+											href={spotifyUrl("artist", track.artist_spotify_ids[i])}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="spotify-link muted-link"
+										>{name}</a>
+									{/each}
+								</td>
 								<td class="right mono">{track.occurrences.toLocaleString()}</td>
 							</tr>
 						{/each}
@@ -185,6 +195,10 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 	.spotify-link:hover {
 		color: var(--accent);
 		text-decoration: none;
+	}
+
+	.muted-link {
+		color: var(--text-muted);
 	}
 
 	.track-name {
