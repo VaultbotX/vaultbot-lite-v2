@@ -1,0 +1,32 @@
+name: Refresh Genre Graph
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.26'
+
+      - name: Build
+        run: go build -o bin/refresh_graph_mv ./cmd/refresh_graph_mv
+
+      - name: Refresh materialized views
+        env:
+          POSTGRES_HOST: ${{ secrets.NEON_HOST }}
+          POSTGRES_PORT: ${{ secrets.NEON_PORT }}
+          POSTGRES_USER: ${{ secrets.NEON_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.NEON_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.NEON_DB }}
+        run: ./bin/refresh_graph_mv
