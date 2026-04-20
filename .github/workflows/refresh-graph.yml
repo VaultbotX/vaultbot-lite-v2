@@ -2,7 +2,7 @@ name: Refresh Genre Graph
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.26'
+          go-version: "1.26"
 
       - name: Build
         run: go build -o bin/refresh_graph_mv ./cmd/refresh_graph_mv
