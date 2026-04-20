@@ -30,6 +30,8 @@ jobs:
         run: npm run build
 
       - name: Set DATABASE_URL secret on Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: echo "${{ secrets.CF_PAGES_DATABASE_URL }}" | npx wrangler pages secret put
           DATABASE_URL --project-name=vaultbot
 
