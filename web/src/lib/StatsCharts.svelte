@@ -3,7 +3,13 @@ import { onMount } from "svelte";
 import { fmtMonth, treemapColor } from "$lib/stats";
 import type { StatsData } from "../routes/api/stats/+server";
 
-let { data }: { data: StatsData } = $props();
+let {
+	data,
+	onGenreClick,
+}: {
+	data: StatsData;
+	onGenreClick: (genreId: number) => void;
+} = $props();
 
 let timeEl: HTMLCanvasElement | undefined;
 let artistsEl: HTMLCanvasElement | undefined;
@@ -162,7 +168,7 @@ onMount(() => {
 			// but the TypeScript types don't expose it — cast through unknown where needed.
 			type TreemapCtx = {
 				type: string;
-				raw: { _data: { name: string; song_count: number } };
+				raw: { _data: { genre_id: number; name: string; song_count: number } };
 			};
 
 			const genresChart = new Chart(genresEl, {
@@ -206,6 +212,26 @@ onMount(() => {
 				options: {
 					responsive: true,
 					maintainAspectRatio: false,
+					onClick: (_event: unknown, elements: unknown[], chart: unknown) => {
+						if (!(elements as { datasetIndex: number; index: number }[]).length)
+							return;
+						const { datasetIndex, index } = (
+							elements as { datasetIndex: number; index: number }[]
+						)[0];
+						type TPoint = {
+							_data: { genre_id: number; name: string; song_count: number };
+						};
+						const ds = (
+							chart as { data: { datasets: Array<{ data: TPoint[] }> } }
+						).data.datasets[datasetIndex];
+						onGenreClick(ds.data[index]._data.genre_id);
+					},
+					onHover: (_event: unknown, elements: unknown[]) => {
+						if (genresEl) {
+							genresEl.style.cursor =
+								(elements as unknown[]).length > 0 ? "pointer" : "default";
+						}
+					},
 					plugins: {
 						legend: { display: false },
 						tooltip: {
