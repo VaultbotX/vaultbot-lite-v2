@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { json } from "@sveltejs/kit";
+import { allNamed, typed } from "$lib/allNamed";
 import type { RequestHandler } from "./$types";
 
 export interface GenreVertex {
@@ -27,23 +28,19 @@ export const GET: RequestHandler = async ({ platform }) => {
 
 	const sql = neon(dbUrl);
 
-	const [vertices, edges] = await Promise.all([
-		sql`
+	const { vertices, edges } = await allNamed({
+		vertices: typed<GenreVertex[]>(sql`
 			SELECT genre_id, name, artist_count
 			FROM genre_graph_vertices
 			ORDER BY artist_count DESC
-		`,
-		sql`
+		`),
+		edges: typed<GenreEdge[]>(sql`
 			SELECT source_genre_id, target_genre_id, shared_artist_count
 			FROM genre_graph_edges
-		`,
-	]);
+		`),
+	});
 
-	return json(
-		{
-			vertices: vertices as unknown as GenreVertex[],
-			edges: edges as unknown as GenreEdge[],
-		} satisfies GraphData,
-		{ headers: { "Cache-Control": "public, max-age=21600" } },
-	);
+	return json({ vertices, edges } satisfies GraphData, {
+		headers: { "Cache-Control": "public, max-age=21600" },
+	});
 };
