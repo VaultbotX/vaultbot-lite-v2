@@ -12,6 +12,7 @@ export interface GenreTrack {
 	name: string;
 	spotify_id: string;
 	artist_names: string[];
+	artist_spotify_ids: string[];
 	occurrences: number;
 }
 
@@ -50,16 +51,21 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			LIMIT 20
 		`,
 		sql`
+			WITH song_artists AS (
+				SELECT DISTINCT lsa.song_id, a.name, a.spotify_id
+				FROM link_song_artists lsa
+				JOIN artists a ON a.id = lsa.artist_id
+			)
 			SELECT
 				s.name,
 				s.spotify_id,
-				array_agg(DISTINCT a.name ORDER BY a.name) AS artist_names,
-				COUNT(sa.id)::int AS occurrences
+				array_agg(sa.name ORDER BY sa.name) AS artist_names,
+				array_agg(sa.spotify_id ORDER BY sa.name) AS artist_spotify_ids,
+				COUNT(arc.id)::int AS occurrences
 			FROM songs s
 			JOIN link_song_genres lsg ON lsg.song_id = s.id
-			JOIN song_archive sa ON sa.song_id = s.id
-			JOIN link_song_artists lsa ON lsa.song_id = s.id
-			JOIN artists a ON a.id = lsa.artist_id
+			JOIN song_archive arc ON arc.song_id = s.id
+			JOIN song_artists sa ON sa.song_id = s.id
 			WHERE lsg.genre_id = ${genreId}
 			GROUP BY s.id, s.name, s.spotify_id
 			ORDER BY occurrences DESC
