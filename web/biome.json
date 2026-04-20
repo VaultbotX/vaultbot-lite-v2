@@ -11,7 +11,9 @@
 			"src/**/*.ts",
 			"src/**/*.svelte",
 			"vite.config.ts",
-			"svelte.config.js"
+			"vitest.config.ts",
+			"svelte.config.js",
+			"src/**/*.test.ts"
 		]
 	},
 	"formatter": {
