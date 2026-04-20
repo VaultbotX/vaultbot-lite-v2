@@ -1,5 +1,5 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { json } from "@sveltejs/kit";
+import type { RequestHandler } from "./$types";
 
 export interface GenreVertex {
 	genre_id: number;
@@ -23,6 +23,6 @@ export const GET: RequestHandler = async () => {
 	const data: GraphData = { vertices: [], edges: [] };
 
 	return json(data, {
-		headers: { 'Cache-Control': 'public, max-age=21600' }
+		headers: { "Cache-Control": "public, max-age=21600" },
 	});
 };
