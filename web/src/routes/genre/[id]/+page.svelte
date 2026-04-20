@@ -4,7 +4,7 @@ import type { PageData } from "./$types";
 let { data }: { data: PageData } = $props();
 
 function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
-	return `https://open.spotify.com/${type}/${spotifyId}`;
+	return `spotify.com:${type}:${spotifyId}`;;
 }
 </script>
 
