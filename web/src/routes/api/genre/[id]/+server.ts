@@ -4,11 +4,13 @@ import type { RequestHandler } from "./$types";
 
 export interface GenreArtist {
 	name: string;
+	spotify_id: string;
 	archive_count: number;
 }
 
 export interface GenreTrack {
 	name: string;
+	spotify_id: string;
 	artist_names: string[];
 	occurrences: number;
 }
@@ -37,19 +39,20 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			SELECT name FROM genres WHERE id = ${genreId}
 		`,
 		sql`
-			SELECT a.name, COUNT(sa.id)::int AS archive_count
+			SELECT a.name, a.spotify_id, COUNT(sa.id)::int AS archive_count
 			FROM artists a
 			JOIN link_artist_genres lag ON lag.artist_id = a.id
 			JOIN link_song_artists lsa ON lsa.artist_id = a.id
 			JOIN song_archive sa ON sa.song_id = lsa.song_id
 			WHERE lag.genre_id = ${genreId}
-			GROUP BY a.id, a.name
+			GROUP BY a.id, a.name, a.spotify_id
 			ORDER BY archive_count DESC
 			LIMIT 20
 		`,
 		sql`
 			SELECT
 				s.name,
+				s.spotify_id,
 				array_agg(DISTINCT a.name ORDER BY a.name) AS artist_names,
 				COUNT(sa.id)::int AS occurrences
 			FROM songs s
@@ -58,7 +61,7 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			JOIN link_song_artists lsa ON lsa.song_id = s.id
 			JOIN artists a ON a.id = lsa.artist_id
 			WHERE lsg.genre_id = ${genreId}
-			GROUP BY s.id, s.name
+			GROUP BY s.id, s.name, s.spotify_id
 			ORDER BY occurrences DESC
 			LIMIT 20
 		`,

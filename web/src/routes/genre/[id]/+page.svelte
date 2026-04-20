@@ -2,6 +2,10 @@
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
+
+function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
+	return `https://open.spotify.com/${type}/${spotifyId}`;
+}
 </script>
 
 <svelte:head>
@@ -38,7 +42,14 @@ let { data }: { data: PageData } = $props();
 					<tbody>
 						{#each data.artists as artist}
 							<tr>
-								<td>{artist.name}</td>
+								<td>
+									<a
+										href={spotifyUrl("artist", artist.spotify_id)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="spotify-link"
+									>{artist.name}</a>
+								</td>
 								<td class="right mono">{artist.archive_count.toLocaleString()}</td>
 							</tr>
 						{/each}
@@ -63,7 +74,14 @@ let { data }: { data: PageData } = $props();
 					<tbody>
 						{#each data.tracks as track}
 							<tr>
-								<td class="track-name">{track.name}</td>
+								<td class="track-name">
+									<a
+										href={spotifyUrl("track", track.spotify_id)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="spotify-link"
+									>{track.name}</a>
+								</td>
 								<td class="artist-list muted">{track.artist_names.join(", ")}</td>
 								<td class="right mono">{track.occurrences.toLocaleString()}</td>
 							</tr>
@@ -159,8 +177,17 @@ let { data }: { data: PageData } = $props();
 		white-space: nowrap;
 	}
 
+	.spotify-link {
+		color: var(--text);
+		transition: color 0.15s;
+	}
+
+	.spotify-link:hover {
+		color: var(--accent);
+		text-decoration: none;
+	}
+
 	.track-name {
-		font-weight: 500;
 		padding-right: 0.5rem;
 		white-space: nowrap;
 		overflow: hidden;
