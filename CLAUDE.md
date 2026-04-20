@@ -157,6 +157,36 @@ var Migration0NN = &Migration{
 
 2. Register it in `cmd/migration_runner/runner.go` — increment the array size and append the variable.
 
+## TypeScript conventions
+
+**Use types as strictly as possible. Avoid `any` and avoid `as unknown as T` unless there is no other option.**
+
+### Parallel DB queries — always use `allNamed` + `typed`
+
+`Promise.all` with positional destructuring is fragile: inserting or reordering a query silently mismatches results to variable names with no compile-time error. Always use the helpers in `web/src/lib/allNamed.ts` instead:
+
+```typescript
+import { allNamed, typed } from "$lib/allNamed";
+
+const { genreRows, artists } = await allNamed({
+  genreRows: typed<{ name: string }[]>(sql`SELECT name FROM genres WHERE id = ${id}`),
+  artists:   typed<Artist[]>(sql`SELECT name FROM artists WHERE ...`),
+});
+```
+
+- **`allNamed`** — runs promises in parallel keyed by name; position in the object is irrelevant.
+- **`typed<T>`** — the single approved boundary cast for neon query results. The neon template tag returns `NeonQueryPromise<…, Record<string,any>[]>` which TypeScript 6 will not let you narrow with a plain `as`. `typed<T>` confines the required `as unknown as` to one documented location.
+
+Never scatter `as unknown as SomeType` across route files. If a new external boundary needs a cast, add a named helper like `typed` rather than inlining it.
+
+### `satisfies` for return shapes
+
+Use `satisfies` (not `as`) when asserting that a value matches an interface at a return site — it checks the shape without widening the type:
+
+```typescript
+return json({ vertices, edges } satisfies GraphData, { headers: { … } });
+```
+
 ## Svelte 5 patterns
 
 Use runes throughout. No `$:` reactive declarations, no `export let`.
