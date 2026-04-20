@@ -1,0 +1,43 @@
+name: Deploy Web
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ "web/**" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Set DATABASE_URL secret on Cloudflare Pages
+        run: echo "${{ secrets.CF_PAGES_DATABASE_URL }}" | npx wrangler pages secret put
+          DATABASE_URL --project-name=vaultbot
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          workingDirectory: web
+          command: pages deploy .svelte-kit/cloudflare --project-name=vaultbot
