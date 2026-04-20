@@ -1,0 +1,62 @@
+:root {
+	--bg: #0c0c10;
+	--surface: #131318;
+	--surface-2: #1a1a22;
+	--border: #1f1f2c;
+	--text: #e2e2f0;
+	--text-muted: #6060a0;
+	--accent: #7c6af7;
+	--accent-glow: rgba(124, 106, 247, 0.12);
+	--radius: 10px;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html,
+body {
+	height: 100%;
+	background: var(--bg);
+	color: var(--text);
+	font-family: 'IBM Plex Sans', sans-serif;
+	font-size: 14px;
+	line-height: 1.6;
+	min-height: 100vh;
+}
+
+a {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+h1,
+h2,
+h3 {
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	color: var(--text);
+}
+
+.mono {
+	font-family: 'IBM Plex Mono', monospace;
+}
+
+.muted {
+	color: var(--text-muted);
+}
+
+.card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 1.5rem;
+}

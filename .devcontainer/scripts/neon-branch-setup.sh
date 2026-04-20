@@ -64,23 +64,24 @@ fi
 
 PG_DB="${_pathquery%%\?*}"
 
-# Upsert a KEY=VALUE line in .env using only bash + standard POSIX utilities.
+# Upsert a KEY=VALUE line in a target file using only bash + standard POSIX utilities.
 # Replaces the existing line for KEY if present; appends otherwise.
-set_env_var() {
-  local key="$1" value="$2" tmp
+# Usage: set_var <file> <key> <value>
+set_var() {
+  local file="$1" key="$2" value="$3" tmp
   tmp="$(mktemp)"
-  if grep -q "^${key}=" .env 2>/dev/null; then
+  if grep -q "^${key}=" "${file}" 2>/dev/null; then
     while IFS= read -r line || [[ -n "${line}" ]]; do
       if [[ "${line}" == "${key}="* ]]; then
         printf '%s=%s\n' "${key}" "${value}"
       else
         printf '%s\n' "${line}"
       fi
-    done < .env > "${tmp}"
-    mv "${tmp}" .env
+    done < "${file}" > "${tmp}"
+    mv "${tmp}" "${file}"
   else
     rm -f "${tmp}"
-    printf '%s=%s\n' "${key}" "${value}" >> .env
+    printf '%s=%s\n' "${key}" "${value}" >> "${file}"
   fi
 }
 
@@ -90,14 +91,27 @@ if [[ ! -f .env ]]; then
   echo "Created .env from .env.example"
 fi
 
-set_env_var "NEON_BRANCH_NAME"  "${NEON_BRANCH_NAME}"
-set_env_var "POSTGRES_HOST"     "${PG_HOST}"
-set_env_var "POSTGRES_PORT"     "${PG_PORT}"
-set_env_var "POSTGRES_USER"     "${PG_USER}"
-set_env_var "POSTGRES_PASSWORD" "${PG_PASSWORD}"
-set_env_var "POSTGRES_DB"       "${PG_DB}"
+set_var .env "NEON_BRANCH_NAME"  "${NEON_BRANCH_NAME}"
+set_var .env "POSTGRES_HOST"     "${PG_HOST}"
+set_var .env "POSTGRES_PORT"     "${PG_PORT}"
+set_var .env "POSTGRES_USER"     "${PG_USER}"
+set_var .env "POSTGRES_PASSWORD" "${PG_PASSWORD}"
+set_var .env "POSTGRES_DB"       "${PG_DB}"
 
 echo "Postgres connection vars written to .env"
+echo ""
+
+# Write DATABASE_URL to web/.dev.vars for the SvelteKit frontend.
+# setup.sh (which runs after this script) will skip its own bootstrap
+# copy when it sees the file already exists.
+if [[ ! -f web/.dev.vars ]]; then
+  cp web/.dev.vars.example web/.dev.vars
+  echo "Created web/.dev.vars from web/.dev.vars.example"
+fi
+
+set_var web/.dev.vars "DATABASE_URL" "${CONN_URI}"
+
+echo "DATABASE_URL written to web/.dev.vars"
 echo ""
 echo "Done! Neon branch '${NEON_BRANCH_NAME}' is ready."
 echo "If this is a freshly created branch, run migrations:"
