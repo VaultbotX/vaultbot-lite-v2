@@ -20,7 +20,8 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 		<h1>{data.genre_name}</h1>
 		<p class="muted">
 			{data.artists.length} artist{data.artists.length !== 1 ? "s" : ""} ·
-			{data.tracks.length} top track{data.tracks.length !== 1 ? "s" : ""}
+			{data.tracks.length} top track{data.tracks.length !== 1 ? "s" : ""} ·
+			{data.connected_genres.length} connected genre{data.connected_genres.length !== 1 ? "s" : ""}
 		</p>
 	{/if}
 </div>
@@ -101,6 +102,20 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 			{/if}
 		</section>
 	</div>
+
+	{#if data.connected_genres.length > 0}
+		<section class="card related">
+			<h2>Related Genres</h2>
+			<div class="chips">
+				{#each data.connected_genres as genre}
+					<a href="/genre/{genre.genre_id}" class="chip">
+						<span class="chip-name">{genre.name}</span>
+						<span class="chip-count mono">{genre.shared_artist_count}</span>
+					</a>
+				{/each}
+			</div>
+		</section>
+	{/if}
 {/if}
 
 <style>
@@ -212,6 +227,46 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 	.artist-list {
 		font-size: 12px;
 		padding-right: 0.5rem;
+	}
+
+	.related {
+		margin-top: 1.5rem;
+	}
+
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.3rem 0.65rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		font-size: 12px;
+		color: var(--text);
+		transition: border-color 0.15s, color 0.15s;
+		text-decoration: none;
+	}
+
+	.chip:hover {
+		border-color: var(--accent);
+		color: var(--accent);
+		text-decoration: none;
+	}
+
+	.chip-count {
+		font-size: 11px;
+		color: var(--text-muted);
+		transition: color 0.15s;
+	}
+
+	.chip:hover .chip-count {
+		color: var(--accent);
 	}
 
 	@media (max-width: 700px) {
