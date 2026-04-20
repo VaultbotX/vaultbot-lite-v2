@@ -24,6 +24,8 @@ A Spotify playlist tracker that polls a playlist on a schedule, stores tracks an
 | DB driver (frontend) | `@neondatabase/serverless` (HTTP mode) |
 | Linting/formatting | Biome 2.x (covers `.ts` and `.svelte`) |
 | Graph visualization | Cytoscape.js (with Louvain community detection) |
+| Charts/treemap | Chart.js 4 + chartjs-chart-treemap |
+| Unit testing | Vitest (pure function tests in `src/**/*.test.ts`) |
 
 ## Environment setup
 
@@ -61,6 +63,8 @@ In production, set this in the Cloudflare Pages dashboard under **Settings → E
 npm run dev          # Vite dev server (no Cloudflare bindings)
 npm run build        # Production build via adapter-cloudflare
 npm run check        # svelte-kit sync + svelte-check type checking
+npm run test         # Run unit tests (Vitest)
+npm run test:watch   # Run unit tests in watch mode
 npm run biome        # Biome lint + format (auto-fix)
 npm run lint         # Biome lint only
 npm run format       # Biome format only
@@ -74,7 +78,7 @@ go test ./...                           # Run all tests
 go run ./cmd/migration_runner           # Apply pending DB migrations
 go run ./cmd/refresh_graph_mv           # Refresh genre graph materialized views
 go run ./cmd/poll                       # Poll Spotify playlist once
-go run ./cmd/stats                      # Generate stats JSON (stdout)
+go run ./cmd/stats                      # Generate stats JSON (stdout) — superseded by /api/stats
 ```
 
 ## Project structure
@@ -85,7 +89,7 @@ go run ./cmd/stats                      # Generate stats JSON (stdout)
 │   ├── migration_runner/       # Applies DB migrations
 │   ├── refresh_graph_mv/       # Refreshes genre graph MVs
 │   ├── poll/                   # Spotify polling job
-│   ├── stats/                  # Legacy stats JSON generator
+│   ├── stats/                  # Legacy stats JSON generator (superseded by /api/stats)
 │   ├── purge/                  # Removes expired tracks
 │   ├── genre/                  # Genre rotation playlist
 │   ├── highscores/             # Top-50 playlist
@@ -108,15 +112,29 @@ go run ./cmd/stats                      # Generate stats JSON (stdout)
 │   │   ├── app.d.ts            # App.Platform type (Cloudflare env bindings)
 │   │   ├── routes/
 │   │   │   ├── +layout.svelte  # Root layout (header, nav, footer)
-│   │   │   ├── +page.svelte    # Genre graph visualization
-│   │   │   ├── +page.ts        # Fetches /api/graph
+│   │   │   ├── +page.svelte    # Stats dashboard (summary cards + charts)
+│   │   │   ├── +page.ts        # Fetches /api/stats
+│   │   │   ├── graph/          # Interactive genre graph page
+│   │   │   │   ├── +page.svelte
+│   │   │   │   └── +page.ts    # Fetches /api/graph
 │   │   │   ├── genre/[id]/     # Genre drilldown page
-│   │   │   └── api/            # Server-side API routes
+│   │   │   └── api/            # Server-side API routes (Cloudflare Pages Functions)
+│   │   │       ├── stats/      # GET /api/stats
 │   │   │       ├── graph/      # GET /api/graph
 │   │   │       └── genre/[id]/ # GET /api/genre/:id
 │   │   └── lib/
+│   │       ├── GenreGraph.svelte   # Cytoscape.js graph component
+│   │       ├── StatsCharts.svelte  # Chart.js charts component (line, bar, treemap)
+│   │       ├── allNamed.ts         # Parallel DB query helper
+│   │       ├── graph.ts            # Pure fns: communityColor, nodeSize, edgeWidth
+│   │       ├── graph.test.ts       # Unit tests for graph.ts
+│   │       ├── louvain.ts          # Louvain community detection algorithm
+│   │       ├── louvain.test.ts     # Unit tests for louvain.ts
+│   │       ├── stats.ts            # Pure fns: fmtMonth, treemapColor
+│   │       └── stats.test.ts       # Unit tests for stats.ts
 │   ├── static/                 # Static assets (logo, favicon)
 │   ├── biome.json              # Biome linter config
+│   ├── vitest.config.ts        # Vitest config (separate from vite.config.ts)
 │   └── wrangler.toml           # Cloudflare Pages config (update `name`)
 └── .devcontainer/
     └── scripts/
@@ -156,6 +174,23 @@ var Migration0NN = &Migration{
 ```
 
 2. Register it in `cmd/migration_runner/runner.go` — increment the array size and append the variable.
+
+## Testing
+
+Unit tests live alongside their source files in `web/src/lib/` as `*.test.ts`. They cover pure functions only — no Svelte components, no DOM, no DB.
+
+```
+web/src/lib/
+├── graph.test.ts       # communityColor, nodeSize, edgeWidth
+├── louvain.test.ts     # detectCommunities (Louvain algorithm)
+└── stats.test.ts       # fmtMonth, treemapColor
+```
+
+**Why a separate `vitest.config.ts`:** Vite 8 uses the rolldown backend whose `Plugin` type is incompatible with Vitest's bundled Vite version. Importing `defineConfig` from `vitest/config` inside `vite.config.ts` causes a type conflict. The fix is a standalone `vitest.config.ts` that imports from `vitest/config`, leaving `vite.config.ts` untouched.
+
+**Why `npm run check` must run before `npm test` in CI:** Vitest's esbuild resolves `web/tsconfig.json → .svelte-kit/tsconfig.json`, which only exists after `svelte-kit sync` runs. `npm run check` internally runs `svelte-kit sync`, so order the CI steps: Lint → Type check (`npm run check`) → Test (`npm test`).
+
+**Pure function extraction pattern:** Move any logic that doesn't depend on DOM, Svelte reactivity, or Chart.js/Cytoscape instances into a plain `.ts` file in `lib/`. This makes it directly testable with Vitest. Keep chart and graph configuration inside the component's `onMount` / `$effect`.
 
 ## TypeScript conventions
 
