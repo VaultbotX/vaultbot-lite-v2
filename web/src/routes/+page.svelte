@@ -147,10 +147,10 @@ function renderGraph(sparse: boolean) {
 		},
 		minZoom: 0.15,
 		maxZoom: 6,
-		wheelSensitivity: 1.5,
+		wheelSensitivity: 0.3,
 	});
 
-	cyInstance?.on("tap", "node", (e) => {
+	cyInstance?.on("click", "node", (e) => {
 		goto(`/genre/${e.target.data("genreId")}`);
 	});
 
