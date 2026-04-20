@@ -12,8 +12,8 @@
 		"lint": "biome lint .",
 		"format": "biome format --write .",
 		"biome": "biome check --write .",
-		"test": "svelte-kit sync && vitest run",
-		"test:watch": "svelte-kit sync && vitest"
+		"test": "vitest run",
+		"test:watch": "vitest"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.11",
