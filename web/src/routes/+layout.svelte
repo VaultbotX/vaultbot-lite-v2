@@ -14,11 +14,12 @@ let { children } = $props();
 			<img src="/vaultbot.png" alt="Vaultbot logo" width="44" height="44" />
 			<div>
 				<span class="title">Vaultbot</span>
-				<span class="subtitle mono">Genre graph</span>
+				<span class="subtitle mono">Playlist analytics</span>
 			</div>
 		</div>
 		<nav>
-			<a href="/">Graph</a>
+			<a href="/">Stats</a>
+			<a href="/graph">Graph</a>
 		</nav>
 	</div>
 </header>
@@ -28,7 +29,7 @@ let { children } = $props();
 </main>
 
 <footer>
-	<span class="mono muted">vaultbot — genre graph</span>
+	<span class="mono muted">vaultbot — data refreshed every 6 hours</span>
 </footer>
 
 <style>
@@ -65,6 +66,11 @@ let { children } = $props();
 		display: block;
 		font-size: 11px;
 		color: var(--text-muted);
+	}
+
+	nav {
+		display: flex;
+		gap: 1.5rem;
 	}
 
 	nav a {
