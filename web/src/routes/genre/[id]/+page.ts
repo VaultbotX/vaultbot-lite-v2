@@ -1,4 +1,4 @@
-import type { PageLoad } from './$types';
+import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ fetch, params }) => {
 	const res = await fetch(`/api/genre/${params.id}`);

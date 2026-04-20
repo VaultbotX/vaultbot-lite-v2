@@ -1,5 +1,5 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { json } from "@sveltejs/kit";
+import type { RequestHandler } from "./$types";
 
 export interface GenreArtist {
 	name: string;
@@ -18,9 +18,9 @@ export interface GenreDetail {
 	tracks: GenreTrack[];
 }
 
-export const GET: RequestHandler = async ({ params }) => {
-	// TODO(PR3): query artists and top tracks for genre params.id
-	const data: GenreDetail = { genre_name: '', artists: [], tracks: [] };
+export const GET: RequestHandler = async ({ params: _params }) => {
+	// TODO(PR3): query artists and top tracks for genre _params.id
+	const data: GenreDetail = { genre_name: "", artists: [], tracks: [] };
 
 	return json(data);
 };
