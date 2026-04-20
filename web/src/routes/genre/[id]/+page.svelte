@@ -5,26 +5,75 @@ let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-	<title>Vaultbot — Genre</title>
+	<title>Vaultbot — {data.genre_name || "Genre"}</title>
 </svelte:head>
 
 <div class="page-header">
 	<a href="/" class="back mono">← Back to graph</a>
-	<h1>Genre</h1>
-	<p class="muted">Top artists and tracks for this genre in the archive.</p>
+	{#if data.notFound}
+		<h1>Genre not found</h1>
+	{:else}
+		<h1>{data.genre_name}</h1>
+		<p class="muted">
+			{data.artists.length} artist{data.artists.length !== 1 ? "s" : ""} ·
+			{data.tracks.length} top track{data.tracks.length !== 1 ? "s" : ""}
+		</p>
+	{/if}
 </div>
 
-<div class="grid">
-	<section class="card">
-		<h2>Artists</h2>
-		<p class="muted placeholder mono">Artist data coming soon</p>
-	</section>
+{#if !data.notFound}
+	<div class="grid">
+		<section class="card">
+			<h2>Artists</h2>
+			{#if data.artists.length === 0}
+				<p class="empty mono muted">No artists found</p>
+			{:else}
+				<table>
+					<thead>
+						<tr>
+							<th>Artist</th>
+							<th class="right mono">Archive plays</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.artists as artist}
+							<tr>
+								<td>{artist.name}</td>
+								<td class="right mono">{artist.archive_count.toLocaleString()}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</section>
 
-	<section class="card">
-		<h2>Top Tracks</h2>
-		<p class="muted placeholder mono">Track data coming soon</p>
-	</section>
-</div>
+		<section class="card">
+			<h2>Top Tracks</h2>
+			{#if data.tracks.length === 0}
+				<p class="empty mono muted">No tracks found</p>
+			{:else}
+				<table>
+					<thead>
+						<tr>
+							<th>Track</th>
+							<th>Artists</th>
+							<th class="right mono">Occurrences</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.tracks as track}
+							<tr>
+								<td class="track-name">{track.name}</td>
+								<td class="artist-list muted">{track.artist_names.join(", ")}</td>
+								<td class="right mono">{track.occurrences.toLocaleString()}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</section>
+	</div>
+{/if}
 
 <style>
 	.page-header {
@@ -53,18 +102,75 @@ let { data }: { data: PageData } = $props();
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 1.5rem;
+		align-items: start;
 	}
 
 	.card h2 {
-		font-size: 14px;
+		font-size: 13px;
 		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--text-muted);
 		margin-bottom: 1rem;
 		padding-bottom: 0.75rem;
 		border-bottom: 1px solid var(--border);
 	}
 
-	.placeholder {
+	.empty {
 		font-size: 12px;
+	}
+
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 13px;
+	}
+
+	thead th {
+		text-align: left;
+		font-size: 11px;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--text-muted);
+		padding: 0 0 0.5rem;
+		border-bottom: 1px solid var(--border);
+	}
+
+	thead th.right {
+		text-align: right;
+	}
+
+	tbody tr {
+		border-bottom: 1px solid var(--border);
+	}
+
+	tbody tr:last-child {
+		border-bottom: none;
+	}
+
+	tbody td {
+		padding: 0.5rem 0;
+		vertical-align: top;
+	}
+
+	tbody td.right {
+		text-align: right;
+		white-space: nowrap;
+	}
+
+	.track-name {
+		font-weight: 500;
+		padding-right: 0.5rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 180px;
+	}
+
+	.artist-list {
+		font-size: 12px;
+		padding-right: 0.5rem;
 	}
 
 	@media (max-width: 700px) {

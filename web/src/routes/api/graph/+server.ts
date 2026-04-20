@@ -28,18 +28,22 @@ export const GET: RequestHandler = async ({ platform }) => {
 	const sql = neon(dbUrl);
 
 	const [vertices, edges] = await Promise.all([
-		sql<GenreVertex[]>`
+		sql`
 			SELECT genre_id, name, artist_count
 			FROM genre_graph_vertices
 			ORDER BY artist_count DESC
 		`,
-		sql<GenreEdge[]>`
+		sql`
 			SELECT source_genre_id, target_genre_id, shared_artist_count
 			FROM genre_graph_edges
 		`,
 	]);
 
-	return json({ vertices, edges } satisfies GraphData, {
-		headers: { "Cache-Control": "public, max-age=21600" },
-	});
+	return json(
+		{
+			vertices: vertices as unknown as GenreVertex[],
+			edges: edges as unknown as GenreEdge[],
+		} satisfies GraphData,
+		{ headers: { "Cache-Control": "public, max-age=21600" } },
+	);
 };

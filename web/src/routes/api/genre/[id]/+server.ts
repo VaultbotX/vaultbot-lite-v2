@@ -33,10 +33,10 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 	const sql = neon(dbUrl);
 
 	const [genreRows, artists, tracks] = await Promise.all([
-		sql<{ name: string }[]>`
+		sql`
 			SELECT name FROM genres WHERE id = ${genreId}
 		`,
-		sql<GenreArtist[]>`
+		sql`
 			SELECT a.name, COUNT(sa.id)::int AS archive_count
 			FROM artists a
 			JOIN link_artist_genres lag ON lag.artist_id = a.id
@@ -47,7 +47,7 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			ORDER BY archive_count DESC
 			LIMIT 20
 		`,
-		sql<GenreTrack[]>`
+		sql`
 			SELECT
 				s.name,
 				array_agg(DISTINCT a.name ORDER BY a.name) AS artist_names,
@@ -69,8 +69,8 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 	}
 
 	return json({
-		genre_name: genreRows[0].name,
-		artists,
-		tracks,
+		genre_name: (genreRows[0] as { name: string }).name,
+		artists: artists as unknown as GenreArtist[],
+		tracks: tracks as unknown as GenreTrack[],
 	} satisfies GenreDetail);
 };
