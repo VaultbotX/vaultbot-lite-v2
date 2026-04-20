@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { json } from "@sveltejs/kit";
+import { allNamed, typed } from "$lib/allNamed";
 import type { RequestHandler } from "./$types";
 
 export interface GenreArtist {
@@ -42,11 +43,11 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 
 	const sql = neon(dbUrl);
 
-	const [genreRows, artists, tracks, connected_genres] = await Promise.all([
-		sql`
+	const { genreRows, artists, tracks, connected_genres } = await allNamed({
+		genreRows: typed<{ name: string }[]>(sql`
 			SELECT name FROM genres WHERE id = ${genreId}
-		`,
-		sql`
+		`),
+		artists: typed<GenreArtist[]>(sql`
 			SELECT a.name, a.spotify_id, COUNT(sa.id)::int AS archive_count
 			FROM artists a
 			JOIN link_artist_genres lag ON lag.artist_id = a.id
@@ -56,8 +57,8 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			GROUP BY a.id, a.name, a.spotify_id
 			ORDER BY archive_count DESC
 			LIMIT 20
-		`,
-		sql`
+		`),
+		tracks: typed<GenreTrack[]>(sql`
 			WITH song_occurrences AS (
 				SELECT song_id, COUNT(id)::int AS occurrences
 				FROM song_archive
@@ -82,8 +83,8 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			GROUP BY s.id, s.name, s.spotify_id, so.occurrences
 			ORDER BY occurrences DESC
 			LIMIT 20
-		`,
-		sql`
+		`),
+		connected_genres: typed<ConnectedGenre[]>(sql`
 			SELECT g.id AS genre_id, g.name, e.shared_artist_count
 			FROM genre_graph_edges e
 			JOIN genres g ON g.id = e.target_genre_id
@@ -94,17 +95,17 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			JOIN genres g ON g.id = e.source_genre_id
 			WHERE e.target_genre_id = ${genreId}
 			ORDER BY shared_artist_count DESC
-		`,
-	]);
+		`),
+	});
 
 	if (genreRows.length === 0) {
 		return new Response("Genre not found", { status: 404 });
 	}
 
 	return json({
-		genre_name: (genreRows[0] as { name: string }).name,
-		artists: artists as unknown as GenreArtist[],
-		tracks: tracks as unknown as GenreTrack[],
-		connected_genres: connected_genres as unknown as ConnectedGenre[],
+		genre_name: genreRows[0].name,
+		artists,
+		tracks,
+		connected_genres,
 	} satisfies GenreDetail);
 };
