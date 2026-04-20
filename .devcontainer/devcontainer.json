@@ -5,18 +5,22 @@
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.26"
     },
-    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    },
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "customizations": {
     "vscode": {
       "extensions": [
         "golang.go",
+        "biomejs.biome",
+        "svelte.svelte-vscode",
         "anthropic.claude-code"
       ]
     }
   },
-  "postCreateCommand": "npm install -g neonctl && bash .devcontainer/scripts/neon-branch-setup.sh",
+  "postCreateCommand": "npm install -g neonctl && bash .devcontainer/scripts/neon-branch-setup.sh && bash .devcontainer/scripts/setup.sh",
   "forwardPorts": [8080, 8888],
   "portsAttributes": {
     "8080": {

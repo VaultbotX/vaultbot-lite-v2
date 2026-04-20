@@ -1,6 +1,7 @@
 /.idea/
 .vscode/*
 !.vscode/launch.json
+!.vscode/tasks.json
 *.env
 token.txt
 /bin/
