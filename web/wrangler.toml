@@ -1,7 +1,4 @@
-# Replace "your-cloudflare-pages-project-name" with your actual Cloudflare Pages project name
-# after creating it in the Cloudflare dashboard.
-#
-# Cloudflare Pages build settings (configure in dashboard or here):
+# Cloudflare Pages build settings (configure in dashboard):
 #   Root directory:         /web
 #   Build command:          npm run build
 #   Build output directory: .svelte-kit/cloudflare
@@ -9,7 +6,7 @@
 # Environment variables are set in the Cloudflare dashboard under
 # Settings > Environment variables (or in .dev.vars for local dev).
 
-name = "your-cloudflare-pages-project-name"
+name = "vaultbot"
 pages_build_output_dir = ".svelte-kit/cloudflare"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
