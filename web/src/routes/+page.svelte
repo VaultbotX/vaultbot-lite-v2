@@ -12,7 +12,8 @@ let loading = $state(true);
 let graphEl: HTMLDivElement;
 
 // Module-level handles so toggle can reach them after mount
-let cyLib: ((opts: unknown) => unknown) | null = null;
+let cyLib: (((opts: unknown) => unknown) & { use(ext: unknown): void }) | null =
+	null;
 let cyInstance: {
 	destroy(): void;
 	on(
@@ -88,6 +89,7 @@ function renderGraph(sparse: boolean) {
 					source: String(e.source_genre_id),
 					target: String(e.target_genre_id),
 					width: edgeWidth(e.shared_artist_count),
+					shared: e.shared_artist_count,
 				},
 			})),
 		},
@@ -132,18 +134,21 @@ function renderGraph(sparse: boolean) {
 			},
 		],
 		layout: {
-			name: "cose",
+			name: "fcose",
 			animate: false,
-			randomize: false,
-			nodeRepulsion: () => 6000,
-			nodeOverlap: 20,
-			idealEdgeLength: () => 80,
-			edgeElasticity: () => 150,
-			gravity: 0.4,
-			numIter: 500,
-			initialTemp: 180,
-			coolingFactor: 0.99,
-			minTemp: 1,
+			quality: "proof",
+			randomize: true,
+			nodeRepulsion: () => 12000,
+			idealEdgeLength: (edge: { data(k: string): unknown }) =>
+				Math.max(30, 120 / Math.sqrt((edge.data("shared") as number) || 1)),
+			edgeElasticity: (edge: { data(k: string): unknown }) =>
+				Math.min(0.9, 0.05 + ((edge.data("shared") as number) || 1) / 12),
+			gravity: 0.35,
+			gravityRange: 3.8,
+			numIter: 2500,
+			tile: true,
+			tilingPaddingVertical: 10,
+			tilingPaddingHorizontal: 10,
 		},
 		minZoom: 0.15,
 		maxZoom: 6,
@@ -158,10 +163,13 @@ function renderGraph(sparse: boolean) {
 }
 
 onMount(() => {
-	import("cytoscape").then(({ default: cytoscape }) => {
-		cyLib = cytoscape as unknown as typeof cyLib;
-		renderGraph(showSparse);
-	});
+	Promise.all([import("cytoscape"), import("cytoscape-fcose")]).then(
+		([{ default: cytoscape }, { default: fcose }]) => {
+			cytoscape.use(fcose);
+			cyLib = cytoscape as unknown as typeof cyLib;
+			renderGraph(showSparse);
+		},
+	);
 	return () => cyInstance?.destroy();
 });
 
