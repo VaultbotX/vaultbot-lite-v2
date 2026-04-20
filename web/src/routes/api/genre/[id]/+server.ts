@@ -58,18 +58,6 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			LIMIT 20
 		`,
 		sql`
-			SELECT g.id AS genre_id, g.name, e.shared_artist_count
-			FROM genre_graph_edges e
-			JOIN genres g ON g.id = e.target_genre_id
-			WHERE e.source_genre_id = ${genreId}
-			UNION ALL
-			SELECT g.id AS genre_id, g.name, e.shared_artist_count
-			FROM genre_graph_edges e
-			JOIN genres g ON g.id = e.source_genre_id
-			WHERE e.target_genre_id = ${genreId}
-			ORDER BY shared_artist_count DESC
-		`,
-		sql`
 			WITH song_occurrences AS (
 				SELECT song_id, COUNT(id)::int AS occurrences
 				FROM song_archive
@@ -94,6 +82,18 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			GROUP BY s.id, s.name, s.spotify_id, so.occurrences
 			ORDER BY occurrences DESC
 			LIMIT 20
+		`,
+		sql`
+			SELECT g.id AS genre_id, g.name, e.shared_artist_count
+			FROM genre_graph_edges e
+			JOIN genres g ON g.id = e.target_genre_id
+			WHERE e.source_genre_id = ${genreId}
+			UNION ALL
+			SELECT g.id AS genre_id, g.name, e.shared_artist_count
+			FROM genre_graph_edges e
+			JOIN genres g ON g.id = e.source_genre_id
+			WHERE e.target_genre_id = ${genreId}
+			ORDER BY shared_artist_count DESC
 		`,
 	]);
 
