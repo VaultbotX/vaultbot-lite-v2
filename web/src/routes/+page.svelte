@@ -1,104 +1,110 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import GenreGraph from "$lib/GenreGraph.svelte";
-import { detectCommunities } from "$lib/louvain";
+import StatsCharts from "$lib/StatsCharts.svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-const SPARSE_THRESHOLD = 3;
-let showSparse = $state(false);
+function fmt(n: number): string {
+	return n.toLocaleString("en-US");
+}
 
-const communities = $derived(
-	detectCommunities(
-		data.vertices.map((v) => v.genre_id),
-		data.edges.map((e) => ({
-			source: e.source_genre_id,
-			target: e.target_genre_id,
-			weight: e.shared_artist_count,
-		})),
-	),
-);
-
-const visibleVertices = $derived(
-	showSparse
-		? data.vertices
-		: data.vertices.filter((v) => v.artist_count >= SPARSE_THRESHOLD),
-);
-const visibleIds = $derived(new Set(visibleVertices.map((v) => v.genre_id)));
-const visibleEdges = $derived(
-	data.edges.filter(
-		(e) =>
-			visibleIds.has(e.source_genre_id) && visibleIds.has(e.target_genre_id),
-	),
-);
+function fmtDate(iso: string): string {
+	const d = new Date(iso);
+	return (
+		"Last updated " +
+		d.toLocaleDateString("en-US", {
+			month: "long",
+			day: "numeric",
+			year: "numeric",
+		}) +
+		" at " +
+		d.toLocaleTimeString("en-US", {
+			hour: "2-digit",
+			minute: "2-digit",
+			timeZoneName: "short",
+		})
+	);
+}
 </script>
 
 <svelte:head>
-	<title>Vaultbot — Genre Graph</title>
+	<title>Vaultbot — Stats</title>
 </svelte:head>
 
-<div class="page-header">
-	<h1>Genre Graph</h1>
-	<p class="muted">Explore connections between genres in the archive. Click a node to drill down.</p>
+<p class="meta mono muted">{fmtDate(data.generated_at)}</p>
+
+<div class="summary-grid">
+	<div class="stat-card">
+		<div class="stat-label">Unique songs</div>
+		<div class="stat-value mono">{fmt(data.summary.total_songs)}</div>
+	</div>
+	<div class="stat-card">
+		<div class="stat-label">Archive entries</div>
+		<div class="stat-value mono">{fmt(data.summary.total_archive_entries)}</div>
+	</div>
+	<div class="stat-card">
+		<div class="stat-label">Artists</div>
+		<div class="stat-value mono">{fmt(data.summary.total_artists)}</div>
+	</div>
+	<div class="stat-card">
+		<div class="stat-label">Genres</div>
+		<div class="stat-value mono">{fmt(data.summary.total_genres)}</div>
+	</div>
 </div>
 
-<div class="toolbar card">
-	<label>
-		<input
-			type="checkbox"
-			checked={showSparse}
-			onchange={() => (showSparse = !showSparse)}
-		/>
-		<span>Show genres with fewer than {SPARSE_THRESHOLD} artists</span>
-	</label>
-	<span class="stat mono muted"
-		>{data.vertices.length} genres · {data.edges.length} connections</span
-	>
-</div>
-
-<GenreGraph
-	vertices={visibleVertices}
-	edges={visibleEdges}
-	{communities}
-	onNodeTap={(genreId) => goto(`/genre/${genreId}`)}
-/>
+<StatsCharts {data} onGenreClick={(id) => goto(`/genre/${id}`)} />
 
 <style>
-	.page-header {
-		margin-bottom: 1.5rem;
+	.meta {
+		font-size: 11px;
+		margin-bottom: 36px;
 	}
 
-	.page-header h1 {
-		font-size: 24px;
-		margin-bottom: 0.25rem;
+	.summary-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 16px;
+		margin-bottom: 40px;
 	}
 
-	.toolbar {
-		margin-bottom: 1rem;
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 0.75rem 1rem;
+	.stat-card {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 22px 24px;
 	}
 
-	.toolbar label {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		cursor: pointer;
+	.stat-label {
+		font-size: 11px;
+		font-weight: 500;
 		color: var(--text-muted);
-		font-size: 13px;
-		user-select: none;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		margin-bottom: 10px;
 	}
 
-	.toolbar input[type="checkbox"] {
-		accent-color: var(--accent);
-		cursor: pointer;
+	.stat-value {
+		font-size: 30px;
+		font-weight: 500;
+		letter-spacing: -0.03em;
+		color: var(--text);
+		line-height: 1;
 	}
 
-	.stat {
-		margin-left: auto;
-		font-size: 12px;
+	@media (max-width: 900px) {
+		.summary-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (max-width: 480px) {
+		.summary-grid {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.stat-value {
+			font-size: 24px;
+		}
 	}
 </style>
