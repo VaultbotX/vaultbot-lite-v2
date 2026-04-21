@@ -45,6 +45,7 @@ const graphElements = $derived({
 			source: String(e.source_genre_id),
 			target: String(e.target_genre_id),
 			width: edgeWidth(e.shared_artist_count, maxShared),
+			opacity: 0.15 + 0.5 * Math.sqrt(e.shared_artist_count / maxShared),
 			shared: e.shared_artist_count,
 		},
 	})),
@@ -70,12 +71,12 @@ $effect(() => {
 		animate: false,
 		quality: "proof",
 		randomize: false,
-		nodeRepulsion: () => 25000,
+		nodeRepulsion: () => 55000,
 		idealEdgeLength: (edge) =>
-			Math.max(30, 120 / Math.sqrt(edge.data("shared") || 1)),
+			Math.max(50, 150 / Math.sqrt(edge.data("shared") || 1)),
 		edgeElasticity: (edge) =>
 			Math.min(0.9, 0.05 + (edge.data("shared") || 1) / 12),
-		gravity: 0.35,
+		gravity: 0.65,
 		gravityRange: 3.8,
 		numIter: 2500,
 		tile: true,
@@ -122,7 +123,8 @@ $effect(() => {
 					selector: "edge",
 					style: {
 						width: "data(width)",
-						"line-color": "rgba(96, 96, 160, 0.35)",
+						"line-color": "rgb(96, 96, 160)",
+						"line-opacity": "data(opacity)",
 						"curve-style": "haystack",
 						"overlay-opacity": 0,
 					},

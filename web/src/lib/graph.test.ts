@@ -30,18 +30,18 @@ describe("communityColor", () => {
 });
 
 describe("nodeSize", () => {
-	it("returns the minimum size (18) when count is 0", () => {
-		expect(nodeSize(0, 100)).toBeCloseTo(18);
+	it("returns the minimum size (14) when count is 0", () => {
+		expect(nodeSize(0, 100)).toBeCloseTo(14);
 	});
 
-	it("returns the maximum size (58) when count equals maxCount", () => {
-		expect(nodeSize(100, 100)).toBeCloseTo(58);
+	it("returns the maximum size (112) when count equals maxCount", () => {
+		expect(nodeSize(100, 100)).toBeCloseTo(112);
 	});
 
-	it("returns a value strictly between 18 and 58 for intermediate counts", () => {
+	it("returns a value strictly between 14 and 112 for intermediate counts", () => {
 		const size = nodeSize(50, 100);
-		expect(size).toBeGreaterThan(18);
-		expect(size).toBeLessThan(58);
+		expect(size).toBeGreaterThan(14);
+		expect(size).toBeLessThan(112);
 	});
 
 	it("is monotonically increasing with count", () => {
@@ -50,9 +50,9 @@ describe("nodeSize", () => {
 		expect(nodeSize(30, max)).toBeLessThan(nodeSize(70, max));
 	});
 
-	it("returns 18 when maxCount is 1 and count is 0", () => {
-		// log(1) / log(2) = 1, log(0+1)/log(1+1) = 0 → 18 + 40*0 = 18
-		expect(nodeSize(0, 1)).toBeCloseTo(18);
+	it("returns 14 when maxCount is 1 and count is 0", () => {
+		// log(0+1)/log(1+1) = 0 → 14 + 98*0 = 14
+		expect(nodeSize(0, 1)).toBeCloseTo(14);
 	});
 });
 
@@ -61,25 +61,26 @@ describe("edgeWidth", () => {
 		expect(edgeWidth(0, 10)).toBeCloseTo(0.5);
 	});
 
-	it("returns the maximum width (4) when count equals maxShared", () => {
-		expect(edgeWidth(10, 10)).toBeCloseTo(4);
+	it("returns the maximum width (14) when count equals maxShared", () => {
+		expect(edgeWidth(10, 10)).toBeCloseTo(14);
 	});
 
-	it("returns a value strictly between 0.5 and 4 for intermediate counts", () => {
+	it("returns a value strictly between 0.5 and 14 for intermediate counts", () => {
 		const width = edgeWidth(5, 10);
 		expect(width).toBeGreaterThan(0.5);
-		expect(width).toBeLessThan(4);
+		expect(width).toBeLessThan(14);
 	});
 
 	it("is monotonically increasing with count", () => {
 		expect(edgeWidth(2, 10)).toBeLessThan(edgeWidth(6, 10));
 	});
 
-	it("scales linearly: doubling count doubles the variable portion", () => {
-		// variable portion = 3.5 * (count / maxShared)
+	it("scales by sqrt: variable portion grows with square root of count ratio", () => {
+		// variable portion = 13.5 * sqrt(count / maxShared)
 		const base = 0.5;
-		const w1 = edgeWidth(2, 10) - base;
-		const w2 = edgeWidth(4, 10) - base;
-		expect(w2).toBeCloseTo(w1 * 2);
+		const w1 = edgeWidth(1, 10) - base;
+		const w4 = edgeWidth(4, 10) - base;
+		// sqrt(4/10) / sqrt(1/10) = sqrt(4) = 2
+		expect(w4).toBeCloseTo(w1 * 2);
 	});
 });
