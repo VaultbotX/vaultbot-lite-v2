@@ -2,6 +2,8 @@
 import { onMount } from "svelte";
 import { communityColor, edgeWidth, nodeSize } from "$lib/graph";
 import type { GenreEdge, GenreVertex } from "../routes/api/graph/+server";
+import type { Core, CytoscapeOptions } from "cytoscape";
+import type { FcoseLayoutOptions } from "cytoscape-fcose";
 
 let {
 	vertices,
@@ -15,18 +17,10 @@ let {
 	onNodeTap: (genreId: number) => void;
 } = $props();
 
-type CyInstance = {
-	destroy(): void;
-	on(
-		evt: string,
-		sel: string,
-		fn: (e: { target: { data(k: string): unknown } }) => void,
-	): void;
-};
-type CyLib = ((opts: unknown) => CyInstance) & { use(ext: unknown): void };
+type CyLib = ((opts: CytoscapeOptions) => Core) & { use(ext: unknown): void };
 
 let cyLib = $state<CyLib | null>(null);
-let cyInstance: CyInstance | null = null;
+let cyInstance: Core | null = null;
 let graphEl: HTMLDivElement | undefined;
 let loading = $state(true);
 
@@ -68,12 +62,30 @@ onMount(() => {
 
 $effect(() => {
 	const elements = graphElements;
-	if (!cyLib || !graphEl) return;
+	const cy = cyLib;
+	if (!cy || !graphEl) return;
 	loading = true;
+	const layout: FcoseLayoutOptions = {
+		name: "fcose",
+		animate: false,
+		quality: "proof",
+		randomize: false,
+		nodeRepulsion: () => 25000,
+		idealEdgeLength: (edge) =>
+			Math.max(30, 120 / Math.sqrt(edge.data("shared") || 1)),
+		edgeElasticity: (edge) =>
+			Math.min(0.9, 0.05 + (edge.data("shared") || 1) / 12),
+		gravity: 0.35,
+		gravityRange: 3.8,
+		numIter: 2500,
+		tile: true,
+		tilingPaddingVertical: 10,
+		tilingPaddingHorizontal: 10,
+		fit: true,
+	};
 	const id = setTimeout(() => {
 		cyInstance?.destroy();
-		// @ts-expect-error — dynamic import, no static type
-		cyInstance = cyLib({
+		cyInstance = cy({
 			container: graphEl,
 			elements,
 			style: [
@@ -84,7 +96,7 @@ $effect(() => {
 						width: "data(size)",
 						height: "data(size)",
 						label: "data(label)",
-						"font-size": "8px",
+						"font-size": "12px",
 						"font-family": '"IBM Plex Sans", sans-serif',
 						color: "#e2e2f0",
 						"text-valign": "center",
@@ -115,27 +127,13 @@ $effect(() => {
 						"overlay-opacity": 0,
 					},
 				},
-			],
-			layout: {
-				name: "fcose",
-				animate: false,
-				quality: "proof",
-				randomize: true,
-				nodeRepulsion: () => 12000,
-				idealEdgeLength: (edge: { data(k: string): unknown }) =>
-					Math.max(30, 120 / Math.sqrt((edge.data("shared") as number) || 1)),
-				edgeElasticity: (edge: { data(k: string): unknown }) =>
-					Math.min(0.9, 0.05 + ((edge.data("shared") as number) || 1) / 12),
-				gravity: 0.35,
-				gravityRange: 3.8,
-				numIter: 2500,
-				tile: true,
-				tilingPaddingVertical: 10,
-				tilingPaddingHorizontal: 10,
-			},
-			minZoom: 0.15,
+			] as CytoscapeOptions["style"],
+			layout,
+			minZoom: 0.5,
 			maxZoom: 6,
 			wheelSensitivity: 1.5,
+			textureOnViewport: true,
+			autoungrabify: true,
 		});
 		cyInstance?.on("tap", "node", (e) => {
 			onNodeTap(e.target.data("genreId") as number);
