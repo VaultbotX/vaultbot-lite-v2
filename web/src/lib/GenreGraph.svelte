@@ -34,41 +34,67 @@ type FA2Lib = {
 	): void;
 	inferSettings(graph: Graph): Record<string, unknown>;
 };
-type RandomLib = { assign(graph: Graph, opts?: { scale?: number }): void };
 
 let sigmaLib = $state<SigmaLib | null>(null);
 let fa2Lib = $state<FA2Lib | null>(null);
-let randomLib = $state<RandomLib | null>(null);
 let sigmaInst: SigmaInst | null = null;
 let containerEl: HTMLDivElement | undefined;
 let loading = $state(true);
 
 onMount(() => {
-	Promise.all([
-		import("sigma"),
-		import("graphology-layout-forceatlas2"),
-		import("graphology-layout/random"),
-	]).then(([s, f, r]) => {
-		sigmaLib = s.default as unknown as SigmaLib;
-		fa2Lib = f.default as unknown as FA2Lib;
-		randomLib = r.default as unknown as RandomLib;
-	});
+	Promise.all([import("sigma"), import("graphology-layout-forceatlas2")]).then(
+		([s, f]) => {
+			sigmaLib = s.default as unknown as SigmaLib;
+			fa2Lib = f.default as unknown as FA2Lib;
+		},
+	);
 	return () => sigmaInst?.kill();
 });
+
+/**
+ * Place each community's nodes in a small circle around a community center,
+ * arranged on a larger ring. FA2 then refines from this warm start rather
+ * than having to discover community structure from a random scatter.
+ */
+function initCommunityLayout(g: Graph): void {
+	const groups = new Map<number, string[]>();
+	g.forEachNode((node, attrs) => {
+		const c = attrs.community as number;
+		const group = groups.get(c) ?? [];
+		groups.set(c, group);
+		group.push(node);
+	});
+
+	const commList = [...groups.keys()];
+	const centerR = 600;
+	const memberR = 80;
+
+	// Golden-angle spiral: fills a disk evenly with no ring/hollow-center artifact.
+	const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ≈ 137.5°
+	commList.forEach((commId, ci) => {
+		const r = centerR * Math.sqrt(ci / commList.length);
+		const cx = r * Math.cos(ci * GOLDEN_ANGLE);
+		const cy = r * Math.sin(ci * GOLDEN_ANGLE);
+		const members = groups.get(commId) ?? [];
+		members.forEach((node, mi) => {
+			const a = (2 * Math.PI * mi) / members.length;
+			g.setNodeAttribute(node, "x", cx + memberR * Math.cos(a));
+			g.setNodeAttribute(node, "y", cy + memberR * Math.sin(a));
+		});
+	});
+}
 
 $effect(() => {
 	const g = graph;
 	const Sigma = sigmaLib;
 	const fa2 = fa2Lib;
-	const random = randomLib;
 	const container = containerEl;
-	if (!Sigma || !fa2 || !random || !container) return;
+	if (!Sigma || !fa2 || !container) return;
 
 	loading = true;
 
 	const id = setTimeout(() => {
-		// Assign random initial positions, then run ForceAtlas2
-		random.assign(g, { scale: 200 });
+		initCommunityLayout(g);
 		fa2.assign(g, {
 			iterations: 500,
 			settings: {
@@ -76,6 +102,7 @@ $effect(() => {
 				gravity: 1,
 				scalingRatio: 10,
 				adjustSizes: true,
+				barnesHutOptimize: false,
 			},
 			getEdgeWeight: "shared",
 		});
@@ -145,5 +172,6 @@ $effect(() => {
 	.graph-container {
 		width: 100%;
 		height: 100%;
+		background: var(--bg);
 	}
 </style>
