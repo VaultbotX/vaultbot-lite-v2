@@ -9,9 +9,9 @@ const config = {
 	},
 	vitePlugin: {
 		inspector: {
-      showToggleButton: 'always',
-      toggleButtonPos: 'bottom-right'
-    }
+			showToggleButton: "always",
+			toggleButtonPos: "bottom-right",
+		},
 	},
 };
 

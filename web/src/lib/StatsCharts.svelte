@@ -1,8 +1,8 @@
 <script lang="ts">
+import type { TreemapDataPoint } from "chartjs-chart-treemap";
 import { onMount } from "svelte";
 import { fmtMonth, treemapColor } from "$lib/stats";
 import type { StatsData } from "../routes/api/stats/+server";
-import type { TreemapDataPoint } from "chartjs-chart-treemap";
 
 let {
 	data,

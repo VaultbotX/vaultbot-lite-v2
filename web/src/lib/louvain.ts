@@ -1,11 +1,42 @@
+export class CommunityPartition {
+	private readonly _nodeToCommunity: ReadonlyMap<number, number>;
+	private readonly _communityToNodes: ReadonlyMap<number, ReadonlySet<number>>;
+
+	constructor(nodeToCommunity: Map<number, number>) {
+		this._nodeToCommunity = nodeToCommunity;
+		const c2n = new Map<number, Set<number>>();
+		for (const [nodeId, commId] of nodeToCommunity) {
+			if (!c2n.has(commId)) c2n.set(commId, new Set());
+			c2n.get(commId)!.add(nodeId);
+		}
+		this._communityToNodes = c2n;
+	}
+
+	communityOf(nodeId: number): number | undefined {
+		return this._nodeToCommunity.get(nodeId);
+	}
+
+	membersOf(communityId: number): ReadonlySet<number> {
+		return this._communityToNodes.get(communityId) ?? new Set();
+	}
+
+	get communityIds(): readonly number[] {
+		return [...this._communityToNodes.keys()];
+	}
+
+	get communityCount(): number { return this._communityToNodes.size; }
+	get nodeCount(): number { return this._nodeToCommunity.size; }
+	isEmpty(): boolean { return this._nodeToCommunity.size === 0; }
+}
+
 // Louvain community detection (phase 1 greedy modularity maximization)
-// Returns a map from nodeId → community index (0-based consecutive integers)
+// Returns a CommunityPartition with nodeId → community index (0-based consecutive integers)
 export function detectCommunities(
 	nodeIds: number[],
 	edges: { source: number; target: number; weight: number }[],
-): Map<number, number> {
+): CommunityPartition {
 	const n = nodeIds.length;
-	if (n === 0) return new Map();
+	if (n === 0) return new CommunityPartition(new Map());
 
 	const idx = new Map<number, number>(nodeIds.map((id, i) => [id, i]));
 
@@ -21,7 +52,7 @@ export function detectCommunities(
 		m += weight;
 	}
 
-	if (m === 0) return new Map(nodeIds.map((id, i) => [id, i]));
+	if (m === 0) return new CommunityPartition(new Map(nodeIds.map((id, i) => [id, i])));
 
 	// k[i] = sum of edge weights incident to node i
 	const k: number[] = nodeIds.map((_, i) => {
@@ -83,11 +114,13 @@ export function detectCommunities(
 	// Remap community IDs to consecutive integers ordered by first appearance
 	const seen = new Map<number, number>();
 	let nextId = 0;
-	return new Map(
-		nodeIds.map((id, i) => {
-			const c = comm[i];
-			if (!seen.has(c)) seen.set(c, nextId++);
-			return [id, seen.get(c) ?? 0];
-		}),
+	return new CommunityPartition(
+		new Map(
+			nodeIds.map((id, i) => {
+				const c = comm[i];
+				if (!seen.has(c)) seen.set(c, nextId++);
+				return [id, seen.get(c) ?? 0];
+			}),
+		),
 	);
 }
