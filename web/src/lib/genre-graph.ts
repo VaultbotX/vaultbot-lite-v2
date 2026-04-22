@@ -58,10 +58,12 @@ export function buildGenreGraph(
 	const colorMap = assignCommunityColors(communityIds, COMMUNITY_PALETTE);
 
 	graph.forEachNode((node, attrs) => {
+		// nodeSize() returns CSS-pixel values (14–64); divide by 5 to convert to
+		// sigma graph-unit radii (≈3–13), which the camera scales to screen pixels.
 		graph.setNodeAttribute(
 			node,
 			"size",
-			nodeSize(attrs.artistCount as number, maxArtistCount),
+			nodeSize(attrs.artistCount as number, maxArtistCount) / 5,
 		);
 		graph.setNodeAttribute(
 			node,
