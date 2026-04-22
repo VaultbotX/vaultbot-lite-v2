@@ -30,6 +30,7 @@
 	},
 	"dependencies": {
 		"@neondatabase/serverless": "1.1.0",
+		"@sigma/edge-curve": "^3.1.0",
 		"chart.js": "4.5.1",
 		"chartjs-chart-treemap": "3.1.0",
 		"graphology": "^0.26.0",
