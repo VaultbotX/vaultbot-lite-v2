@@ -1,6 +1,7 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import GenreGraph from "$lib/GenreGraph.svelte";
+import { GenreGraph as GenreGraphModel } from "$lib/genre-graph";
 import { detectCommunities } from "$lib/louvain";
 import type { PageData } from "./$types";
 
@@ -9,7 +10,7 @@ let { data }: { data: PageData } = $props();
 const SPARSE_THRESHOLD = 3;
 let showSparse = $state(false);
 
-const communities = $derived(
+const partition = $derived(
 	detectCommunities(
 		data.vertices.map((v) => v.genre_id),
 		data.edges.map((e) => ({
@@ -32,6 +33,8 @@ const visibleEdges = $derived(
 			visibleIds.has(e.source_genre_id) && visibleIds.has(e.target_genre_id),
 	),
 );
+
+const graph = $derived(GenreGraphModel.build(visibleVertices, visibleEdges, partition));
 </script>
 
 <svelte:head>
@@ -57,12 +60,7 @@ const visibleEdges = $derived(
 	>
 </div>
 
-<GenreGraph
-	vertices={visibleVertices}
-	edges={visibleEdges}
-	{communities}
-	onNodeTap={(genreId) => goto(`/genre/${genreId}`)}
-/>
+<GenreGraph {graph} onNodeTap={(genreId) => goto(`/genre/${genreId}`)} />
 
 <style>
 	.page-header {

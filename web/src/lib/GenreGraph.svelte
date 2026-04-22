@@ -1,19 +1,15 @@
 <script lang="ts">
-import { onMount } from "svelte";
-import { communityColor, edgeElasticity, edgeWidth, idealEdgeLength, nodeSize } from "$lib/graph";
-import type { GenreEdge, GenreVertex } from "../routes/api/graph/+server";
 import type { Core, CytoscapeOptions } from "cytoscape";
 import type { FcoseLayoutOptions } from "cytoscape-fcose";
+import { onMount } from "svelte";
+import { type GenreGraph, type NodeDisplay, type EdgeDisplay } from "$lib/genre-graph";
+import { edgeElasticity, idealEdgeLength } from "$lib/graph";
 
 let {
-	vertices,
-	edges,
-	communities,
+	graph,
 	onNodeTap,
 }: {
-	vertices: GenreVertex[];
-	edges: GenreEdge[];
-	communities: Map<number, number>;
+	graph: GenreGraph;
 	onNodeTap: (genreId: number) => void;
 } = $props();
 
@@ -24,31 +20,33 @@ let cyInstance: Core | null = null;
 let graphEl: HTMLDivElement | undefined;
 let loading = $state(true);
 
-const numCommunities = $derived(Math.max(...communities.values(), 0) + 1);
-const maxCount = $derived(Math.max(...vertices.map((v) => v.artist_count), 1));
-const maxShared = $derived(
-	Math.max(...edges.map((e) => e.shared_artist_count), 1),
-);
+function toNodeElement(node: NodeDisplay) {
+	return {
+		data: {
+			id: node.id,
+			label: node.label,
+			size: node.size,
+			color: node.color,
+			genreId: node.genreId,
+		},
+	};
+}
+
+function toEdgeElement(edge: EdgeDisplay) {
+	return {
+		data: {
+			source: edge.sourceId,
+			target: edge.targetId,
+			width: edge.width,
+			opacity: edge.opacity,
+			shared: edge.shared,
+		},
+	};
+}
 
 const graphElements = $derived({
-	nodes: vertices.map((v) => ({
-		data: {
-			id: String(v.genre_id),
-			label: v.name,
-			size: nodeSize(v.artist_count, maxCount),
-			color: communityColor(communities.get(v.genre_id) ?? 0, numCommunities),
-			genreId: v.genre_id,
-		},
-	})),
-	edges: edges.map((e) => ({
-		data: {
-			source: String(e.source_genre_id),
-			target: String(e.target_genre_id),
-			width: edgeWidth(e.shared_artist_count, maxShared),
-			opacity: 0.15 + 0.5 * Math.sqrt(e.shared_artist_count / maxShared),
-			shared: e.shared_artist_count,
-		},
-	})),
+	nodes: graph.nodeDisplays().map(toNodeElement),
+	edges: graph.edgeDisplays().map(toEdgeElement),
 });
 
 onMount(() => {
@@ -69,7 +67,7 @@ $effect(() => {
 	const layout: FcoseLayoutOptions = {
 		name: "fcose",
 		animate: true,
-		animationEasing: 'ease-out',
+		animationEasing: "ease-out",
 		quality: "proof",
 		randomize: false,
 		nodeRepulsion: () => 55000,

@@ -1,33 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { communityColor, edgeElasticity, edgeWidth, idealEdgeLength, nodeSize } from "./graph";
-
-describe("communityColor", () => {
-	it("returns a valid hsl string", () => {
-		expect(communityColor(0, 4)).toMatch(/^hsl\(\d+, 62%, 56%\)$/);
-	});
-
-	it("is deterministic for the same inputs", () => {
-		expect(communityColor(2, 8)).toBe(communityColor(2, 8));
-	});
-
-	it("returns different colors for different community IDs", () => {
-		expect(communityColor(0, 4)).not.toBe(communityColor(1, 4));
-	});
-
-	it("keeps hue in [0, 360) for every community in a set", () => {
-		for (let i = 0; i < 10; i++) {
-			const color = communityColor(i, 10);
-			const hue = Number(color.match(/hsl\((\d+)/)?.[1]);
-			expect(hue).toBeGreaterThanOrEqual(0);
-			expect(hue).toBeLessThan(360);
-		}
-	});
-
-	it("offsets starting hue by ~200 for community 0", () => {
-		// With numCommunities=1 the formula reduces to hsl(200, 62%, 56%)
-		expect(communityColor(0, 1)).toBe("hsl(200, 62%, 56%)");
-	});
-});
+import {
+	assignCommunityColors,
+	COMMUNITY_PALETTE,
+	edgeElasticity,
+	edgeWidth,
+	idealEdgeLength,
+	nodeSize,
+} from "./graph";
 
 describe("nodeSize", () => {
 	it("returns the minimum size (14) when count is 0", () => {
@@ -91,7 +70,6 @@ describe("idealEdgeLength", () => {
 	});
 
 	it("returns 50 (floor) for high shared counts", () => {
-		// 150 / sqrt(9) = 50, so shared >= 9 hits the floor
 		expect(idealEdgeLength(9)).toBeCloseTo(50);
 		expect(idealEdgeLength(100)).toBeCloseTo(50);
 	});
@@ -107,7 +85,6 @@ describe("idealEdgeLength", () => {
 
 describe("edgeElasticity", () => {
 	it("returns 0.9 (cap) for high shared counts", () => {
-		// 0.05 + 10/12 ≈ 0.88, so cap isn't hit until shared ≈ 10.2
 		expect(edgeElasticity(11)).toBeCloseTo(0.9);
 	});
 
@@ -123,5 +100,66 @@ describe("edgeElasticity", () => {
 		for (const shared of [1, 5, 10, 50, 100]) {
 			expect(edgeElasticity(shared)).toBeLessThanOrEqual(0.9);
 		}
+	});
+});
+
+const P = ["red", "blue", "green", "yellow", "orange"];
+
+describe("assignCommunityColors", () => {
+	it("returns an empty map when given no community IDs", () => {
+		expect(assignCommunityColors([], P).size).toBe(0);
+	});
+
+	it("assigns a color to a single community", () => {
+		const result = assignCommunityColors([0], P);
+		expect(result.size).toBe(1);
+		expect(result.get(0)).toBeDefined();
+	});
+
+	it("assigns different colors to different community IDs", () => {
+		const result = assignCommunityColors([0, 1, 2], P);
+		expect(result.get(0)).not.toBe(result.get(1));
+		expect(result.get(1)).not.toBe(result.get(2));
+		expect(result.get(0)).not.toBe(result.get(2));
+	});
+
+	it("result contains one entry per unique community ID", () => {
+		// Duplicates in the iterable are deduped
+		const result = assignCommunityColors([0, 0, 1, 1], P);
+		expect(result.size).toBe(2);
+	});
+
+	it("all assigned colors come from the palette", () => {
+		const result = assignCommunityColors([0, 1, 2], P);
+		for (const color of result.values()) {
+			expect(P).toContain(color);
+		}
+	});
+
+	it("cycles through palette when community count exceeds palette length", () => {
+		// 6 communities, 5 palette entries → commId 5 wraps to palette[0]
+		const result = assignCommunityColors([0, 1, 2, 3, 4, 5], P);
+		expect(result.get(5)).toBe(result.get(0));
+	});
+
+	it("assignment is deterministic for the same input", () => {
+		const r1 = assignCommunityColors([0, 2, 1], P);
+		const r2 = assignCommunityColors([0, 2, 1], P);
+		for (const [id, color] of r1) {
+			expect(r2.get(id)).toBe(color);
+		}
+	});
+
+	it("sorts by community ID so palette[0] always goes to the lowest ID", () => {
+		const result = assignCommunityColors([3, 1, 0], P);
+		expect(result.get(0)).toBe(P[0]);
+		expect(result.get(1)).toBe(P[1]);
+		expect(result.get(3)).toBe(P[2]);
+	});
+
+	it("COMMUNITY_PALETTE has 12 entries so up to 12 communities get unique colors", () => {
+		const ids = Array.from({ length: 12 }, (_, i) => i);
+		const result = assignCommunityColors(ids, COMMUNITY_PALETTE);
+		expect(new Set(result.values()).size).toBe(12);
 	});
 });
