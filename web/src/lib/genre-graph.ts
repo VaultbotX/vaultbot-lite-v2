@@ -5,7 +5,6 @@ import {
 	assignCommunityColors,
 	COMMUNITY_PALETTE,
 	edgeWidth,
-	nodeSize,
 } from "./graph";
 
 /**
@@ -58,13 +57,14 @@ export function buildGenreGraph(
 	const colorMap = assignCommunityColors(communityIds, COMMUNITY_PALETTE);
 
 	graph.forEachNode((node, attrs) => {
-		// nodeSize() returns CSS-pixel values (14–64); divide by 5 to convert to
-		// sigma graph-unit radii (≈3–13), which the camera scales to screen pixels.
-		graph.setNodeAttribute(
-			node,
-			"size",
-			nodeSize(attrs.artistCount as number, maxArtistCount) / 5,
-		);
+		const artistCount = attrs.artistCount as number;
+		// Quadratic scale on the log-ratio: small nodes collapse toward ~1.5,
+		// large nodes grow toward 20. The squaring amplifies the size gap
+		// compared to a plain linear mapping.
+		const t = Math.log(artistCount + 1) / Math.log(maxArtistCount + 1);
+		const size = 1.5 + 18.5 * t * t;
+
+		graph.setNodeAttribute(node, "size", size);
 		graph.setNodeAttribute(
 			node,
 			"color",
