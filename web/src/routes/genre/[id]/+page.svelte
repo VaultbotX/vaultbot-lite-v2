@@ -13,7 +13,7 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 </svelte:head>
 
 <div class="page-header">
-	<a href="/" class="back mono">← Back to graph</a>
+	<button onclick={() => history.back()} class="back mono">← Back</button>
 	{#if data.notFound}
 		<h1>Genre not found</h1>
 	{:else}
@@ -125,6 +125,10 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 
 	.back {
 		display: inline-block;
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
 		font-size: 12px;
 		color: var(--text-muted);
 		margin-bottom: 0.75rem;
