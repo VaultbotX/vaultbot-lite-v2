@@ -37,17 +37,21 @@ type FA2Lib = {
 
 let sigmaLib = $state<SigmaLib | null>(null);
 let fa2Lib = $state<FA2Lib | null>(null);
+let edgeCurveLib = $state<unknown>(null);
 let sigmaInst: SigmaInst | null = null;
 let containerEl: HTMLDivElement | undefined;
 let loading = $state(true);
 
 onMount(() => {
-	Promise.all([import("sigma"), import("graphology-layout-forceatlas2")]).then(
-		([s, f]) => {
-			sigmaLib = s.default as unknown as SigmaLib;
-			fa2Lib = f.default as unknown as FA2Lib;
-		},
-	);
+	Promise.all([
+		import("sigma"),
+		import("graphology-layout-forceatlas2"),
+		import("@sigma/edge-curve"),
+	]).then(([s, f, ec]) => {
+		sigmaLib = s.default as unknown as SigmaLib;
+		fa2Lib = f.default as unknown as FA2Lib;
+		edgeCurveLib = ec.default;
+	});
 	return () => sigmaInst?.kill();
 });
 
@@ -89,7 +93,8 @@ $effect(() => {
 	const Sigma = sigmaLib;
 	const fa2 = fa2Lib;
 	const container = containerEl;
-	if (!Sigma || !fa2 || !container) return;
+	const edgeCurve = edgeCurveLib;
+	if (!Sigma || !fa2 || !edgeCurve || !container) return;
 
 	loading = true;
 
@@ -120,6 +125,8 @@ $effect(() => {
 			stagePadding: 40,
 			defaultEdgeColor: "rgb(96, 96, 160)",
 			defaultNodeColor: "#7c6af7",
+			defaultEdgeType: "curve",
+			edgeProgramClasses: { curve: edgeCurve },
 		});
 
 		sigmaInst.on("clickNode", (payload) => {
