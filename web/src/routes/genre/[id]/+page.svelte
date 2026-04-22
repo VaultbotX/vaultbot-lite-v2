@@ -18,10 +18,6 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 		<h1>Genre not found</h1>
 	{:else}
 		<h1>{data.genre_name}</h1>
-		<p class="muted">
-			{data.artists.length} artist{data.artists.length !== 1 ? "s" : ""} ·
-			{data.connected_genres.length} connected genre{data.connected_genres.length !== 1 ? "s" : ""}
-		</p>
 	{/if}
 </div>
 

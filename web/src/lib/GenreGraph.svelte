@@ -14,6 +14,7 @@ let {
 // sigma/FA2 during SSR while still giving us precise type safety at call sites.
 type SigmaInst = {
 	kill(): void;
+	refresh(): void;
 	on(event: string, cb: (payload: Record<string, unknown>) => void): void;
 };
 type SigmaLib = {
@@ -112,6 +113,10 @@ $effect(() => {
 			getEdgeWeight: "shared",
 		});
 
+		// Hover state — closed over by the reducers and event handlers below.
+		let hoveredNode: string | null = null;
+		let neighborSet = new Set<string>();
+
 		sigmaInst?.kill();
 		sigmaInst = new Sigma(g, container, {
 			renderEdgeLabels: false,
@@ -127,6 +132,21 @@ $effect(() => {
 			defaultNodeColor: "#7c6af7",
 			defaultEdgeType: "curve",
 			edgeProgramClasses: { curve: edgeCurve },
+			// Dim nodes/edges that are not part of the hovered node's neighborhood.
+			nodeReducer: (node: unknown, data: unknown) => {
+				const d = data as Record<string, unknown>;
+				if (!hoveredNode || node === hoveredNode || neighborSet.has(node as string)) {
+					return d;
+				}
+				return { ...d, color: "#1e1e28", label: "" };
+			},
+			edgeReducer: (edge: unknown, data: unknown) => {
+				const d = data as Record<string, unknown>;
+				if (!hoveredNode || g.hasExtremity(edge as string, hoveredNode)) {
+					return d;
+				}
+				return { ...d, hidden: true };
+			},
 		});
 
 		sigmaInst.on("clickNode", (payload) => {
@@ -134,11 +154,17 @@ $effect(() => {
 			onNodeTap(g.getNodeAttribute(node, "genreId") as number);
 		});
 
-		sigmaInst.on("enterNode", () => {
+		sigmaInst.on("enterNode", (payload) => {
+			hoveredNode = payload.node as string;
+			neighborSet = new Set(g.neighbors(hoveredNode));
+			sigmaInst?.refresh();
 			container.style.cursor = "pointer";
 		});
 
 		sigmaInst.on("leaveNode", () => {
+			hoveredNode = null;
+			neighborSet = new Set();
+			sigmaInst?.refresh();
 			container.style.cursor = "default";
 		});
 
