@@ -21,7 +21,6 @@
 		"@sveltejs/adapter-cloudflare": "7.2.8",
 		"@sveltejs/kit": "2.57.1",
 		"@sveltejs/vite-plugin-svelte": "7.0.0",
-		"@types/cytoscape-fcose": "^2.2.5",
 		"@types/node": "25.6.0",
 		"svelte": "5.55.4",
 		"svelte-check": "4.4.6",
@@ -33,7 +32,10 @@
 		"@neondatabase/serverless": "1.1.0",
 		"chart.js": "4.5.1",
 		"chartjs-chart-treemap": "3.1.0",
-		"cytoscape": "3.33.2",
-		"cytoscape-fcose": "2.2.0"
+		"graphology": "^0.26.0",
+		"graphology-communities-louvain": "^2.0.2",
+		"graphology-layout": "^0.6.1",
+		"graphology-layout-forceatlas2": "^0.10.1",
+		"sigma": "^3.0.2"
 	}
 }

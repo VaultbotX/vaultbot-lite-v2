@@ -1,25 +1,13 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import GenreGraph from "$lib/GenreGraph.svelte";
-import { GenreGraph as GenreGraphModel } from "$lib/genre-graph";
-import { detectCommunities } from "$lib/louvain";
+import { buildGenreGraph } from "$lib/genre-graph";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
 const SPARSE_THRESHOLD = 3;
 let showSparse = $state(false);
-
-const partition = $derived(
-	detectCommunities(
-		data.vertices.map((v) => v.genre_id),
-		data.edges.map((e) => ({
-			source: e.source_genre_id,
-			target: e.target_genre_id,
-			weight: e.shared_artist_count,
-		})),
-	),
-);
 
 const visibleVertices = $derived(
 	showSparse
@@ -34,7 +22,7 @@ const visibleEdges = $derived(
 	),
 );
 
-const graph = $derived(GenreGraphModel.build(visibleVertices, visibleEdges, partition));
+const graph = $derived(buildGenreGraph(visibleVertices, visibleEdges));
 </script>
 
 <svelte:head>

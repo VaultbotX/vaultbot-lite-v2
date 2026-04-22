@@ -1,145 +1,116 @@
 <script lang="ts">
-import type { Core, CytoscapeOptions } from "cytoscape";
-import type { FcoseLayoutOptions } from "cytoscape-fcose";
+import type Graph from "graphology";
 import { onMount } from "svelte";
-import { type GenreGraph, type NodeDisplay, type EdgeDisplay } from "$lib/genre-graph";
-import { edgeElasticity, idealEdgeLength } from "$lib/graph";
 
 let {
 	graph,
 	onNodeTap,
 }: {
-	graph: GenreGraph;
+	graph: Graph;
 	onNodeTap: (genreId: number) => void;
 } = $props();
 
-type CyLib = ((opts: CytoscapeOptions) => Core) & { use(ext: unknown): void };
+// Structural types for dynamically-imported renderer libs — avoids bundling
+// sigma/FA2 during SSR while still giving us precise type safety at call sites.
+type SigmaInst = {
+	kill(): void;
+	on(event: string, cb: (payload: Record<string, unknown>) => void): void;
+};
+type SigmaLib = {
+	new (
+		graph: Graph,
+		container: HTMLElement,
+		settings?: Record<string, unknown>,
+	): SigmaInst;
+};
+type FA2Lib = {
+	assign(
+		graph: Graph,
+		opts: {
+			iterations: number;
+			settings?: Record<string, unknown>;
+			getEdgeWeight?: string;
+		},
+	): void;
+	inferSettings(graph: Graph): Record<string, unknown>;
+};
+type RandomLib = { assign(graph: Graph, opts?: { scale?: number }): void };
 
-let cyLib = $state<CyLib | null>(null);
-let cyInstance: Core | null = null;
-let graphEl: HTMLDivElement | undefined;
+let sigmaLib = $state<SigmaLib | null>(null);
+let fa2Lib = $state<FA2Lib | null>(null);
+let randomLib = $state<RandomLib | null>(null);
+let sigmaInst: SigmaInst | null = null;
+let containerEl: HTMLDivElement | undefined;
 let loading = $state(true);
 
-function toNodeElement(node: NodeDisplay) {
-	return {
-		data: {
-			id: node.id,
-			label: node.label,
-			size: node.size,
-			color: node.color,
-			genreId: node.genreId,
-		},
-	};
-}
-
-function toEdgeElement(edge: EdgeDisplay) {
-	return {
-		data: {
-			source: edge.sourceId,
-			target: edge.targetId,
-			width: edge.width,
-			opacity: edge.opacity,
-			shared: edge.shared,
-		},
-	};
-}
-
-const graphElements = $derived({
-	nodes: graph.nodeDisplays().map(toNodeElement),
-	edges: graph.edgeDisplays().map(toEdgeElement),
-});
-
 onMount(() => {
-	Promise.all([import("cytoscape"), import("cytoscape-fcose")]).then(
-		([{ default: cytoscape }, { default: fcose }]) => {
-			cytoscape.use(fcose);
-			cyLib = cytoscape as unknown as CyLib;
-		},
-	);
-	return () => cyInstance?.destroy();
+	Promise.all([
+		import("sigma"),
+		import("graphology-layout-forceatlas2"),
+		import("graphology-layout/random"),
+	]).then(([s, f, r]) => {
+		sigmaLib = s.default as unknown as SigmaLib;
+		fa2Lib = f.default as unknown as FA2Lib;
+		randomLib = r.default as unknown as RandomLib;
+	});
+	return () => sigmaInst?.kill();
 });
 
 $effect(() => {
-	const elements = graphElements;
-	const cy = cyLib;
-	if (!cy || !graphEl) return;
+	const g = graph;
+	const Sigma = sigmaLib;
+	const fa2 = fa2Lib;
+	const random = randomLib;
+	const container = containerEl;
+	if (!Sigma || !fa2 || !random || !container) return;
+
 	loading = true;
-	const layout: FcoseLayoutOptions = {
-		name: "fcose",
-		animate: true,
-		animationEasing: "ease-out",
-		quality: "proof",
-		randomize: false,
-		nodeRepulsion: () => 55000,
-		idealEdgeLength: (edge) => idealEdgeLength(edge.data("shared") as number),
-		edgeElasticity: (edge) => edgeElasticity(edge.data("shared") as number),
-		gravity: 0.65,
-		gravityRange: 3.8,
-		numIter: 2500,
-		tile: true,
-		tilingPaddingVertical: 10,
-		tilingPaddingHorizontal: 10,
-		fit: false,
-		samplingType: true,
-	};
+
 	const id = setTimeout(() => {
-		cyInstance?.destroy();
-		cyInstance = cy({
-			container: graphEl,
-			elements,
-			style: [
-				{
-					selector: "node",
-					style: {
-						"background-color": "data(color)",
-						width: "data(size)",
-						height: "data(size)",
-						label: "data(label)",
-						"font-size": "12px",
-						"font-family": '"IBM Plex Sans", sans-serif',
-						color: "#e2e2f0",
-						"text-valign": "center",
-						"text-halign": "center",
-						"text-wrap": "wrap",
-						"text-max-width": "data(size)",
-						"min-zoomed-font-size": 7,
-						"border-width": 1,
-						"border-color": "rgba(0,0,0,0.35)",
-						"overlay-opacity": 0,
-						cursor: "pointer",
-					},
-				},
-				{
-					selector: "node:active",
-					style: { "overlay-opacity": 0.12, "overlay-color": "#fff" },
-				},
-				{
-					selector: "node:selected",
-					style: { "border-width": 2, "border-color": "#7c6af7" },
-				},
-				{
-					selector: "edge",
-					style: {
-						width: "data(width)",
-						"line-color": "rgb(96, 96, 160)",
-						"line-opacity": "data(opacity)",
-						"curve-style": "unbundled-bezier",
-						"overlay-opacity": 0,
-					},
-				},
-			] as CytoscapeOptions["style"],
-			layout,
-			minZoom: 0.5,
-			maxZoom: 6,
-			wheelSensitivity: 1.5,
-			textureOnViewport: true,
-			autoungrabify: false,
+		// Assign random initial positions, then run ForceAtlas2
+		random.assign(g, { scale: 200 });
+		fa2.assign(g, {
+			iterations: 500,
+			settings: {
+				...fa2.inferSettings(g),
+				gravity: 1,
+				scalingRatio: 10,
+				adjustSizes: true,
+			},
+			getEdgeWeight: "shared",
 		});
-		cyInstance?.on("tap", "node", (e) => {
-			onNodeTap(e.target.data("genreId") as number);
+
+		sigmaInst?.kill();
+		sigmaInst = new Sigma(g, container, {
+			renderEdgeLabels: false,
+			labelFont: "'IBM Plex Sans', sans-serif",
+			labelSize: 12,
+			labelWeight: "normal",
+			labelColor: { color: "#e2e2f0" },
+			labelRenderedSizeThreshold: 8,
+			minCameraRatio: 0.05,
+			maxCameraRatio: 8,
+			stagePadding: 40,
+			defaultEdgeColor: "rgb(96, 96, 160)",
+			defaultNodeColor: "#7c6af7",
 		});
+
+		sigmaInst.on("clickNode", (payload) => {
+			const node = payload.node as string;
+			onNodeTap(g.getNodeAttribute(node, "genreId") as number);
+		});
+
+		sigmaInst.on("enterNode", () => {
+			container.style.cursor = "pointer";
+		});
+
+		sigmaInst.on("leaveNode", () => {
+			container.style.cursor = "default";
+		});
+
 		loading = false;
 	}, 16);
+
 	return () => clearTimeout(id);
 });
 </script>
@@ -148,7 +119,7 @@ $effect(() => {
 	{#if loading}
 		<div class="overlay mono muted">Loading graph…</div>
 	{/if}
-	<div class="graph-container" bind:this={graphEl}></div>
+	<div class="graph-container" bind:this={containerEl}></div>
 </div>
 
 <style>
