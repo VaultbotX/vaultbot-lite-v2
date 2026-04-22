@@ -1,47 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { communityColor, edgeWidth, nodeSize } from "./graph";
-
-describe("communityColor", () => {
-	it("returns a valid hsl string", () => {
-		expect(communityColor(0, 4)).toMatch(/^hsl\(\d+, 62%, 56%\)$/);
-	});
-
-	it("is deterministic for the same inputs", () => {
-		expect(communityColor(2, 8)).toBe(communityColor(2, 8));
-	});
-
-	it("returns different colors for different community IDs", () => {
-		expect(communityColor(0, 4)).not.toBe(communityColor(1, 4));
-	});
-
-	it("keeps hue in [0, 360) for every community in a set", () => {
-		for (let i = 0; i < 10; i++) {
-			const color = communityColor(i, 10);
-			const hue = Number(color.match(/hsl\((\d+)/)?.[1]);
-			expect(hue).toBeGreaterThanOrEqual(0);
-			expect(hue).toBeLessThan(360);
-		}
-	});
-
-	it("offsets starting hue by ~200 for community 0", () => {
-		// With numCommunities=1 the formula reduces to hsl(200, 62%, 56%)
-		expect(communityColor(0, 1)).toBe("hsl(200, 62%, 56%)");
-	});
-});
+import {
+	assignCommunityColors,
+	COMMUNITY_PALETTE,
+	edgeWidth,
+	nodeSize,
+} from "./graph";
 
 describe("nodeSize", () => {
-	it("returns the minimum size (18) when count is 0", () => {
-		expect(nodeSize(0, 100)).toBeCloseTo(18);
+	it("returns the minimum size (14) when count is 0", () => {
+		expect(nodeSize(0, 100)).toBeCloseTo(14);
 	});
 
-	it("returns the maximum size (58) when count equals maxCount", () => {
-		expect(nodeSize(100, 100)).toBeCloseTo(58);
+	it("returns the maximum size (64) when count equals maxCount", () => {
+		expect(nodeSize(100, 100)).toBeCloseTo(64);
 	});
 
-	it("returns a value strictly between 18 and 58 for intermediate counts", () => {
+	it("returns a value strictly between 14 and 64 for intermediate counts", () => {
 		const size = nodeSize(50, 100);
-		expect(size).toBeGreaterThan(18);
-		expect(size).toBeLessThan(58);
+		expect(size).toBeGreaterThan(14);
+		expect(size).toBeLessThan(64);
 	});
 
 	it("is monotonically increasing with count", () => {
@@ -50,9 +27,9 @@ describe("nodeSize", () => {
 		expect(nodeSize(30, max)).toBeLessThan(nodeSize(70, max));
 	});
 
-	it("returns 18 when maxCount is 1 and count is 0", () => {
-		// log(1) / log(2) = 1, log(0+1)/log(1+1) = 0 → 18 + 40*0 = 18
-		expect(nodeSize(0, 1)).toBeCloseTo(18);
+	it("returns 14 when maxCount is 1 and count is 0", () => {
+		// log(0+1)/log(1+1) = 0 → 14 + 50*0 = 14
+		expect(nodeSize(0, 1)).toBeCloseTo(14);
 	});
 });
 
@@ -61,25 +38,87 @@ describe("edgeWidth", () => {
 		expect(edgeWidth(0, 10)).toBeCloseTo(0.5);
 	});
 
-	it("returns the maximum width (4) when count equals maxShared", () => {
-		expect(edgeWidth(10, 10)).toBeCloseTo(4);
+	it("returns the maximum width (5.5) when count equals maxShared", () => {
+		expect(edgeWidth(10, 10)).toBeCloseTo(5.5);
 	});
 
-	it("returns a value strictly between 0.5 and 4 for intermediate counts", () => {
+	it("returns a value strictly between 0.5 and 5.5 for intermediate counts", () => {
 		const width = edgeWidth(5, 10);
 		expect(width).toBeGreaterThan(0.5);
-		expect(width).toBeLessThan(4);
+		expect(width).toBeLessThan(5.5);
 	});
 
 	it("is monotonically increasing with count", () => {
 		expect(edgeWidth(2, 10)).toBeLessThan(edgeWidth(6, 10));
 	});
 
-	it("scales linearly: doubling count doubles the variable portion", () => {
-		// variable portion = 3.5 * (count / maxShared)
+	it("scales by sqrt: variable portion grows with square root of count ratio", () => {
+		// variable portion = 5 * sqrt(count / maxShared)
 		const base = 0.5;
-		const w1 = edgeWidth(2, 10) - base;
-		const w2 = edgeWidth(4, 10) - base;
-		expect(w2).toBeCloseTo(w1 * 2);
+		const w1 = edgeWidth(1, 10) - base;
+		const w4 = edgeWidth(4, 10) - base;
+		// sqrt(4/10) / sqrt(1/10) = sqrt(4) = 2
+		expect(w4).toBeCloseTo(w1 * 2);
+	});
+});
+
+const P = ["red", "blue", "green", "yellow", "orange"];
+
+describe("assignCommunityColors", () => {
+	it("returns an empty map when given no community IDs", () => {
+		expect(assignCommunityColors([], P).size).toBe(0);
+	});
+
+	it("assigns a color to a single community", () => {
+		const result = assignCommunityColors([0], P);
+		expect(result.size).toBe(1);
+		expect(result.get(0)).toBeDefined();
+	});
+
+	it("assigns different colors to different community IDs", () => {
+		const result = assignCommunityColors([0, 1, 2], P);
+		expect(result.get(0)).not.toBe(result.get(1));
+		expect(result.get(1)).not.toBe(result.get(2));
+		expect(result.get(0)).not.toBe(result.get(2));
+	});
+
+	it("result contains one entry per unique community ID", () => {
+		// Duplicates in the iterable are deduped
+		const result = assignCommunityColors([0, 0, 1, 1], P);
+		expect(result.size).toBe(2);
+	});
+
+	it("all assigned colors come from the palette", () => {
+		const result = assignCommunityColors([0, 1, 2], P);
+		for (const color of result.values()) {
+			expect(P).toContain(color);
+		}
+	});
+
+	it("cycles through palette when community count exceeds palette length", () => {
+		// 6 communities, 5 palette entries → commId 5 wraps to palette[0]
+		const result = assignCommunityColors([0, 1, 2, 3, 4, 5], P);
+		expect(result.get(5)).toBe(result.get(0));
+	});
+
+	it("assignment is deterministic for the same input", () => {
+		const r1 = assignCommunityColors([0, 2, 1], P);
+		const r2 = assignCommunityColors([0, 2, 1], P);
+		for (const [id, color] of r1) {
+			expect(r2.get(id)).toBe(color);
+		}
+	});
+
+	it("sorts by community ID so palette[0] always goes to the lowest ID", () => {
+		const result = assignCommunityColors([3, 1, 0], P);
+		expect(result.get(0)).toBe(P[0]);
+		expect(result.get(1)).toBe(P[1]);
+		expect(result.get(3)).toBe(P[2]);
+	});
+
+	it("COMMUNITY_PALETTE has 12 entries so up to 12 communities get unique colors", () => {
+		const ids = Array.from({ length: 12 }, (_, i) => i);
+		const result = assignCommunityColors(ids, COMMUNITY_PALETTE);
+		expect(new Set(result.values()).size).toBe(12);
 	});
 });

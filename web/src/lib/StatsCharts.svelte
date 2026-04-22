@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { TreemapDataPoint } from "chartjs-chart-treemap";
 import { onMount } from "svelte";
 import { fmtMonth, treemapColor } from "$lib/stats";
 import type { StatsData } from "../routes/api/stats/+server";
@@ -144,7 +145,7 @@ onMount(() => {
 							...TOOLTIP_OPTS,
 							callbacks: {
 								label: (ctx) =>
-									` ${fmt(ctx.parsed.x)} song${ctx.parsed.x !== 1 ? "s" : ""}`,
+									` ${fmt(ctx.parsed.x ?? 0)} song${(ctx.parsed.x ?? 0) !== 1 ? "s" : ""}`,
 							},
 						},
 					},
@@ -176,8 +177,8 @@ onMount(() => {
 				data: {
 					datasets: [
 						{
-							// @ts-expect-error — chartjs-chart-treemap dataset shape
 							tree: data.genre_distribution,
+							data: [] as TreemapDataPoint[],
 							key: "song_count",
 							labels: {
 								display: true,

@@ -17,6 +17,7 @@ export interface GenreCount {
 	genre_id: number;
 	name: string;
 	song_count: number;
+	[key: string]: unknown;
 }
 
 interface SummaryRow {
