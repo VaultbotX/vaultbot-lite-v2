@@ -30,9 +30,13 @@
 	},
 	"dependencies": {
 		"@neondatabase/serverless": "1.1.0",
+		"@sigma/edge-curve": "^3.1.0",
 		"chart.js": "4.5.1",
 		"chartjs-chart-treemap": "3.1.0",
-		"cytoscape": "3.33.2",
-		"cytoscape-fcose": "2.2.0"
+		"graphology": "^0.26.0",
+		"graphology-communities-louvain": "^2.0.2",
+		"graphology-layout": "^0.6.1",
+		"graphology-layout-forceatlas2": "^0.10.1",
+		"sigma": "^3.0.2"
 	}
 }

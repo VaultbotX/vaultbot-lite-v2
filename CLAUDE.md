@@ -11,6 +11,7 @@ A Spotify playlist tracker that polls a playlist on a schedule, stores tracks an
 - **No Tailwind.** Styles live in scoped `<style>` blocks inside `.svelte` files, or in `src/app.css` for globals.
 - **Migrations are Go structs, not SQL files.** Never create raw `.sql` migration files; follow the pattern in `internal/persistence/postgres/migrations/`.
 - **Workflow files cannot be pushed by Claude.** The GitHub OAuth token used in this environment does not have the `workflow` scope. If a workflow needs to be added or changed, paste the YAML in chat and the human commits it manually. See `LEARNINGS.md`.
+- **No `@ts-expect-error` or `@ts-ignore`.** Fix the underlying type gap instead: use `import type` to activate module augmentations, add index signatures to interfaces that must be record-compatible, use `as unknown as T` only as a last resort at a documented external boundary, and never suppress errors without a typed replacement.
 
 ## Tech stack
 

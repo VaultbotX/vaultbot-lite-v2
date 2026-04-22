@@ -1,147 +1,176 @@
 <script lang="ts">
+import type Graph from "graphology";
 import { onMount } from "svelte";
-import { communityColor, edgeWidth, nodeSize } from "$lib/graph";
-import type { GenreEdge, GenreVertex } from "../routes/api/graph/+server";
 
 let {
-	vertices,
-	edges,
-	communities,
+	graph,
 	onNodeTap,
 }: {
-	vertices: GenreVertex[];
-	edges: GenreEdge[];
-	communities: Map<number, number>;
+	graph: Graph;
 	onNodeTap: (genreId: number) => void;
 } = $props();
 
-type CyInstance = {
-	destroy(): void;
-	on(
-		evt: string,
-		sel: string,
-		fn: (e: { target: { data(k: string): unknown } }) => void,
-	): void;
+// Structural types for dynamically-imported renderer libs — avoids bundling
+// sigma/FA2 during SSR while still giving us precise type safety at call sites.
+type SigmaInst = {
+	kill(): void;
+	refresh(): void;
+	on(event: string, cb: (payload: Record<string, unknown>) => void): void;
 };
-type CyLib = ((opts: unknown) => CyInstance) & { use(ext: unknown): void };
+type SigmaLib = {
+	new (
+		graph: Graph,
+		container: HTMLElement,
+		settings?: Record<string, unknown>,
+	): SigmaInst;
+};
+type FA2Lib = {
+	assign(
+		graph: Graph,
+		opts: {
+			iterations: number;
+			settings?: Record<string, unknown>;
+			getEdgeWeight?: string;
+		},
+	): void;
+	inferSettings(graph: Graph): Record<string, unknown>;
+};
 
-let cyLib = $state<CyLib | null>(null);
-let cyInstance: CyInstance | null = null;
-let graphEl: HTMLDivElement | undefined;
+let sigmaLib = $state<SigmaLib | null>(null);
+let fa2Lib = $state<FA2Lib | null>(null);
+let edgeCurveLib = $state<unknown>(null);
+let sigmaInst: SigmaInst | null = null;
+let containerEl: HTMLDivElement | undefined;
 let loading = $state(true);
 
-const numCommunities = $derived(Math.max(...communities.values(), 0) + 1);
-const maxCount = $derived(Math.max(...vertices.map((v) => v.artist_count), 1));
-const maxShared = $derived(
-	Math.max(...edges.map((e) => e.shared_artist_count), 1),
-);
-
-const graphElements = $derived({
-	nodes: vertices.map((v) => ({
-		data: {
-			id: String(v.genre_id),
-			label: v.name,
-			size: nodeSize(v.artist_count, maxCount),
-			color: communityColor(communities.get(v.genre_id) ?? 0, numCommunities),
-			genreId: v.genre_id,
-		},
-	})),
-	edges: edges.map((e) => ({
-		data: {
-			source: String(e.source_genre_id),
-			target: String(e.target_genre_id),
-			width: edgeWidth(e.shared_artist_count, maxShared),
-			shared: e.shared_artist_count,
-		},
-	})),
-});
-
 onMount(() => {
-	Promise.all([import("cytoscape"), import("cytoscape-fcose")]).then(
-		([{ default: cytoscape }, { default: fcose }]) => {
-			cytoscape.use(fcose);
-			cyLib = cytoscape as unknown as CyLib;
-		},
-	);
-	return () => cyInstance?.destroy();
+	Promise.all([
+		import("sigma"),
+		import("graphology-layout-forceatlas2"),
+		import("@sigma/edge-curve"),
+	]).then(([s, f, ec]) => {
+		sigmaLib = s.default as unknown as SigmaLib;
+		fa2Lib = f.default as unknown as FA2Lib;
+		edgeCurveLib = ec.default;
+	});
+	return () => sigmaInst?.kill();
 });
+
+/**
+ * Place each community's nodes in a small circle around a community center,
+ * arranged on a larger ring. FA2 then refines from this warm start rather
+ * than having to discover community structure from a random scatter.
+ */
+function initCommunityLayout(g: Graph): void {
+	const groups = new Map<number, string[]>();
+	g.forEachNode((node, attrs) => {
+		const c = attrs.community as number;
+		const group = groups.get(c) ?? [];
+		groups.set(c, group);
+		group.push(node);
+	});
+
+	const commList = [...groups.keys()];
+	const centerR = 600;
+	const memberR = 80;
+
+	// Golden-angle spiral: fills a disk evenly with no ring/hollow-center artifact.
+	const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ≈ 137.5°
+	commList.forEach((commId, ci) => {
+		const r = centerR * Math.sqrt(ci / commList.length);
+		const cx = r * Math.cos(ci * GOLDEN_ANGLE);
+		const cy = r * Math.sin(ci * GOLDEN_ANGLE);
+		const members = groups.get(commId) ?? [];
+		members.forEach((node, mi) => {
+			const a = (2 * Math.PI * mi) / members.length;
+			g.setNodeAttribute(node, "x", cx + memberR * Math.cos(a));
+			g.setNodeAttribute(node, "y", cy + memberR * Math.sin(a));
+		});
+	});
+}
 
 $effect(() => {
-	const elements = graphElements;
-	if (!cyLib || !graphEl) return;
+	const g = graph;
+	const Sigma = sigmaLib;
+	const fa2 = fa2Lib;
+	const container = containerEl;
+	const edgeCurve = edgeCurveLib;
+	if (!Sigma || !fa2 || !edgeCurve || !container) return;
+
 	loading = true;
+
 	const id = setTimeout(() => {
-		cyInstance?.destroy();
-		// @ts-expect-error — dynamic import, no static type
-		cyInstance = cyLib({
-			container: graphEl,
-			elements,
-			style: [
-				{
-					selector: "node",
-					style: {
-						"background-color": "data(color)",
-						width: "data(size)",
-						height: "data(size)",
-						label: "data(label)",
-						"font-size": "8px",
-						"font-family": '"IBM Plex Sans", sans-serif',
-						color: "#e2e2f0",
-						"text-valign": "center",
-						"text-halign": "center",
-						"text-wrap": "wrap",
-						"text-max-width": "data(size)",
-						"min-zoomed-font-size": 7,
-						"border-width": 1,
-						"border-color": "rgba(0,0,0,0.35)",
-						"overlay-opacity": 0,
-						cursor: "pointer",
-					},
-				},
-				{
-					selector: "node:active",
-					style: { "overlay-opacity": 0.12, "overlay-color": "#fff" },
-				},
-				{
-					selector: "node:selected",
-					style: { "border-width": 2, "border-color": "#7c6af7" },
-				},
-				{
-					selector: "edge",
-					style: {
-						width: "data(width)",
-						"line-color": "rgba(96, 96, 160, 0.35)",
-						"curve-style": "haystack",
-						"overlay-opacity": 0,
-					},
-				},
-			],
-			layout: {
-				name: "fcose",
-				animate: false,
-				quality: "proof",
-				randomize: true,
-				nodeRepulsion: () => 12000,
-				idealEdgeLength: (edge: { data(k: string): unknown }) =>
-					Math.max(30, 120 / Math.sqrt((edge.data("shared") as number) || 1)),
-				edgeElasticity: (edge: { data(k: string): unknown }) =>
-					Math.min(0.9, 0.05 + ((edge.data("shared") as number) || 1) / 12),
-				gravity: 0.35,
-				gravityRange: 3.8,
-				numIter: 2500,
-				tile: true,
-				tilingPaddingVertical: 10,
-				tilingPaddingHorizontal: 10,
+		initCommunityLayout(g);
+		fa2.assign(g, {
+			iterations: 500,
+			settings: {
+				...fa2.inferSettings(g),
+				gravity: 1,
+				scalingRatio: 10,
+				adjustSizes: true,
+				barnesHutOptimize: false,
 			},
-			minZoom: 0.15,
-			maxZoom: 6,
-			wheelSensitivity: 1.5,
+			getEdgeWeight: "shared",
 		});
-		cyInstance?.on("tap", "node", (e) => {
-			onNodeTap(e.target.data("genreId") as number);
+
+		// Hover state — closed over by the reducers and event handlers below.
+		let hoveredNode: string | null = null;
+		let neighborSet = new Set<string>();
+
+		sigmaInst?.kill();
+		sigmaInst = new Sigma(g, container, {
+			renderEdgeLabels: false,
+			labelFont: "'IBM Plex Sans', sans-serif",
+			labelSize: 12,
+			labelWeight: "normal",
+			labelColor: { color: "#e2e2f0" },
+			labelRenderedSizeThreshold: 8,
+			minCameraRatio: 0.05,
+			maxCameraRatio: 8,
+			stagePadding: 40,
+			defaultEdgeColor: "rgb(96, 96, 160)",
+			defaultNodeColor: "#7c6af7",
+			defaultEdgeType: "curve",
+			edgeProgramClasses: { curve: edgeCurve },
+			// Dim nodes/edges that are not part of the hovered node's neighborhood.
+			nodeReducer: (node: unknown, data: unknown) => {
+				const d = data as Record<string, unknown>;
+				if (!hoveredNode || node === hoveredNode || neighborSet.has(node as string)) {
+					return d;
+				}
+				return { ...d, color: "#1e1e28", label: "" };
+			},
+			edgeReducer: (edge: unknown, data: unknown) => {
+				const d = data as Record<string, unknown>;
+				if (!hoveredNode || g.hasExtremity(edge as string, hoveredNode)) {
+					return d;
+				}
+				return { ...d, hidden: true };
+			},
 		});
+
+		sigmaInst.on("clickNode", (payload) => {
+			const node = payload.node as string;
+			onNodeTap(g.getNodeAttribute(node, "genreId") as number);
+		});
+
+		sigmaInst.on("enterNode", (payload) => {
+			hoveredNode = payload.node as string;
+			neighborSet = new Set(g.neighbors(hoveredNode));
+			sigmaInst?.refresh();
+			container.style.cursor = "pointer";
+		});
+
+		sigmaInst.on("leaveNode", () => {
+			hoveredNode = null;
+			neighborSet = new Set();
+			sigmaInst?.refresh();
+			container.style.cursor = "default";
+		});
+
 		loading = false;
 	}, 16);
+
 	return () => clearTimeout(id);
 });
 </script>
@@ -150,7 +179,7 @@ $effect(() => {
 	{#if loading}
 		<div class="overlay mono muted">Loading graph…</div>
 	{/if}
-	<div class="graph-container" bind:this={graphEl}></div>
+	<div class="graph-container" bind:this={containerEl}></div>
 </div>
 
 <style>
@@ -176,5 +205,6 @@ $effect(() => {
 	.graph-container {
 		width: 100%;
 		height: 100%;
+		background: var(--bg);
 	}
 </style>
