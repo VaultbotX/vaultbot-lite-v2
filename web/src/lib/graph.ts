@@ -8,16 +8,6 @@ export function edgeWidth(count: number, maxShared: number): number {
 	return 0.5 + 5 * Math.sqrt(count / maxShared);
 }
 
-// Ideal edge length for fcose layout: shorter for densely-shared edges
-export function idealEdgeLength(shared: number): number {
-	return Math.max(50, 150 / Math.sqrt(shared || 1));
-}
-
-// Edge elasticity for fcose layout: stiffer for densely-shared edges
-export function edgeElasticity(shared: number): number {
-	return Math.min(0.9, 0.05 + (shared || 1) / 12);
-}
-
 // 12 hues stepped by 150° so consecutive community IDs look maximally different
 export const COMMUNITY_PALETTE: readonly string[] = [
 	"hsl(10, 65%, 58%)",

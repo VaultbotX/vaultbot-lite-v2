@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	assignCommunityColors,
 	COMMUNITY_PALETTE,
-	edgeElasticity,
 	edgeWidth,
-	idealEdgeLength,
 	nodeSize,
 } from "./graph";
 
@@ -61,45 +59,6 @@ describe("edgeWidth", () => {
 		const w4 = edgeWidth(4, 10) - base;
 		// sqrt(4/10) / sqrt(1/10) = sqrt(4) = 2
 		expect(w4).toBeCloseTo(w1 * 2);
-	});
-});
-
-describe("idealEdgeLength", () => {
-	it("returns 150 for shared count of 1", () => {
-		expect(idealEdgeLength(1)).toBeCloseTo(150);
-	});
-
-	it("returns 50 (floor) for high shared counts", () => {
-		expect(idealEdgeLength(9)).toBeCloseTo(50);
-		expect(idealEdgeLength(100)).toBeCloseTo(50);
-	});
-
-	it("decreases as shared count increases", () => {
-		expect(idealEdgeLength(1)).toBeGreaterThan(idealEdgeLength(4));
-	});
-
-	it("treats 0 the same as 1 (guards against division by zero)", () => {
-		expect(idealEdgeLength(0)).toBeCloseTo(idealEdgeLength(1));
-	});
-});
-
-describe("edgeElasticity", () => {
-	it("returns 0.9 (cap) for high shared counts", () => {
-		expect(edgeElasticity(11)).toBeCloseTo(0.9);
-	});
-
-	it("is monotonically increasing with shared count", () => {
-		expect(edgeElasticity(1)).toBeLessThan(edgeElasticity(5));
-	});
-
-	it("treats 0 the same as 1 (guards against zero)", () => {
-		expect(edgeElasticity(0)).toBeCloseTo(edgeElasticity(1));
-	});
-
-	it("never exceeds 0.9", () => {
-		for (const shared of [1, 5, 10, 50, 100]) {
-			expect(edgeElasticity(shared)).toBeLessThanOrEqual(0.9);
-		}
 	});
 });
 
