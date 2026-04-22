@@ -20,7 +20,6 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 		<h1>{data.genre_name}</h1>
 		<p class="muted">
 			{data.artists.length} artist{data.artists.length !== 1 ? "s" : ""} ·
-			{data.tracks.length} top track{data.tracks.length !== 1 ? "s" : ""} ·
 			{data.connected_genres.length} connected genre{data.connected_genres.length !== 1 ? "s" : ""}
 		</p>
 	{/if}
@@ -37,7 +36,7 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 					<thead>
 						<tr>
 							<th>Artist</th>
-							<th class="right mono">Archive plays</th>
+							<th class="right mono">Entries</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -69,7 +68,7 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 						<tr>
 							<th>Track</th>
 							<th>Artists</th>
-							<th class="right mono">Occurrences</th>
+							<th class="right mono">Entries</th>
 						</tr>
 					</thead>
 					<tbody>
