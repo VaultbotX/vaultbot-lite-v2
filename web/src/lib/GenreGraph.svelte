@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import { communityColor, edgeWidth, nodeSize } from "$lib/graph";
+import { communityColor, edgeElasticity, edgeWidth, idealEdgeLength, nodeSize } from "$lib/graph";
 import type { GenreEdge, GenreVertex } from "../routes/api/graph/+server";
 import type { Core, CytoscapeOptions } from "cytoscape";
 import type { FcoseLayoutOptions } from "cytoscape-fcose";
@@ -73,10 +73,8 @@ $effect(() => {
 		quality: "proof",
 		randomize: false,
 		nodeRepulsion: () => 55000,
-		idealEdgeLength: (edge) =>
-			Math.max(50, 150 / Math.sqrt(edge.data("shared") || 1)),
-		edgeElasticity: (edge) =>
-			Math.min(0.9, 0.05 + (edge.data("shared") || 1) / 12),
+		idealEdgeLength: (edge) => idealEdgeLength(edge.data("shared") as number),
+		edgeElasticity: (edge) => edgeElasticity(edge.data("shared") as number),
 		gravity: 0.65,
 		gravityRange: 3.8,
 		numIter: 2500,
