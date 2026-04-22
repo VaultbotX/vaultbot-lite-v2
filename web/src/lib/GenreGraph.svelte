@@ -68,7 +68,8 @@ $effect(() => {
 	loading = true;
 	const layout: FcoseLayoutOptions = {
 		name: "fcose",
-		animate: false,
+		animate: true,
+		animationEasing: 'ease-out',
 		quality: "proof",
 		randomize: false,
 		nodeRepulsion: () => 55000,
@@ -82,7 +83,8 @@ $effect(() => {
 		tile: true,
 		tilingPaddingVertical: 10,
 		tilingPaddingHorizontal: 10,
-		fit: true,
+		fit: false,
+		samplingType: true,
 	};
 	const id = setTimeout(() => {
 		cyInstance?.destroy();
@@ -125,7 +127,7 @@ $effect(() => {
 						width: "data(width)",
 						"line-color": "rgb(96, 96, 160)",
 						"line-opacity": "data(opacity)",
-						"curve-style": "haystack",
+						"curve-style": "unbundled-bezier",
 						"overlay-opacity": 0,
 					},
 				},
@@ -135,7 +137,7 @@ $effect(() => {
 			maxZoom: 6,
 			wheelSensitivity: 1.5,
 			textureOnViewport: true,
-			autoungrabify: true,
+			autoungrabify: false,
 		});
 		cyInstance?.on("tap", "node", (e) => {
 			onNodeTap(e.target.data("genreId") as number);
