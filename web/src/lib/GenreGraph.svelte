@@ -116,6 +116,7 @@ $effect(() => {
 		// Hover state — closed over by the reducers and event handlers below.
 		let hoveredNode: string | null = null;
 		let neighborSet = new Set<string>();
+		let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
 		sigmaInst?.kill();
 		sigmaInst = new Sigma(g, container, {
@@ -155,13 +156,20 @@ $effect(() => {
 		});
 
 		sigmaInst.on("enterNode", (payload) => {
-			hoveredNode = payload.node as string;
-			neighborSet = new Set(g.neighbors(hoveredNode));
-			sigmaInst?.refresh();
 			container.style.cursor = "pointer";
+			if (hoverTimer !== null) clearTimeout(hoverTimer);
+			hoverTimer = setTimeout(() => {
+				hoveredNode = payload.node as string;
+				neighborSet = new Set(g.neighbors(hoveredNode));
+				sigmaInst?.refresh();
+			}, 150);
 		});
 
 		sigmaInst.on("leaveNode", () => {
+			if (hoverTimer !== null) {
+				clearTimeout(hoverTimer);
+				hoverTimer = null;
+			}
 			hoveredNode = null;
 			neighborSet = new Set();
 			sigmaInst?.refresh();
