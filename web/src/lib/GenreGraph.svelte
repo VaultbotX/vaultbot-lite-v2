@@ -35,10 +35,30 @@ type FA2Lib = {
 	): void;
 	inferSettings(graph: Graph): Record<string, unknown>;
 };
+type NodeBorderLib = {
+	createNodeBorderProgram(options: {
+		borders: Array<{
+			size: { value: number; mode?: "relative" | "pixels" } | { fill: true };
+			color:
+				| { value: string }
+				| { attribute: string; defaultValue?: string }
+				| { transparent: true };
+		}>;
+	}): unknown;
+};
+type SigmaRenderingLib = {
+	drawDiscNodeLabel(
+		context: CanvasRenderingContext2D,
+		data: Record<string, unknown>,
+		settings: Record<string, unknown>,
+	): void;
+};
 
 let sigmaLib = $state<SigmaLib | null>(null);
 let fa2Lib = $state<FA2Lib | null>(null);
 let edgeCurveLib = $state<unknown>(null);
+let nodeBorderLib = $state<NodeBorderLib | null>(null);
+let sigmaRenderingLib = $state<SigmaRenderingLib | null>(null);
 let sigmaInst: SigmaInst | null = null;
 let containerEl: HTMLDivElement | undefined;
 let loading = $state(true);
@@ -48,10 +68,14 @@ onMount(() => {
 		import("sigma"),
 		import("graphology-layout-forceatlas2"),
 		import("@sigma/edge-curve"),
-	]).then(([s, f, ec]) => {
+		import("@sigma/node-border"),
+		import("sigma/rendering"),
+	]).then(([s, f, ec, nb, sr]) => {
 		sigmaLib = s.default as unknown as SigmaLib;
 		fa2Lib = f.default as unknown as FA2Lib;
 		edgeCurveLib = ec.default;
+		nodeBorderLib = nb as unknown as NodeBorderLib;
+		sigmaRenderingLib = sr as unknown as SigmaRenderingLib;
 	});
 	return () => sigmaInst?.kill();
 });
@@ -95,9 +119,80 @@ $effect(() => {
 	const fa2 = fa2Lib;
 	const container = containerEl;
 	const edgeCurve = edgeCurveLib;
-	if (!Sigma || !fa2 || !edgeCurve || !container) return;
+	const nodeBorder = nodeBorderLib;
+	const sigmaRendering = sigmaRenderingLib;
+	if (!Sigma || !fa2 || !edgeCurve || !container || !nodeBorder || !sigmaRendering) return;
 
 	loading = true;
+
+	const { drawDiscNodeLabel } = sigmaRendering;
+
+	// Border program: 3px black outer ring, community color fill.
+	// Border color is read from the `borderColor` attribute so the nodeReducer
+	// can dim it alongside the fill when a neighbor is not highlighted.
+	const nodeBorderProgram = nodeBorder.createNodeBorderProgram({
+		borders: [
+			{
+				size: { value: 3, mode: "pixels" },
+				color: { attribute: "borderColor", defaultValue: "#000000" },
+			},
+			{ size: { fill: true }, color: { attribute: "color", defaultValue: "#7c6af7" } },
+		],
+	});
+
+	// Custom hover renderer: same pill shape as Sigma's default but with a dark
+	// background so the white label text is readable against `--surface`.
+	function drawDarkNodeHover(
+		context: CanvasRenderingContext2D,
+		data: Record<string, unknown>,
+		settings: Record<string, unknown>,
+	): void {
+		const size = settings.labelSize as number;
+		const font = settings.labelFont as string;
+		const weight = settings.labelWeight as string;
+		context.font = `${weight} ${size}px ${font}`;
+
+		context.fillStyle = "#131318";
+		context.shadowOffsetX = 0;
+		context.shadowOffsetY = 0;
+		context.shadowBlur = 8;
+		context.shadowColor = "#000";
+
+		const PADDING = 2;
+		const label = data.label as string | null;
+		const x = data.x as number;
+		const y = data.y as number;
+		const nodeSize = data.size as number;
+
+		if (typeof label === "string") {
+			const textWidth = context.measureText(label).width;
+			const boxWidth = Math.round(textWidth + 5);
+			const boxHeight = Math.round(size + 2 * PADDING);
+			const radius = Math.max(nodeSize, size / 2) + PADDING;
+			const angleRadian = Math.asin(boxHeight / 2 / radius);
+			const xDeltaCoord = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
+
+			context.beginPath();
+			context.moveTo(x + xDeltaCoord, y + boxHeight / 2);
+			context.lineTo(x + radius + boxWidth, y + boxHeight / 2);
+			context.lineTo(x + radius + boxWidth, y - boxHeight / 2);
+			context.lineTo(x + xDeltaCoord, y - boxHeight / 2);
+			context.arc(x, y, radius, angleRadian, -angleRadian);
+			context.closePath();
+			context.fill();
+		} else {
+			context.beginPath();
+			context.arc(x, y, nodeSize + PADDING, 0, Math.PI * 2);
+			context.closePath();
+			context.fill();
+		}
+
+		context.shadowOffsetX = 0;
+		context.shadowOffsetY = 0;
+		context.shadowBlur = 0;
+
+		drawDiscNodeLabel(context, data, settings);
+	}
 
 	const id = setTimeout(() => {
 		initCommunityLayout(g);
@@ -116,6 +211,7 @@ $effect(() => {
 		// Hover state — closed over by the reducers and event handlers below.
 		let hoveredNode: string | null = null;
 		let neighborSet = new Set<string>();
+		let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
 		sigmaInst?.kill();
 		sigmaInst = new Sigma(g, container, {
@@ -131,14 +227,16 @@ $effect(() => {
 			defaultEdgeColor: "rgb(96, 96, 160)",
 			defaultNodeColor: "#7c6af7",
 			defaultEdgeType: "curve",
+			defaultDrawNodeHover: drawDarkNodeHover,
 			edgeProgramClasses: { curve: edgeCurve },
+			nodeProgramClasses: { circle: nodeBorderProgram },
 			// Dim nodes/edges that are not part of the hovered node's neighborhood.
 			nodeReducer: (node: unknown, data: unknown) => {
 				const d = data as Record<string, unknown>;
 				if (!hoveredNode || node === hoveredNode || neighborSet.has(node as string)) {
 					return d;
 				}
-				return { ...d, color: "#1e1e28", label: "" };
+				return { ...d, color: "#1e1e28", borderColor: "#1e1e28", label: "" };
 			},
 			edgeReducer: (edge: unknown, data: unknown) => {
 				const d = data as Record<string, unknown>;
@@ -155,13 +253,20 @@ $effect(() => {
 		});
 
 		sigmaInst.on("enterNode", (payload) => {
-			hoveredNode = payload.node as string;
-			neighborSet = new Set(g.neighbors(hoveredNode));
-			sigmaInst?.refresh();
 			container.style.cursor = "pointer";
+			if (hoverTimer !== null) clearTimeout(hoverTimer);
+			hoverTimer = setTimeout(() => {
+				hoveredNode = payload.node as string;
+				neighborSet = new Set(g.neighbors(hoveredNode));
+				sigmaInst?.refresh();
+			}, 150);
 		});
 
 		sigmaInst.on("leaveNode", () => {
+			if (hoverTimer !== null) {
+				clearTimeout(hoverTimer);
+				hoverTimer = null;
+			}
 			hoveredNode = null;
 			neighborSet = new Set();
 			sigmaInst?.refresh();
