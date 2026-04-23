@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { browser } from "$app/environment";
 import GenreGraph from "$lib/GenreGraph.svelte";
 import { buildGenreGraph } from "$lib/genre-graph";
 import type { PageData } from "./$types";
@@ -7,7 +8,12 @@ import type { PageData } from "./$types";
 let { data }: { data: PageData } = $props();
 
 const SPARSE_THRESHOLD = 3;
-let showSparse = $state(false);
+const STORAGE_KEY = "graph:showSparse";
+let showSparse = $state(browser ? localStorage.getItem(STORAGE_KEY) === "true" : false);
+
+$effect(() => {
+	localStorage.setItem(STORAGE_KEY, String(showSparse));
+});
 
 const visibleVertices = $derived(
 	showSparse
