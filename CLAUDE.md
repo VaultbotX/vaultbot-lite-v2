@@ -79,6 +79,7 @@ go test ./...                           # Run all tests
 go run ./cmd/migration_runner           # Apply pending DB migrations
 go run ./cmd/refresh_graph_mv           # Refresh genre graph materialized views
 go run ./cmd/poll                       # Poll Spotify playlist once
+go run ./cmd/dedup                      # Detect and record duplicate songs (also runs weekly via GH Actions)
 go run ./cmd/stats                      # Generate stats JSON (stdout) — superseded by /api/stats
 ```
 
@@ -90,6 +91,7 @@ go run ./cmd/stats                      # Generate stats JSON (stdout) — super
 │   ├── migration_runner/       # Applies DB migrations
 │   ├── refresh_graph_mv/       # Refreshes genre graph MVs
 │   ├── poll/                   # Spotify polling job
+│   ├── dedup/                  # Detects and records duplicate songs (weekly cron)
 │   ├── stats/                  # Legacy stats JSON generator (superseded by /api/stats)
 │   ├── purge/                  # Removes expired tracks
 │   ├── genre/                  # Genre rotation playlist
@@ -154,11 +156,56 @@ songs          ←→ link_song_genres   ←→ genres
 artists        ←→ link_artist_genres ←→ genres
 
 songs          ←→ song_archive       (timestamped occurrence log)
+songs          ←→ duplicate_song_lookup  (deduplication mapping — see below)
+
+-- View (backed by duplicate_song_lookup)
+v_songs        (canonical songs only — excludes duplicates)
 
 -- Materialized views (updated every 6 hours via refresh_graph_mv)
 genre_graph_vertices   (genre_id, name, artist_count)
 genre_graph_edges      (source_genre_id, target_genre_id, shared_artist_count)
 ```
+
+## Song deduplication model
+
+Spotify sometimes represents the same song under multiple track IDs (e.g. a single release vs. the full LP version). The deduplication system identifies these and hides them without deleting any data.
+
+### The three pieces
+
+**`songs`** — the raw source of truth. Every distinct Spotify track ID the poller has ever seen lives here. Never query this directly in read paths that are user-facing or playlist-facing; use the patterns below instead.
+
+**`duplicate_song_lookup`** — a mapping table with columns `(source_song_spotify_id, target_song_spotify_id)`. The invariant:
+
+- A **canonical** song maps to itself: `source = target`
+- A **duplicate** song maps to its canonical: `source = dup_id, target = canonical_id`
+
+Every song gets a self-mapping row inserted by `AddSong` when it is first written. `cmd/dedup` (runs weekly) detects pairs whose normalized names have Levenshtein similarity ≥ 0.85 and whose durations are within ±2 s, then updates the duplicate's row to point at the canonical (chosen by most `song_archive` entries).
+
+**`v_songs`** — a view over `songs` that only surfaces canonical rows (i.e. `source = target` in `duplicate_song_lookup`). Use this when you need a **count or list of distinct songs** and don't care about archive frequency.
+
+### Which to use where
+
+| Need | Use |
+|---|---|
+| Count of unique songs in the library | `COUNT(*) FROM v_songs` |
+| Distinct songs per artist / genre | `JOIN v_songs s ON s.id = lsa.song_id` |
+| Frequency ranking / archive counts | Lookup join pattern (see below) |
+| Inserting / upserting a song | Plain `songs` table directly |
+
+### Archive-count query pattern
+
+When ranking or selecting songs by how often they appeared on the playlist, route every `song_archive` entry through `duplicate_song_lookup` so that plays of a duplicate and plays of its canonical are summed together:
+
+```sql
+FROM song_archive sa
+JOIN songs raw ON sa.song_id = raw.id
+JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
+JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
+GROUP BY s.id
+ORDER BY COUNT(sa.id) DESC
+```
+
+`dsl.target_song_spotify_id` is always a canonical ID, so the final `JOIN songs s` naturally lands on the canonical row. Do **not** replace it with `JOIN v_songs s` — that would silently drop archive entries for any song involved in a transitive duplicate chain.
 
 ## Adding a DB migration
 
