@@ -125,7 +125,9 @@ func GetOverallTopSongs(db *sqlx.DB, limit int) ([]Song, error) {
 			   s.popularity,
 			   s.album_name
 		FROM song_archive sa
-				 JOIN v_songs s ON sa.song_id = s.id
+				 JOIN songs raw ON sa.song_id = raw.id
+				 JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
+				 JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
 		GROUP BY s.id
 		ORDER BY COUNT(sa.id) DESC
 		LIMIT $1;
@@ -147,7 +149,9 @@ func GetTopSongsByYear(db *sqlx.DB, minCount int) ([]Song, int, error) {
 	err := db.QueryRowx(`
 		SELECT EXTRACT(YEAR FROM s.release_date)::int AS release_year
 		FROM song_archive sa
-		         JOIN v_songs s ON sa.song_id = s.id
+		         JOIN songs raw ON sa.song_id = raw.id
+		         JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
+		         JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
 		GROUP BY release_year
 		HAVING COUNT(sa.id) >= $1
 		ORDER BY RANDOM()
@@ -172,7 +176,9 @@ func GetTopSongsByYear(db *sqlx.DB, minCount int) ([]Song, int, error) {
 		       s.popularity,
 		       s.album_name
 		FROM song_archive sa
-		         JOIN v_songs s ON sa.song_id = s.id
+		         JOIN songs raw ON sa.song_id = raw.id
+		         JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
+		         JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
 		WHERE EXTRACT(YEAR FROM s.release_date)::int = $1
 		GROUP BY s.id
 		ORDER BY COUNT(sa.id) DESC
@@ -199,7 +205,9 @@ func GetRandomSongs(db *sqlx.DB, limit int) ([]Song, error) {
 		       s.popularity,
 		       s.album_name
 		FROM song_archive sa
-		         JOIN v_songs s ON sa.song_id = s.id
+		         JOIN songs raw ON sa.song_id = raw.id
+		         JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
+		         JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
 		GROUP BY s.id
 		ORDER BY RANDOM()
 		LIMIT $1;
@@ -225,7 +233,9 @@ func GetTopSongsByGenre(db *sqlx.DB, genreId int) ([]Song, error) {
 			   s.popularity,
 			   s.album_name
 		FROM song_archive sa
-				 JOIN v_songs s ON sa.song_id = s.id
+				 JOIN songs raw ON sa.song_id = raw.id
+				 JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
+				 JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
 				 JOIN link_song_genres lsg ON s.id = lsg.song_id
 		WHERE lsg.genre_id = $1
 		GROUP BY s.id

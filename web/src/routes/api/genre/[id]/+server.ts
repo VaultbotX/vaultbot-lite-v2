@@ -59,10 +59,12 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			LIMIT 20
 		`),
 		tracks: typed<GenreTrack[]>(sql`
-			WITH song_occurrences AS (
-				SELECT song_id, COUNT(id)::int AS occurrences
-				FROM song_archive
-				GROUP BY song_id
+			WITH canonical_occurrences AS (
+				SELECT dsl.target_song_spotify_id AS canonical_spotify_id, COUNT(sa.id)::int AS occurrences
+				FROM song_archive sa
+				JOIN songs raw ON raw.id = sa.song_id
+				JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
+				GROUP BY dsl.target_song_spotify_id
 			),
 			song_artists AS (
 				SELECT DISTINCT lsa.song_id, a.name, a.spotify_id
@@ -74,13 +76,13 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 				s.spotify_id,
 				array_agg(sa.name ORDER BY sa.name) AS artist_names,
 				array_agg(sa.spotify_id ORDER BY sa.name) AS artist_spotify_ids,
-				so.occurrences
+				co.occurrences
 			FROM v_songs s
 			JOIN link_song_genres lsg ON lsg.song_id = s.id
-			JOIN song_occurrences so ON so.song_id = s.id
+			JOIN canonical_occurrences co ON co.canonical_spotify_id = s.spotify_id
 			JOIN song_artists sa ON sa.song_id = s.id
 			WHERE lsg.genre_id = ${genreId}
-			GROUP BY s.id, s.name, s.spotify_id, so.occurrences
+			GROUP BY s.id, s.name, s.spotify_id, co.occurrences
 			ORDER BY occurrences DESC
 			LIMIT 20
 		`),
