@@ -52,7 +52,7 @@ export const GET: RequestHandler = async ({ platform }) => {
 		await allNamed({
 			summaryRows: typed<SummaryRow[]>(sql`
 				SELECT
-					(SELECT COUNT(*)::int FROM songs)        AS total_songs,
+					(SELECT COUNT(*)::int FROM v_songs)      AS total_songs,
 					(SELECT COUNT(*)::int FROM song_archive) AS total_archive_entries,
 					(SELECT COUNT(*)::int FROM artists)      AS total_artists,
 					(SELECT COUNT(*)::int FROM genres)       AS total_genres
@@ -69,6 +69,7 @@ export const GET: RequestHandler = async ({ platform }) => {
 				SELECT a.name, COUNT(DISTINCT lsa.song_id)::int AS song_count
 				FROM artists a
 				JOIN link_song_artists lsa ON a.id = lsa.artist_id
+				JOIN v_songs s ON s.id = lsa.song_id
 				GROUP BY a.id, a.name
 				ORDER BY song_count DESC
 				LIMIT 15
@@ -77,6 +78,7 @@ export const GET: RequestHandler = async ({ platform }) => {
 				SELECT g.id AS genre_id, g.name, COUNT(DISTINCT lsg.song_id)::int AS song_count
 				FROM genres g
 				JOIN link_song_genres lsg ON g.id = lsg.genre_id
+				JOIN v_songs s ON s.id = lsg.song_id
 				GROUP BY g.id, g.name
 				ORDER BY song_count DESC
 				LIMIT 30

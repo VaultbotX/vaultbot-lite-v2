@@ -75,7 +75,7 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 				array_agg(sa.name ORDER BY sa.name) AS artist_names,
 				array_agg(sa.spotify_id ORDER BY sa.name) AS artist_spotify_ids,
 				so.occurrences
-			FROM songs s
+			FROM v_songs s
 			JOIN link_song_genres lsg ON lsg.song_id = s.id
 			JOIN song_occurrences so ON so.song_id = s.id
 			JOIN song_artists sa ON sa.song_id = s.id
