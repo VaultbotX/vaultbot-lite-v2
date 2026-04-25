@@ -113,6 +113,14 @@ set_var web/.dev.vars "DATABASE_URL" "${CONN_URI}"
 
 echo "DATABASE_URL written to web/.dev.vars"
 echo ""
+
+echo "Running database migrations on '${NEON_BRANCH_NAME}'..."
+POSTGRES_HOST="${PG_HOST}" \
+POSTGRES_PORT="${PG_PORT}" \
+POSTGRES_USER="${PG_USER}" \
+POSTGRES_PASSWORD="${PG_PASSWORD}" \
+POSTGRES_DB="${PG_DB}" \
+  go run ./cmd/migration_runner
+
+echo ""
 echo "Done! Neon branch '${NEON_BRANCH_NAME}' is ready."
-echo "If this is a freshly created branch, run migrations:"
-echo "  go run ./cmd/migration_runner"
