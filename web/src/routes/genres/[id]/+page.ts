@@ -1,8 +1,8 @@
-import type { GenreDetail } from "../../api/genre/[id]/+server";
+import type { GenreDetail } from "../../api/genres/[id]/+server";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ fetch, params }) => {
-	const res = await fetch(`/api/genre/${params.id}`);
+	const res = await fetch(`/api/genres/${params.id}`);
 	if (res.status === 404) {
 		return {
 			notFound: true,
