@@ -92,7 +92,7 @@ const graph = $derived(buildGenreGraph(visibleVertices, visibleEdges));
 {#if loadingDynamic}
 	<div class="loading card">Loading current playlist graph…</div>
 {:else}
-	<GenreGraph {graph} onNodeTap={(genreId) => goto(`/genre/${genreId}`)} />
+	<GenreGraph {graph} onNodeTap={(genreId) => goto(`/genres/${genreId}`)} />
 {/if}
 
 <style>

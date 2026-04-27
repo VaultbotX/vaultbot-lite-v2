@@ -4,6 +4,7 @@ import { allNamed, typed } from "$lib/allNamed";
 import type { RequestHandler } from "./$types";
 
 export interface GenreArtist {
+	artist_id: number;
 	name: string;
 	spotify_id: string;
 	archive_count: number;
@@ -12,6 +13,7 @@ export interface GenreArtist {
 export interface GenreTrack {
 	name: string;
 	spotify_id: string;
+	artist_ids: number[];
 	artist_names: string[];
 	artist_spotify_ids: string[];
 	occurrences: number;
@@ -48,7 +50,7 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			SELECT name FROM genres WHERE id = ${genreId}
 		`),
 		artists: typed<GenreArtist[]>(sql`
-			SELECT a.name, a.spotify_id, COUNT(sa.id)::int AS archive_count
+			SELECT a.id AS artist_id, a.name, a.spotify_id, COUNT(sa.id)::int AS archive_count
 			FROM artists a
 			JOIN link_artist_genres lag ON lag.artist_id = a.id
 			JOIN link_song_artists lsa ON lsa.artist_id = a.id
@@ -67,13 +69,14 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 				GROUP BY dsl.target_song_spotify_id
 			),
 			song_artists AS (
-				SELECT DISTINCT lsa.song_id, a.name, a.spotify_id
+				SELECT DISTINCT lsa.song_id, a.id AS artist_id, a.name, a.spotify_id
 				FROM link_song_artists lsa
 				JOIN artists a ON a.id = lsa.artist_id
 			)
 			SELECT
 				s.name,
 				s.spotify_id,
+				array_agg(sa.artist_id ORDER BY sa.name) AS artist_ids,
 				array_agg(sa.name ORDER BY sa.name) AS artist_names,
 				array_agg(sa.spotify_id ORDER BY sa.name) AS artist_spotify_ids,
 				co.occurrences

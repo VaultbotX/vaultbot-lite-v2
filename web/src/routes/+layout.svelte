@@ -19,6 +19,7 @@ let { children } = $props();
 		</div>
 		<nav>
 			<a href="/">Stats</a>
+			<a href="/artists">Artists</a>
 			<a href="/graph">Graph</a>
 		</nav>
 	</div>
