@@ -3,7 +3,7 @@ import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
+function spotifyUrl(type: "track", spotifyId: string): string {
 	return `spotify:${type}:${spotifyId}`;
 }
 </script>
@@ -39,12 +39,7 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 						{#each data.artists as artist}
 							<tr>
 								<td>
-									<a
-										href={spotifyUrl("artist", artist.spotify_id)}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="spotify-link"
-									>{artist.name}</a>
+									<a href="/artists/{artist.artist_id}" class="spotify-link">{artist.name}</a>
 								</td>
 								<td class="right mono">{artist.archive_count.toLocaleString()}</td>
 							</tr>
@@ -81,12 +76,7 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 								<td class="artist-list muted">
 									{#each track.artist_names as name, i}
 										{#if i > 0}<span>, </span>{/if}
-										<a
-											href={spotifyUrl("artist", track.artist_spotify_ids[i])}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="spotify-link muted-link"
-										>{name}</a>
+										<a href="/artists/{track.artist_ids[i]}" class="spotify-link muted-link">{name}</a>
 									{/each}
 								</td>
 								<td class="right mono">{track.occurrences.toLocaleString()}</td>
@@ -103,7 +93,7 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 			<h2>Related Genres</h2>
 			<div class="chips">
 				{#each data.connected_genres as genre}
-					<a href="/genre/{genre.genre_id}" class="chip">
+					<a href="/genres/{genre.genre_id}" class="chip">
 						<span class="chip-name">{genre.name}</span>
 						<span class="chip-count mono">{genre.shared_artist_count}</span>
 					</a>

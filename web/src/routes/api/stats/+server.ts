@@ -9,6 +9,7 @@ export interface MonthlyCount {
 }
 
 export interface ArtistCount {
+	artist_id: number;
 	name: string;
 	song_count: number;
 }
@@ -66,7 +67,7 @@ export const GET: RequestHandler = async ({ platform }) => {
 				ORDER BY DATE_TRUNC('month', created_at)
 			`),
 			top_artists: typed<ArtistCount[]>(sql`
-				SELECT a.name, COUNT(DISTINCT lsa.song_id)::int AS song_count
+				SELECT a.id AS artist_id, a.name, COUNT(DISTINCT lsa.song_id)::int AS song_count
 				FROM artists a
 				JOIN link_song_artists lsa ON a.id = lsa.artist_id
 				JOIN v_songs s ON s.id = lsa.song_id

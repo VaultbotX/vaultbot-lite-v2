@@ -53,7 +53,11 @@ function fmtDate(iso: string): string {
 	</div>
 </div>
 
-<StatsCharts {data} onGenreClick={(id) => goto(`/genre/${id}`)} />
+<StatsCharts
+	{data}
+	onGenreClick={(id) => goto(`/genres/${id}`)}
+	onArtistClick={(id) => goto(`/artists/${id}`)}
+/>
 
 <style>
 	.meta {
