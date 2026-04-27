@@ -1,15 +1,9 @@
 <script lang="ts">
+import GenreChip from "$lib/GenreChip.svelte";
+import { spotifyUrl } from "$lib/spotify";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
-
-function spotifyArtistUrl(spotifyId: string): string {
-	return `spotify:artist:${spotifyId}`;
-}
-
-function spotifyTrackUrl(spotifyId: string): string {
-	return `spotify:track:${spotifyId}`;
-}
 </script>
 
 <svelte:head>
@@ -24,7 +18,7 @@ function spotifyTrackUrl(spotifyId: string): string {
 		<div class="title-row">
 			<h1>{data.artist_name}</h1>
 			<a
-				href={spotifyArtistUrl(data.spotify_id)}
+				href={spotifyUrl("artist", data.spotify_id)}
 				target="_blank"
 				rel="noopener noreferrer"
 				class="spotify-btn mono"
@@ -39,7 +33,7 @@ function spotifyTrackUrl(spotifyId: string): string {
 			<h2>Genres</h2>
 			<div class="chips">
 				{#each data.genres as genre}
-					<a href="/genres/{genre.genre_id}" class="chip">{genre.name}</a>
+					<GenreChip genre_id={genre.genre_id} name={genre.name} />
 				{/each}
 			</div>
 		</section>
@@ -63,7 +57,7 @@ function spotifyTrackUrl(spotifyId: string): string {
 						<tr>
 							<td class="track-name">
 								<a
-									href={spotifyTrackUrl(song.spotify_id)}
+									href={spotifyUrl("track", song.spotify_id)}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="track-link"
@@ -161,25 +155,6 @@ function spotifyTrackUrl(spotifyId: string): string {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
-	}
-
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.3rem 0.65rem;
-		background: var(--surface-2);
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		font-size: 12px;
-		color: var(--text);
-		transition: border-color 0.15s, color 0.15s;
-		text-decoration: none;
-	}
-
-	.chip:hover {
-		border-color: var(--accent);
-		color: var(--accent);
-		text-decoration: none;
 	}
 
 	.empty {

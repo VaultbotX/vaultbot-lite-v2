@@ -1,17 +1,46 @@
 <script lang="ts">
+import { goto } from "$app/navigation";
+import { browser } from "$app/environment";
+import { untrack } from "svelte";
+import ArtistCard from "$lib/ArtistCard.svelte";
 import type { PageData } from "./$types";
+
+const CURRENT_KEY = "artists:showCurrent";
 
 let { data }: { data: PageData } = $props();
 
-let filter = $state("");
+let q = $state(untrack(() => data.q));
+let showCurrent = $state(browser ? localStorage.getItem(CURRENT_KEY) === "true" : false);
+let debounce: ReturnType<typeof setTimeout>;
 
-const filtered = $derived(
-	filter.trim() === ""
-		? data.artists
-		: data.artists.filter((a) =>
-				a.name.toLowerCase().includes(filter.trim().toLowerCase()),
-			),
-);
+$effect(() => {
+	q = data.q;
+});
+
+$effect(() => {
+	localStorage.setItem(CURRENT_KEY, String(showCurrent));
+});
+
+function navigate(newQ: string, newPage: number, newCurrent: boolean) {
+	const params = new URLSearchParams({ page: String(newPage) });
+	if (newQ.trim()) params.set("q", newQ.trim());
+	if (newCurrent) params.set("current", "1");
+	goto(`?${params}`, { replaceState: newPage === data.page && newCurrent === data.current });
+}
+
+function handleInput(e: Event) {
+	const val = (e.target as HTMLInputElement).value;
+	q = val;
+	clearTimeout(debounce);
+	debounce = setTimeout(() => navigate(val, 1, showCurrent), 300);
+}
+
+function toggleCurrent() {
+	showCurrent = !showCurrent;
+	navigate(q, 1, showCurrent);
+}
+
+const totalPages = $derived(Math.ceil(data.total / data.pageSize));
 </script>
 
 <svelte:head>
@@ -20,45 +49,57 @@ const filtered = $derived(
 
 <div class="page-header">
 	<h1>Artists</h1>
-	<p class="muted">{data.artists.length.toLocaleString()} artists in the archive</p>
+	<p class="muted">
+		{data.total.toLocaleString()} artist{data.total !== 1 ? "s" : ""}
+		{data.q ? `matching "${data.q}"` : ""}
+		{data.current ? "in current playlist" : ""}
+	</p>
 </div>
 
 <div class="controls">
 	<input
 		type="search"
-		placeholder="Filter artists…"
-		bind:value={filter}
+		placeholder="Search artists…"
+		value={q}
+		oninput={handleInput}
 		class="filter-input mono"
 	/>
-	{#if filter.trim() !== ""}
-		<span class="result-count mono muted">{filtered.length.toLocaleString()} result{filtered.length !== 1 ? "s" : ""}</span>
-	{/if}
+	<label class="toggle">
+		<input
+			type="checkbox"
+			checked={showCurrent}
+			onchange={toggleCurrent}
+		/>
+		<span>Current playlist only <span class="pill">≤ 2 weeks</span></span>
+	</label>
 </div>
 
-{#if filtered.length === 0}
-	<p class="empty mono muted">No artists match "{filter}"</p>
+{#if data.artists.length === 0}
+	<p class="empty mono muted">No artists found</p>
 {:else}
 	<div class="grid">
-		{#each filtered as artist (artist.artist_id)}
-			<a href="/artists/{artist.artist_id}" class="artist-card">
-				<div class="artist-name">{artist.name}</div>
-				<div class="artist-stats">
-					<span class="stat">
-						<span class="stat-value mono">{artist.unique_songs.toLocaleString()}</span>
-						<span class="stat-label muted">songs</span>
-					</span>
-					<span class="stat">
-						<span class="stat-value mono">{artist.archive_count.toLocaleString()}</span>
-						<span class="stat-label muted">entries</span>
-					</span>
-					<span class="stat">
-						<span class="stat-value mono">{artist.genre_count.toLocaleString()}</span>
-						<span class="stat-label muted">genres</span>
-					</span>
-				</div>
-			</a>
+		{#each data.artists as artist (artist.artist_id)}
+			<ArtistCard {artist} />
 		{/each}
 	</div>
+
+	{#if totalPages > 1}
+		<div class="pagination">
+			<button
+				class="page-btn mono"
+				disabled={data.page <= 1}
+				onclick={() => navigate(q, data.page - 1, showCurrent)}
+			>← Prev</button>
+			<span class="page-info mono muted">
+				{data.page} / {totalPages}
+			</span>
+			<button
+				class="page-btn mono"
+				disabled={data.page >= totalPages}
+				onclick={() => navigate(q, data.page + 1, showCurrent)}
+			>Next →</button>
+		</div>
+	{/if}
 {/if}
 
 <style>
@@ -78,13 +119,15 @@ const filtered = $derived(
 	.controls {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
+		gap: 1.25rem;
 		margin-bottom: 1.5rem;
+		flex-wrap: wrap;
 	}
 
 	.filter-input {
 		flex: 1;
-		max-width: 400px;
+		max-width: 360px;
+		min-width: 160px;
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
@@ -103,8 +146,31 @@ const filtered = $derived(
 		border-color: var(--accent);
 	}
 
-	.result-count {
-		font-size: 12px;
+	.toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+		color: var(--text-muted);
+		font-size: 13px;
+		user-select: none;
+	}
+
+	.toggle input[type="checkbox"] {
+		accent-color: var(--accent);
+		cursor: pointer;
+	}
+
+	.pill {
+		display: inline-block;
+		font-family: "IBM Plex Mono", monospace;
+		font-size: 10px;
+		padding: 1px 5px;
+		border-radius: 4px;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		color: var(--text-muted);
+		vertical-align: middle;
 	}
 
 	.empty {
@@ -118,53 +184,38 @@ const filtered = $derived(
 		gap: 1rem;
 	}
 
-	.artist-card {
+	.pagination {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		margin-top: 2rem;
+	}
+
+	.page-btn {
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
-		padding: 1rem 1.25rem;
-		text-decoration: none;
-		color: var(--text);
-		transition: border-color 0.15s, background 0.15s;
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+		padding: 0.4rem 0.9rem;
+		font-size: 12px;
+		color: var(--text-muted);
+		cursor: pointer;
+		transition: border-color 0.15s, color 0.15s;
 	}
 
-	.artist-card:hover {
+	.page-btn:hover:not(:disabled) {
 		border-color: var(--accent);
-		background: var(--surface-2);
-		text-decoration: none;
+		color: var(--accent);
 	}
 
-	.artist-name {
-		font-size: 14px;
-		font-weight: 500;
-		line-height: 1.3;
-		word-break: break-word;
+	.page-btn:disabled {
+		opacity: 0.35;
+		cursor: default;
 	}
 
-	.artist-stats {
-		display: flex;
-		gap: 1rem;
-	}
-
-	.stat {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.stat-value {
-		font-size: 15px;
-		font-weight: 500;
-		color: var(--text);
-		line-height: 1;
-	}
-
-	.stat-label {
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
+	.page-info {
+		font-size: 12px;
+		min-width: 4rem;
+		text-align: center;
 	}
 </style>
