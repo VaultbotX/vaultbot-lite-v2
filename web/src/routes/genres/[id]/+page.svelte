@@ -1,11 +1,9 @@
 <script lang="ts">
+import GenreChip from "$lib/GenreChip.svelte";
+import { spotifyUrl } from "$lib/spotify";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
-
-function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
-	return `spotify:${type}:${spotifyId}`;
-}
 </script>
 
 <svelte:head>
@@ -39,12 +37,7 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 						{#each data.artists as artist}
 							<tr>
 								<td>
-									<a
-										href={spotifyUrl("artist", artist.spotify_id)}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="spotify-link"
-									>{artist.name}</a>
+									<a href="/artists/{artist.artist_id}" class="inner-link">{artist.name}</a>
 								</td>
 								<td class="right mono">{artist.archive_count.toLocaleString()}</td>
 							</tr>
@@ -75,18 +68,13 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 										href={spotifyUrl("track", track.spotify_id)}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="spotify-link"
+										class="inner-link"
 									>{track.name}</a>
 								</td>
 								<td class="artist-list muted">
 									{#each track.artist_names as name, i}
 										{#if i > 0}<span>, </span>{/if}
-										<a
-											href={spotifyUrl("artist", track.artist_spotify_ids[i])}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="spotify-link muted-link"
-										>{name}</a>
+										<a href="/artists/{track.artist_ids[i]}" class="inner-link muted-link">{name}</a>
 									{/each}
 								</td>
 								<td class="right mono">{track.occurrences.toLocaleString()}</td>
@@ -103,10 +91,7 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 			<h2>Related Genres</h2>
 			<div class="chips">
 				{#each data.connected_genres as genre}
-					<a href="/genre/{genre.genre_id}" class="chip">
-						<span class="chip-name">{genre.name}</span>
-						<span class="chip-count mono">{genre.shared_artist_count}</span>
-					</a>
+					<GenreChip genre_id={genre.genre_id} name={genre.name} count={genre.shared_artist_count} />
 				{/each}
 			</div>
 		</section>
@@ -201,12 +186,12 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 		white-space: nowrap;
 	}
 
-	.spotify-link {
+	.inner-link {
 		color: var(--text);
 		transition: color 0.15s;
 	}
 
-	.spotify-link:hover {
+	.inner-link:hover {
 		color: var(--accent);
 		text-decoration: none;
 	}
@@ -236,36 +221,6 @@ function spotifyUrl(type: "artist" | "track", spotifyId: string): string {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
-	}
-
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.3rem 0.65rem;
-		background: var(--surface-2);
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		font-size: 12px;
-		color: var(--text);
-		transition: border-color 0.15s, color 0.15s;
-		text-decoration: none;
-	}
-
-	.chip:hover {
-		border-color: var(--accent);
-		color: var(--accent);
-		text-decoration: none;
-	}
-
-	.chip-count {
-		font-size: 11px;
-		color: var(--text-muted);
-		transition: color 0.15s;
-	}
-
-	.chip:hover .chip-count {
-		color: var(--accent);
 	}
 
 	@media (max-width: 700px) {

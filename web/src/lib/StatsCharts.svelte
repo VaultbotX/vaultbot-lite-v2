@@ -7,9 +7,11 @@ import type { StatsData } from "../routes/api/stats/+server";
 let {
 	data,
 	onGenreClick,
+	onArtistClick,
 }: {
 	data: StatsData;
 	onGenreClick: (genreId: number) => void;
+	onArtistClick: (artistId: number) => void;
 } = $props();
 
 let timeEl: HTMLCanvasElement | undefined;
@@ -139,6 +141,17 @@ onMount(() => {
 					indexAxis: "y",
 					responsive: true,
 					maintainAspectRatio: false,
+					onClick: (_event: unknown, elements: unknown[]) => {
+						if (!(elements as { datasetIndex: number; index: number }[]).length) return;
+						const { index } = (elements as { datasetIndex: number; index: number }[])[0];
+						onArtistClick(artists[index].artist_id);
+					},
+					onHover: (_event: unknown, elements: unknown[]) => {
+						if (artistsEl) {
+							artistsEl.style.cursor =
+								(elements as unknown[]).length > 0 ? "pointer" : "default";
+						}
+					},
 					plugins: {
 						legend: { display: false },
 						tooltip: {
