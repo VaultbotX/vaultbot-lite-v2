@@ -25,22 +25,6 @@ In GitHub Actions, variables are stored as repository secrets. See [`.devcontain
 
 The frontend lives in `web/` and is a SvelteKit app deployed to Cloudflare Pages. Database queries run as Cloudflare Pages Functions (server-side API routes); page components are client-side only.
 
-### Pages
-
-| Route | Description |
-|---|---|
-| `/` | Stats dashboard — summary counts, archive entries over time, top artists, genre distribution treemap |
-| `/graph` | Interactive genre graph — force-directed, Louvain community coloring, click to drill down |
-| `/genre/:id` | Genre drilldown — top artists, top tracks, related genres; Spotify deep links |
-
-### API routes
-
-| Endpoint | Description |
-|---|---|
-| `GET /api/stats` | Summary counts, monthly archive data, top artists, genre distribution |
-| `GET /api/graph` | Genre graph vertices and edges (6-hour CDN cache) |
-| `GET /api/genre/:id` | Artists, tracks, and connected genres for one genre |
-
 ### Frontend setup
 
 Run `.devcontainer/scripts/setup.sh` from the repo root, or manually:
