@@ -17,7 +17,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.13",
-		"@cloudflare/workers-types": "4.20260424.1",
+		"@cloudflare/workers-types": "4.20260429.1",
 		"@sveltejs/adapter-cloudflare": "7.2.8",
 		"@sveltejs/kit": "2.58.0",
 		"@sveltejs/vite-plugin-svelte": "7.0.0",
