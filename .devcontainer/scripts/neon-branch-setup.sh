@@ -27,6 +27,19 @@ if ! CONN_URI=$(neonctl connection-string \
     --project-id "${NEON_PROJECT_ID}" \
     --name "${NEON_BRANCH_NAME}"
 
+  # Set 2-day expiration via the Neon REST API (neonctl has no --expires-at flag).
+  EXPIRES_AT=$(date -u -d "+2 days" "+%Y-%m-%dT%H:%M:%SZ")
+  BRANCH_ID=$(curl -sf \
+    "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches" \
+    -H "Authorization: Bearer ${NEON_API_KEY}" \
+    | jq -r ".branches[] | select(.name == \"${NEON_BRANCH_NAME}\") | .id")
+  curl -sf -X PATCH \
+    "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${BRANCH_ID}" \
+    -H "Authorization: Bearer ${NEON_API_KEY}" \
+    -H "Content-Type: application/json" \
+    -d "{\"branch\":{\"expires_at\":\"${EXPIRES_AT}\"}}" > /dev/null
+  echo "Branch expiration set to ${EXPIRES_AT} (2 days from now)."
+
   CONN_URI=$(neonctl connection-string \
     --project-id "${NEON_PROJECT_ID}" \
     --branch "${NEON_BRANCH_NAME}")
