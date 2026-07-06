@@ -9,11 +9,51 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      jackc-postgres:
+        patterns:
+          - "github.com/jackc/*"
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
       interval: "weekly"
+    groups:
+      svelte:
+        patterns:
+          - "svelte"
+          - "svelte-*"
+          - "@sveltejs/*"
+      vite:
+        patterns:
+          - "vite"
+          - "vitest"
+      graphology:
+        patterns:
+          - "graphology"
+          - "graphology-*"
+          - "@sigma/*"
+          - "sigma"
+      chartjs:
+        patterns:
+          - "chart.js"
+          - "chartjs-*"
+      typescript-types:
+        patterns:
+          - "typescript"
+          - "@types/*"
+      cloudflare:
+        patterns:
+          - "@cloudflare/*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "actions/*"
