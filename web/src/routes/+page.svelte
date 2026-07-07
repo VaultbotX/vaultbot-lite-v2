@@ -1,9 +1,18 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import StatsCharts from "$lib/StatsCharts.svelte";
+import { spotifyUrl } from "$lib/spotify";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
+
+const playlistLinks = $derived([
+	{ label: "Dynamic", id: data.playlists.dynamic },
+	{ label: "Genre Rotation", id: data.playlists.genre },
+	{ label: "Highscores", id: data.playlists.highscores },
+	{ label: "Throwback", id: data.playlists.throwback },
+	{ label: "Variety", id: data.playlists.variety },
+]);
 
 function fmt(n: number): string {
 	return n.toLocaleString("en-US");
@@ -53,6 +62,17 @@ function fmtDate(iso: string): string {
 	</div>
 </div>
 
+<div class="playlists">
+	<span class="playlists-label mono muted">Playlists</span>
+	<div class="playlist-links">
+		{#each playlistLinks as playlist (playlist.label)}
+			<a class="playlist-pill" href={spotifyUrl("playlist", playlist.id)}>
+				{playlist.label}
+			</a>
+		{/each}
+	</div>
+</div>
+
 <StatsCharts
 	{data}
 	onGenreClick={(id) => goto(`/genres/${id}`)}
@@ -94,6 +114,45 @@ function fmtDate(iso: string): string {
 		letter-spacing: -0.03em;
 		color: var(--text);
 		line-height: 1;
+	}
+
+	.playlists {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		flex-wrap: wrap;
+		margin-bottom: 40px;
+	}
+
+	.playlists-label {
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+
+	.playlist-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+	}
+
+	.playlist-pill {
+		display: inline-block;
+		padding: 6px 14px;
+		font-size: 13px;
+		color: var(--text);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		transition:
+			border-color 0.15s,
+			color 0.15s;
+	}
+
+	.playlist-pill:hover {
+		color: var(--accent);
+		border-color: var(--accent);
+		text-decoration: none;
 	}
 
 	@media (max-width: 900px) {

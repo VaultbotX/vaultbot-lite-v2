@@ -1,3 +1,8 @@
 # Copy to .dev.vars for local development with `wrangler pages dev`
 # .dev.vars is gitignored
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+SPOTIFY_PLAYLIST_ID=
+GENRE_SPOTIFY_PLAYLIST_ID=
+HIGH_SCORES_SPOTIFY_PLAYLIST_ID=
+THROWBACK_SPOTIFY_PLAYLIST_ID=
+VARIETY_SPOTIFY_PLAYLIST_ID=
