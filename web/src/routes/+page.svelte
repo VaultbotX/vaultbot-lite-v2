@@ -1,7 +1,7 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import SpotifyLinkPill from "$lib/SpotifyLinkPill.svelte";
 import StatsCharts from "$lib/StatsCharts.svelte";
-import { spotifyUrl } from "$lib/spotify";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -66,9 +66,7 @@ function fmtDate(iso: string): string {
 	<span class="playlists-label mono muted">Playlists</span>
 	<div class="playlist-links">
 		{#each playlistLinks as playlist (playlist.label)}
-			<a class="playlist-pill" href={spotifyUrl("playlist", playlist.id)}>
-				{playlist.label}
-			</a>
+			<SpotifyLinkPill type="playlist" id={playlist.id} label={playlist.label} />
 		{/each}
 	</div>
 </div>
@@ -134,25 +132,6 @@ function fmtDate(iso: string): string {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 10px;
-	}
-
-	.playlist-pill {
-		display: inline-block;
-		padding: 6px 14px;
-		font-size: 13px;
-		color: var(--text);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		transition:
-			border-color 0.15s,
-			color 0.15s;
-	}
-
-	.playlist-pill:hover {
-		color: var(--accent);
-		border-color: var(--accent);
-		text-decoration: none;
 	}
 
 	@media (max-width: 900px) {
