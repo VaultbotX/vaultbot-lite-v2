@@ -2,6 +2,9 @@
 
 declare global {
 	namespace App {
+		interface PageState {
+			node?: { kind: "genre" | "artist"; id: number } | null;
+		}
 		interface Platform {
 			env: {
 				DATABASE_URL: string;
