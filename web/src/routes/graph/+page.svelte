@@ -2,23 +2,22 @@
 import { goto } from "$app/navigation";
 import { browser } from "$app/environment";
 import GenreGraph from "$lib/GenreGraph.svelte";
-import { buildGenreGraph } from "$lib/genre-graph";
+import { buildMixedGraph } from "$lib/mixed-graph";
 import type { GraphData } from "../api/graph/+server";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-const SPARSE_THRESHOLD = 3;
-const SPARSE_KEY = "graph:showSparse";
+const ARTISTS_KEY = "graph:showArtists";
 const DYNAMIC_KEY = "graph:showDynamic";
 
-let showSparse = $state(browser ? localStorage.getItem(SPARSE_KEY) === "true" : false);
+let showArtists = $state(browser ? localStorage.getItem(ARTISTS_KEY) !== "false" : true);
 let showDynamic = $state(browser ? localStorage.getItem(DYNAMIC_KEY) === "true" : false);
 let dynamicData = $state<GraphData | null>(null);
 let loadingDynamic = $state(false);
 
 $effect(() => {
-	localStorage.setItem(SPARSE_KEY, String(showSparse));
+	localStorage.setItem(ARTISTS_KEY, String(showArtists));
 });
 
 $effect(() => {
@@ -39,23 +38,31 @@ $effect(() => {
 		});
 });
 
-const activeVertices = $derived(showDynamic && dynamicData ? dynamicData.vertices : data.vertices);
-const activeEdges = $derived(showDynamic && dynamicData ? dynamicData.edges : data.edges);
+const activeData = $derived(showDynamic && dynamicData ? dynamicData : data);
 
-const visibleVertices = $derived(
-	showSparse
-		? activeVertices
-		: activeVertices.filter((v) => v.artist_count >= SPARSE_THRESHOLD),
-);
-const visibleIds = $derived(new Set(visibleVertices.map((v) => v.genre_id)));
-const visibleEdges = $derived(
-	activeEdges.filter(
-		(e) =>
-			visibleIds.has(e.source_genre_id) && visibleIds.has(e.target_genre_id),
+const visibleArtistVertices = $derived(showArtists ? activeData.artistVertices : []);
+const visibleGenreArtistEdges = $derived(showArtists ? activeData.genreArtistEdges : []);
+const visibleArtistArtistEdges = $derived(showArtists ? activeData.artistArtistEdges : []);
+
+const graph = $derived(
+	buildMixedGraph(
+		activeData.genreVertices,
+		visibleArtistVertices,
+		activeData.genreGenreEdges,
+		visibleGenreArtistEdges,
+		visibleArtistArtistEdges,
 	),
 );
 
-const graph = $derived(buildGenreGraph(visibleVertices, visibleEdges));
+const connectionCount = $derived(
+	activeData.genreGenreEdges.length +
+		visibleGenreArtistEdges.length +
+		visibleArtistArtistEdges.length,
+);
+
+function handleNodeTap(id: number, kind: "genre" | "artist"): void {
+	goto(kind === "genre" ? `/genres/${id}` : `/artists/${id}`);
+}
 </script>
 
 <svelte:head>
@@ -64,17 +71,17 @@ const graph = $derived(buildGenreGraph(visibleVertices, visibleEdges));
 
 <div class="page-header">
 	<h1>Genre Graph</h1>
-	<p class="muted">Explore connections between genres in the archive. Click a node to drill down.</p>
+	<p class="muted">Explore connections between genres and artists in the archive. Click a node to drill down.</p>
 </div>
 
 <div class="toolbar card">
 	<label>
 		<input
 			type="checkbox"
-			checked={showSparse}
-			onchange={() => (showSparse = !showSparse)}
+			checked={showArtists}
+			onchange={() => (showArtists = !showArtists)}
 		/>
-		<span>Show genres with fewer than {SPARSE_THRESHOLD} artists</span>
+		<span>Show artists</span>
 	</label>
 	<label>
 		<input
@@ -85,14 +92,14 @@ const graph = $derived(buildGenreGraph(visibleVertices, visibleEdges));
 		<span>Current playlist only <span class="pill">≤ 2 weeks</span></span>
 	</label>
 	<span class="stat mono muted"
-		>{visibleVertices.length} genres · {visibleEdges.length} connections</span
+		>{activeData.genreVertices.length} genres · {visibleArtistVertices.length} artists · {connectionCount} connections</span
 	>
 </div>
 
 {#if loadingDynamic}
 	<div class="loading card">Loading current playlist graph…</div>
 {:else}
-	<GenreGraph {graph} onNodeTap={(genreId) => goto(`/genres/${genreId}`)} />
+	<GenreGraph {graph} onNodeTap={handleNodeTap} />
 {/if}
 
 <style>
@@ -131,7 +138,7 @@ const graph = $derived(buildGenreGraph(visibleVertices, visibleEdges));
 
 	.pill {
 		display: inline-block;
-		font-family: "IBM Plex Mono", monospace;
+		font-family: "IBM Plex Sans", monospace;
 		font-size: 10px;
 		padding: 1px 5px;
 		border-radius: 4px;

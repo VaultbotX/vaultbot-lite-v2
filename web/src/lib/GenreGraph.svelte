@@ -1,13 +1,14 @@
 <script lang="ts">
 import type Graph from "graphology";
 import { onMount } from "svelte";
+import { isolatedNodePosition } from "./graph";
 
 let {
 	graph,
 	onNodeTap,
 }: {
 	graph: Graph;
-	onNodeTap: (genreId: number) => void;
+	onNodeTap: (id: number, kind: "genre" | "artist") => void;
 } = $props();
 
 // Structural types for dynamically-imported renderer libs — avoids bundling
@@ -100,15 +101,32 @@ function initCommunityLayout(g: Graph): void {
 
 	// Golden-angle spiral: fills a disk evenly with no ring/hollow-center artifact.
 	const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ≈ 137.5°
+	const communityCenters = new Map<number, { x: number; y: number }>();
 	commList.forEach((commId, ci) => {
 		const r = centerR * Math.sqrt(ci / commList.length);
-		const cx = r * Math.cos(ci * GOLDEN_ANGLE);
-		const cy = r * Math.sin(ci * GOLDEN_ANGLE);
+		communityCenters.set(commId, {
+			x: r * Math.cos(ci * GOLDEN_ANGLE),
+			y: r * Math.sin(ci * GOLDEN_ANGLE),
+		});
+	});
+
+	commList.forEach((commId) => {
 		const members = groups.get(commId) ?? [];
+		const center = communityCenters.get(commId) ?? { x: 0, y: 0 };
 		members.forEach((node, mi) => {
+			// Isolated (degree-0) nodes have no edges to pull them back toward
+			// their community during FA2, so anchor them at the community
+			// center and mark them fixed rather than letting them drift away.
+			if (g.degree(node) === 0) {
+				const pos = isolatedNodePosition(commId, communityCenters);
+				g.setNodeAttribute(node, "x", pos.x);
+				g.setNodeAttribute(node, "y", pos.y);
+				g.setNodeAttribute(node, "fixed", true);
+				return;
+			}
 			const a = (2 * Math.PI * mi) / members.length;
-			g.setNodeAttribute(node, "x", cx + memberR * Math.cos(a));
-			g.setNodeAttribute(node, "y", cy + memberR * Math.sin(a));
+			g.setNodeAttribute(node, "x", center.x + memberR * Math.cos(a));
+			g.setNodeAttribute(node, "y", center.y + memberR * Math.sin(a));
 		});
 	});
 }
@@ -205,7 +223,7 @@ $effect(() => {
 				adjustSizes: true,
 				barnesHutOptimize: false,
 			},
-			getEdgeWeight: "shared",
+			getEdgeWeight: "weight",
 		});
 
 		// Hover state — closed over by the reducers and event handlers below.
@@ -249,7 +267,12 @@ $effect(() => {
 
 		sigmaInst.on("clickNode", (payload) => {
 			const node = payload.node as string;
-			onNodeTap(g.getNodeAttribute(node, "genreId") as number);
+			const kind = g.getNodeAttribute(node, "kind") as "genre" | "artist";
+			const id =
+				kind === "genre"
+					? (g.getNodeAttribute(node, "genreId") as number)
+					: (g.getNodeAttribute(node, "artistId") as number);
+			onNodeTap(id, kind);
 		});
 
 		sigmaInst.on("enterNode", (payload) => {
