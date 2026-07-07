@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	migrationsList = [11]*migrations.Migration{
+	migrationsList = [12]*migrations.Migration{
 		migrations.Migration001,
 		migrations.Migration002,
 		migrations.Migration003,
@@ -22,6 +22,7 @@ var (
 		migrations.Migration009,
 		migrations.Migration010,
 		migrations.Migration011,
+		migrations.Migration012,
 	}
 )
 
