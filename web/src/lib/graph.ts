@@ -68,3 +68,20 @@ export function assignCommunityColors(
 	});
 	return result;
 }
+
+export interface SelectedNode {
+	kind: "genre" | "artist";
+	id: number;
+}
+
+// Parses the `?node=g:14` / `?node=a:7` deep-link query param used by the
+// graph page's detail drawer. Returns null for anything malformed so callers
+// never need to special-case a bad/stale link.
+export function parseNodeParam(value: string | null): SelectedNode | null {
+	if (!value) return null;
+	const match = /^(g|a):(\d+)$/.exec(value);
+	if (!match) return null;
+	const id = Number(match[2]);
+	if (!Number.isInteger(id) || id <= 0) return null;
+	return { kind: match[1] === "g" ? "genre" : "artist", id };
+}

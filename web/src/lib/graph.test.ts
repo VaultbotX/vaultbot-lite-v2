@@ -6,6 +6,7 @@ import {
 	edgeWidth,
 	isolatedNodePosition,
 	nodeSize,
+	parseNodeParam,
 } from "./graph";
 
 describe("nodeSize", () => {
@@ -169,5 +170,36 @@ describe("assignCommunityColors", () => {
 		const ids = Array.from({ length: 12 }, (_, i) => i);
 		const result = assignCommunityColors(ids, COMMUNITY_PALETTE);
 		expect(new Set(result.values()).size).toBe(12);
+	});
+});
+
+describe("parseNodeParam", () => {
+	it("parses a genre node param", () => {
+		expect(parseNodeParam("g:14")).toEqual({ kind: "genre", id: 14 });
+	});
+
+	it("parses an artist node param", () => {
+		expect(parseNodeParam("a:7")).toEqual({ kind: "artist", id: 7 });
+	});
+
+	it("returns null for null input", () => {
+		expect(parseNodeParam(null)).toBeNull();
+	});
+
+	it("returns null for an empty string", () => {
+		expect(parseNodeParam("")).toBeNull();
+	});
+
+	it("returns null for an unrecognized prefix", () => {
+		expect(parseNodeParam("x:14")).toBeNull();
+	});
+
+	it("returns null for a non-numeric id", () => {
+		expect(parseNodeParam("g:abc")).toBeNull();
+	});
+
+	it("returns null for a zero or negative id", () => {
+		expect(parseNodeParam("g:0")).toBeNull();
+		expect(parseNodeParam("a:-3")).toBeNull();
 	});
 });
