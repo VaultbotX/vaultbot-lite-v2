@@ -78,12 +78,19 @@ export function buildMixedGraph(
 		1,
 	);
 
+	// Border color doubles as the genre/artist visual disambiguator: genres
+	// keep a black ring, artists get a light neutral ring, so the two kinds
+	// stay distinguishable even within a single community's color group.
+	const GENRE_BORDER_COLOR = "#000000";
+	const ARTIST_BORDER_COLOR = "#e2e2f0";
+
 	for (const v of genreVertices) {
 		graph.addNode(genreNodeId(v.genre_id), {
 			label: v.name,
 			kind: "genre" satisfies NodeKind,
 			genreId: v.genre_id,
 			archiveCount: v.archive_count,
+			borderColor: GENRE_BORDER_COLOR,
 		});
 	}
 
@@ -93,6 +100,7 @@ export function buildMixedGraph(
 			kind: "artist" satisfies NodeKind,
 			artistId: v.artist_id,
 			archiveCount: v.archive_count,
+			borderColor: ARTIST_BORDER_COLOR,
 		});
 	}
 
