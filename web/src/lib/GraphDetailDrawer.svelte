@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from "svelte";
 import ArtistDetailPanel from "$lib/ArtistDetailPanel.svelte";
 import GenreDetailPanel from "$lib/GenreDetailPanel.svelte";
 import type { SelectedNode } from "$lib/graph";
@@ -21,7 +22,10 @@ let {
 	onClose: () => void;
 } = $props();
 
-let detail = $state<Detail | null>(initialDetail);
+// Seeded once from the initial prop value (the server-prefetched deep link);
+// deliberately not reactive to later `initialDetail` changes — the effect
+// below owns all subsequent updates. `untrack` marks that intent explicitly.
+let detail = $state<Detail | null>(untrack(() => initialDetail));
 let loading = $state(false);
 let error = $state(false);
 
