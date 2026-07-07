@@ -59,7 +59,7 @@ const graph = $derived(buildGenreGraph(visibleVertices, visibleEdges));
 </script>
 
 <svelte:head>
-	<title>Vaultbot — Genre Graph</title>
+	<title>Vaultbot :: Genre Graph</title>
 </svelte:head>
 
 <div class="page-header">

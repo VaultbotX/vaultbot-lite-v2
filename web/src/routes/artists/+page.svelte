@@ -44,7 +44,7 @@ const totalPages = $derived(Math.ceil(data.total / data.pageSize));
 </script>
 
 <svelte:head>
-	<title>Vaultbot — Artists</title>
+	<title>Vaultbot :: Artists</title>
 </svelte:head>
 
 <div class="page-header">
