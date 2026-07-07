@@ -22,7 +22,7 @@ export interface GenreTrack {
 export interface ConnectedGenre {
 	genre_id: number;
 	name: string;
-	shared_artist_count: number;
+	shared_archive_count: number;
 }
 
 export interface GenreDetail {
@@ -90,16 +90,16 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			LIMIT 20
 		`),
 		connected_genres: typed<ConnectedGenre[]>(sql`
-			SELECT g.id AS genre_id, g.name, e.shared_artist_count
+			SELECT g.id AS genre_id, g.name, e.shared_archive_count
 			FROM genre_graph_edges e
 			JOIN genres g ON g.id = e.target_genre_id
 			WHERE e.source_genre_id = ${genreId}
 			UNION ALL
-			SELECT g.id AS genre_id, g.name, e.shared_artist_count
+			SELECT g.id AS genre_id, g.name, e.shared_archive_count
 			FROM genre_graph_edges e
 			JOIN genres g ON g.id = e.source_genre_id
 			WHERE e.target_genre_id = ${genreId}
-			ORDER BY shared_artist_count DESC
+			ORDER BY shared_archive_count DESC
 		`),
 	});
 
