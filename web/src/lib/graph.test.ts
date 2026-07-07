@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
 	assignCommunityColors,
 	COMMUNITY_PALETTE,
+	edgeOpacity,
 	edgeWidth,
+	isolatedNodePosition,
 	nodeSize,
 } from "./graph";
 
@@ -59,6 +61,53 @@ describe("edgeWidth", () => {
 		const w4 = edgeWidth(4, 10) - base;
 		// sqrt(4/10) / sqrt(1/10) = sqrt(4) = 2
 		expect(w4).toBeCloseTo(w1 * 2);
+	});
+});
+
+describe("edgeOpacity", () => {
+	it("returns the minimum opacity (0.15) when count is 0", () => {
+		expect(edgeOpacity(0, 10)).toBeCloseTo(0.15);
+	});
+
+	it("returns the maximum opacity (0.65) when count equals maxCount", () => {
+		expect(edgeOpacity(10, 10)).toBeCloseTo(0.65);
+	});
+
+	it("is monotonically increasing with count", () => {
+		expect(edgeOpacity(2, 10)).toBeLessThan(edgeOpacity(6, 10));
+	});
+
+	it("returns the minimum opacity when maxCount is 0, without dividing by zero", () => {
+		expect(edgeOpacity(0, 0)).toBeCloseTo(0.15);
+	});
+
+	it("normalizes each edge kind against its own max rather than a shared max", () => {
+		// A weight of 5 out of a small-scale max (artist-artist, max 5) should
+		// read as "strong" even though the same raw weight would read as "weak"
+		// against a large-scale max (genre-genre, max 500).
+		const strongWithinOwnKind = edgeOpacity(5, 5);
+		const weakAgainstOtherKindsMax = edgeOpacity(5, 500);
+		expect(strongWithinOwnKind).toBeGreaterThan(weakAgainstOtherKindsMax);
+	});
+});
+
+describe("isolatedNodePosition", () => {
+	const centers = new Map([
+		[0, { x: 100, y: 200 }],
+		[1, { x: -50, y: 30 }],
+	]);
+
+	it("returns the community center when the community has a known center", () => {
+		expect(isolatedNodePosition(0, centers)).toEqual({ x: 100, y: 200 });
+		expect(isolatedNodePosition(1, centers)).toEqual({ x: -50, y: 30 });
+	});
+
+	it("falls back to the origin when the community has no known center", () => {
+		expect(isolatedNodePosition(99, centers)).toEqual({ x: 0, y: 0 });
+	});
+
+	it("falls back to the origin when community is undefined", () => {
+		expect(isolatedNodePosition(undefined, centers)).toEqual({ x: 0, y: 0 });
 	});
 });
 
