@@ -2,6 +2,7 @@
 import { browser } from "$app/environment";
 import { pushState } from "$app/navigation";
 import { page } from "$app/state";
+import { untrack } from "svelte";
 import GenreGraph from "$lib/GenreGraph.svelte";
 import GraphDetailDrawer from "$lib/GraphDetailDrawer.svelte";
 import type { SelectedNode } from "$lib/graph";
@@ -31,7 +32,7 @@ let loadingDynamic = $state(false);
 // therefore its own source of truth, kept in sync with `page.state` only for
 // browser back/forward through shallow-routed history entries (see effect
 // below).
-let selectedNode = $state<SelectedNode | null>(data.initialNode);
+let selectedNode = $state<SelectedNode | null>(untrack(() => data.initialNode));
 
 $effect(() => {
 	if ("node" in page.state) selectedNode = page.state.node ?? null;
