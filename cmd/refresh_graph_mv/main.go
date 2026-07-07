@@ -5,11 +5,13 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	log.SetFormatter(&log.JSONFormatter{})
+	_ = godotenv.Load()
 
 	host, hostExists := os.LookupEnv("POSTGRES_HOST")
 	port, portExists := os.LookupEnv("POSTGRES_PORT")

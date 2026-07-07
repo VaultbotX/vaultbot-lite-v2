@@ -5,6 +5,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/migrations"
 )
@@ -29,6 +30,7 @@ var (
 // could eventually configure this as a CLI tool, but for now just runs all `up` migrations
 func main() {
 	log.SetFormatter(&log.JSONFormatter{})
+	_ = godotenv.Load()
 
 	host, hostExists := os.LookupEnv("POSTGRES_HOST")
 	port, portExists := os.LookupEnv("POSTGRES_PORT")
