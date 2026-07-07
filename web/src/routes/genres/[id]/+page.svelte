@@ -7,7 +7,7 @@ let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-	<title>Vaultbot — {data.genre_name || "Genre"}</title>
+	<title>Vaultbot :: {data.genre_name || "Genre"}</title>
 </svelte:head>
 
 <div class="page-header">

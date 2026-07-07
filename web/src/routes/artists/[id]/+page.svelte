@@ -8,7 +8,7 @@ let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-	<title>Vaultbot — {data.artist_name || "Artist"}</title>
+	<title>Vaultbot :: {data.artist_name || "Artist"}</title>
 </svelte:head>
 
 <div class="page-header">

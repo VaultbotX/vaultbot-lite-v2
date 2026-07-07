@@ -38,7 +38,7 @@ function fmtDate(iso: string): string {
 </script>
 
 <svelte:head>
-	<title>Vaultbot — Stats</title>
+	<title>Vaultbot :: Stats</title>
 </svelte:head>
 
 <p class="meta mono muted">{fmtDate(data.generated_at)}</p>
