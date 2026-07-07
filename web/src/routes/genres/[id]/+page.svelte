@@ -91,7 +91,7 @@ let { data }: { data: PageData } = $props();
 			<h2>Related Genres</h2>
 			<div class="chips">
 				{#each data.connected_genres as genre}
-					<GenreChip genre_id={genre.genre_id} name={genre.name} count={genre.shared_artist_count} />
+					<GenreChip genre_id={genre.genre_id} name={genre.name} count={genre.shared_archive_count} />
 				{/each}
 			</div>
 		</section>
