@@ -26,11 +26,10 @@ let {
 	.spotify-pill {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
-		padding: 6px 14px;
-		font-size: 13px;
-		color: var(--text);
-		background: var(--surface);
+		gap: 0.3rem;
+		padding: 0.2rem 0.6rem;
+		font-size: 11px;
+		color: var(--text-muted);
 		border: 1px solid var(--border);
 		border-radius: 999px;
 		transition:
@@ -46,6 +45,6 @@ let {
 	}
 
 	.arrow {
-		font-size: 11px;
+		font-size: 10px;
 	}
 </style>
