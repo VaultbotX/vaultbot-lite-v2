@@ -1,7 +1,10 @@
 <script lang="ts">
-import { goto } from "$app/navigation";
 import { browser } from "$app/environment";
+import { pushState } from "$app/navigation";
+import { page } from "$app/state";
 import GenreGraph from "$lib/GenreGraph.svelte";
+import GraphDetailDrawer from "$lib/GraphDetailDrawer.svelte";
+import type { SelectedNode } from "$lib/graph";
 import { buildMixedGraph } from "$lib/mixed-graph";
 import type { GraphData } from "../api/graph/+server";
 import type { PageData } from "./$types";
@@ -11,10 +14,28 @@ let { data }: { data: PageData } = $props();
 const ARTISTS_KEY = "graph:showArtists";
 const DYNAMIC_KEY = "graph:showDynamic";
 
-let showArtists = $state(browser ? localStorage.getItem(ARTISTS_KEY) !== "false" : true);
-let showDynamic = $state(browser ? localStorage.getItem(DYNAMIC_KEY) === "true" : false);
+let showArtists = $state(
+	browser ? localStorage.getItem(ARTISTS_KEY) !== "false" : true,
+);
+let showDynamic = $state(
+	browser ? localStorage.getItem(DYNAMIC_KEY) === "true" : false,
+);
 let dynamicData = $state<GraphData | null>(null);
 let loadingDynamic = $state(false);
+
+// Local state, not derived from the URL: `pushState` (shallow routing) never
+// updates `page.url` — only `page.state` — so re-deriving selection from
+// `page.url` would silently never react to a pivot. A plain `goto` would
+// update `page.url`, but would also re-run this page's `load` function on
+// every click, needlessly refetching the entire graph payload. Selection is
+// therefore its own source of truth, kept in sync with `page.state` only for
+// browser back/forward through shallow-routed history entries (see effect
+// below).
+let selectedNode = $state<SelectedNode | null>(data.initialNode);
+
+$effect(() => {
+	if ("node" in page.state) selectedNode = page.state.node ?? null;
+});
 
 $effect(() => {
 	localStorage.setItem(ARTISTS_KEY, String(showArtists));
@@ -40,9 +61,15 @@ $effect(() => {
 
 const activeData = $derived(showDynamic && dynamicData ? dynamicData : data);
 
-const visibleArtistVertices = $derived(showArtists ? activeData.artistVertices : []);
-const visibleGenreArtistEdges = $derived(showArtists ? activeData.genreArtistEdges : []);
-const visibleArtistArtistEdges = $derived(showArtists ? activeData.artistArtistEdges : []);
+const visibleArtistVertices = $derived(
+	showArtists ? activeData.artistVertices : [],
+);
+const visibleGenreArtistEdges = $derived(
+	showArtists ? activeData.genreArtistEdges : [],
+);
+const visibleArtistArtistEdges = $derived(
+	showArtists ? activeData.artistArtistEdges : [],
+);
 
 const graph = $derived(
 	buildMixedGraph(
@@ -60,8 +87,21 @@ const connectionCount = $derived(
 		visibleArtistArtistEdges.length,
 );
 
-function handleNodeTap(id: number, kind: "genre" | "artist"): void {
-	goto(kind === "genre" ? `/genres/${id}` : `/artists/${id}`);
+const selectedGraphNodeId = $derived(
+	selectedNode
+		? `${selectedNode.kind === "genre" ? "g" : "a"}:${selectedNode.id}`
+		: null,
+);
+
+function selectNode(id: number, kind: "genre" | "artist"): void {
+	selectedNode = { kind, id };
+	const prefix = kind === "genre" ? "g" : "a";
+	pushState(`?node=${prefix}:${id}`, { node: selectedNode });
+}
+
+function clearSelection(): void {
+	selectedNode = null;
+	pushState(page.url.pathname, { node: null });
 }
 </script>
 
@@ -99,7 +139,20 @@ function handleNodeTap(id: number, kind: "genre" | "artist"): void {
 {#if loadingDynamic}
 	<div class="loading card">Loading current playlist graph…</div>
 {:else}
-	<GenreGraph {graph} onNodeTap={handleNodeTap} />
+	<div class="graph-row">
+		<GenreGraph
+			{graph}
+			selectedNode={selectedGraphNodeId}
+			onNodeTap={selectNode}
+			onBackgroundClick={clearSelection}
+		/>
+		<GraphDetailDrawer
+			selected={selectedNode}
+			initialDetail={data.initialDetail}
+			onSelect={selectNode}
+			onClose={clearSelection}
+		/>
+	</div>
 {/if}
 
 <style>
@@ -160,5 +213,13 @@ function handleNodeTap(id: number, kind: "genre" | "artist"): void {
 		height: 400px;
 		color: var(--text-muted);
 		font-size: 14px;
+	}
+
+	.graph-row {
+		display: flex;
+		align-items: stretch;
+		gap: 1rem;
+		height: 75vh;
+		min-height: 500px;
 	}
 </style>

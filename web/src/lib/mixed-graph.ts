@@ -57,13 +57,22 @@ export function buildMixedGraph(
 
 	if (genreVertices.length === 0 && artistVertices.length === 0) return graph;
 
-	const maxGenreArchive = Math.max(...genreVertices.map((v) => v.archive_count), 1);
-	const maxArtistArchive = Math.max(...artistVertices.map((v) => v.archive_count), 1);
+	const maxGenreArchive = Math.max(
+		...genreVertices.map((v) => v.archive_count),
+		1,
+	);
+	const maxArtistArchive = Math.max(
+		...artistVertices.map((v) => v.archive_count),
+		1,
+	);
 	const maxGenreGenreWeight = Math.max(
 		...genreGenreEdges.map((e) => e.shared_archive_count),
 		1,
 	);
-	const maxGenreArtistWeight = Math.max(...genreArtistEdges.map((e) => e.archive_count), 1);
+	const maxGenreArtistWeight = Math.max(
+		...genreArtistEdges.map((e) => e.archive_count),
+		1,
+	);
 	const maxArtistArtistWeight = Math.max(
 		...artistArtistEdges.map((e) => e.shared_song_count),
 		1,
@@ -94,7 +103,8 @@ export function buildMixedGraph(
 		weight: number,
 		maxWeight: number,
 	): void => {
-		if (!graph.hasNode(src) || !graph.hasNode(tgt) || graph.hasEdge(src, tgt)) return;
+		if (!graph.hasNode(src) || !graph.hasNode(tgt) || graph.hasEdge(src, tgt))
+			return;
 		const opacity = edgeOpacity(weight, maxWeight);
 		graph.addEdge(src, tgt, {
 			kind,
