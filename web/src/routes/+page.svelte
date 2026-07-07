@@ -1,9 +1,18 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import SpotifyLinkPill from "$lib/SpotifyLinkPill.svelte";
 import StatsCharts from "$lib/StatsCharts.svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
+
+const playlistLinks = $derived([
+	{ label: "Dynamic", id: data.playlists.dynamic },
+	{ label: "Genre Rotation", id: data.playlists.genre },
+	{ label: "Highscores", id: data.playlists.highscores },
+	{ label: "Throwback", id: data.playlists.throwback },
+	{ label: "Variety", id: data.playlists.variety },
+]);
 
 function fmt(n: number): string {
 	return n.toLocaleString("en-US");
@@ -29,7 +38,7 @@ function fmtDate(iso: string): string {
 </script>
 
 <svelte:head>
-	<title>Vaultbot — Stats</title>
+	<title>Vaultbot :: Stats</title>
 </svelte:head>
 
 <p class="meta mono muted">{fmtDate(data.generated_at)}</p>
@@ -50,6 +59,15 @@ function fmtDate(iso: string): string {
 	<div class="stat-card">
 		<div class="stat-label">Genres</div>
 		<div class="stat-value mono">{fmt(data.summary.total_genres)}</div>
+	</div>
+</div>
+
+<div class="playlists">
+	<span class="playlists-label mono muted">Playlists</span>
+	<div class="playlist-links">
+		{#each playlistLinks as playlist (playlist.label)}
+			<SpotifyLinkPill type="playlist" id={playlist.id} label={playlist.label} />
+		{/each}
 	</div>
 </div>
 
@@ -94,6 +112,26 @@ function fmtDate(iso: string): string {
 		letter-spacing: -0.03em;
 		color: var(--text);
 		line-height: 1;
+	}
+
+	.playlists {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		flex-wrap: wrap;
+		margin-bottom: 40px;
+	}
+
+	.playlists-label {
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+
+	.playlist-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
 	}
 
 	@media (max-width: 900px) {

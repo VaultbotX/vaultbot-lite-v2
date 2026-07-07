@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChartComponent } from "chart.js";
 import type { TreemapDataPoint } from "chartjs-chart-treemap";
 import { onMount } from "svelte";
 import { fmtMonth, treemapColor } from "$lib/stats";
@@ -51,6 +52,10 @@ onMount(() => {
 			} = chartjs;
 			const { TreemapController, TreemapElement } = treemap;
 
+			// FIXME: chartjs-chart-treemap's own .d.ts omits the static `id`
+			// (and other ChartComponent members) it assigns to TreemapController
+			// at runtime, and its package.json `exports` blocks augmenting the
+			// declaration file directly. Drop this cast once upstream fixes it.
 			Chart.register(
 				CategoryScale,
 				LinearScale,
@@ -61,8 +66,8 @@ onMount(() => {
 				BarController,
 				Filler,
 				Tooltip,
-				TreemapController,
-				TreemapElement,
+				TreemapController as unknown as ChartComponent,
+				TreemapElement as unknown as ChartComponent,
 			);
 
 			Chart.defaults.color = "#6060a0";

@@ -1,5 +1,6 @@
 <script lang="ts">
 import GenreChip from "$lib/GenreChip.svelte";
+import SpotifyLinkPill from "$lib/SpotifyLinkPill.svelte";
 import { spotifyUrl } from "$lib/spotify";
 import type { PageData } from "./$types";
 
@@ -7,7 +8,7 @@ let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-	<title>Vaultbot — {data.artist_name || "Artist"}</title>
+	<title>Vaultbot :: {data.artist_name || "Artist"}</title>
 </svelte:head>
 
 <div class="page-header">
@@ -17,12 +18,7 @@ let { data }: { data: PageData } = $props();
 	{:else}
 		<div class="title-row">
 			<h1>{data.artist_name}</h1>
-			<a
-				href={spotifyUrl("artist", data.spotify_id)}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="spotify-btn mono"
-			>Open in Spotify ↗</a>
+			<SpotifyLinkPill type="artist" id={data.spotify_id} label="Open in Spotify" />
 		</div>
 	{/if}
 </div>
@@ -110,23 +106,6 @@ let { data }: { data: PageData } = $props();
 	.page-header h1 {
 		font-size: 24px;
 		margin-bottom: 0.25rem;
-	}
-
-	.spotify-btn {
-		font-size: 11px;
-		color: var(--text-muted);
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		padding: 0.2rem 0.6rem;
-		text-decoration: none;
-		transition: color 0.15s, border-color 0.15s;
-		white-space: nowrap;
-	}
-
-	.spotify-btn:hover {
-		color: var(--accent);
-		border-color: var(--accent);
-		text-decoration: none;
 	}
 
 	.genres-section {
