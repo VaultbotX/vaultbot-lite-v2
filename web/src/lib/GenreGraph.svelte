@@ -5,10 +5,14 @@ import { isolatedNodePosition } from "./graph";
 
 let {
 	graph,
+	selectedNode,
 	onNodeTap,
+	onBackgroundClick,
 }: {
 	graph: Graph;
+	selectedNode: string | null;
 	onNodeTap: (id: number, kind: "genre" | "artist") => void;
+	onBackgroundClick: () => void;
 } = $props();
 
 // Structural types for dynamically-imported renderer libs — avoids bundling
@@ -63,6 +67,13 @@ let sigmaRenderingLib = $state<SigmaRenderingLib | null>(null);
 let sigmaInst: SigmaInst | null = null;
 let containerEl: HTMLDivElement | undefined;
 let loading = $state(true);
+
+// Hover and selection state — closed over by the Sigma reducers/event
+// handlers below. Hover always takes visual priority over selection; when
+// hover ends, the selection's highlight (if any) reappears.
+let hoveredNode: string | null = null;
+let hoveredNeighborSet = new Set<string>();
+let selectedNeighborSet = new Set<string>();
 
 onMount(() => {
 	Promise.all([
@@ -139,7 +150,15 @@ $effect(() => {
 	const edgeCurve = edgeCurveLib;
 	const nodeBorder = nodeBorderLib;
 	const sigmaRendering = sigmaRenderingLib;
-	if (!Sigma || !fa2 || !edgeCurve || !container || !nodeBorder || !sigmaRendering) return;
+	if (
+		!Sigma ||
+		!fa2 ||
+		!edgeCurve ||
+		!container ||
+		!nodeBorder ||
+		!sigmaRendering
+	)
+		return;
 
 	loading = true;
 
@@ -154,7 +173,10 @@ $effect(() => {
 				size: { value: 3, mode: "pixels" },
 				color: { attribute: "borderColor", defaultValue: "#000000" },
 			},
-			{ size: { fill: true }, color: { attribute: "color", defaultValue: "#7c6af7" } },
+			{
+				size: { fill: true },
+				color: { attribute: "color", defaultValue: "#7c6af7" },
+			},
 		],
 	});
 
@@ -188,7 +210,9 @@ $effect(() => {
 			const boxHeight = Math.round(size + 2 * PADDING);
 			const radius = Math.max(nodeSize, size / 2) + PADDING;
 			const angleRadian = Math.asin(boxHeight / 2 / radius);
-			const xDeltaCoord = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
+			const xDeltaCoord = Math.sqrt(
+				Math.abs(radius ** 2 - (boxHeight / 2) ** 2),
+			);
 
 			context.beginPath();
 			context.moveTo(x + xDeltaCoord, y + boxHeight / 2);
@@ -226,10 +250,11 @@ $effect(() => {
 			getEdgeWeight: "weight",
 		});
 
-		// Hover state — closed over by the reducers and event handlers below.
-		let hoveredNode: string | null = null;
-		let neighborSet = new Set<string>();
 		let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+		selectedNeighborSet =
+			selectedNode && g.hasNode(selectedNode)
+				? new Set(g.neighbors(selectedNode))
+				: new Set();
 
 		sigmaInst?.kill();
 		sigmaInst = new Sigma(g, container, {
@@ -248,17 +273,27 @@ $effect(() => {
 			defaultDrawNodeHover: drawDarkNodeHover,
 			edgeProgramClasses: { curve: edgeCurve },
 			nodeProgramClasses: { circle: nodeBorderProgram },
-			// Dim nodes/edges that are not part of the hovered node's neighborhood.
+			// Dim nodes/edges outside the active (hovered, or else selected) node's
+			// neighborhood. Hover takes priority over selection while it's active.
 			nodeReducer: (node: unknown, data: unknown) => {
 				const d = data as Record<string, unknown>;
-				if (!hoveredNode || node === hoveredNode || neighborSet.has(node as string)) {
+				const activeNode = hoveredNode ?? selectedNode;
+				const activeNeighbors = hoveredNode
+					? hoveredNeighborSet
+					: selectedNeighborSet;
+				if (
+					!activeNode ||
+					node === activeNode ||
+					activeNeighbors.has(node as string)
+				) {
 					return d;
 				}
 				return { ...d, color: "#1e1e28", borderColor: "#1e1e28", label: "" };
 			},
 			edgeReducer: (edge: unknown, data: unknown) => {
 				const d = data as Record<string, unknown>;
-				if (!hoveredNode || g.hasExtremity(edge as string, hoveredNode)) {
+				const activeNode = hoveredNode ?? selectedNode;
+				if (!activeNode || g.hasExtremity(edge as string, activeNode)) {
 					return d;
 				}
 				return { ...d, hidden: true };
@@ -275,12 +310,14 @@ $effect(() => {
 			onNodeTap(id, kind);
 		});
 
+		sigmaInst.on("clickStage", () => onBackgroundClick());
+
 		sigmaInst.on("enterNode", (payload) => {
 			container.style.cursor = "pointer";
 			if (hoverTimer !== null) clearTimeout(hoverTimer);
 			hoverTimer = setTimeout(() => {
 				hoveredNode = payload.node as string;
-				neighborSet = new Set(g.neighbors(hoveredNode));
+				hoveredNeighborSet = new Set(g.neighbors(hoveredNode));
 				sigmaInst?.refresh();
 			}, 150);
 		});
@@ -291,7 +328,7 @@ $effect(() => {
 				hoverTimer = null;
 			}
 			hoveredNode = null;
-			neighborSet = new Set();
+			hoveredNeighborSet = new Set();
 			sigmaInst?.refresh();
 			container.style.cursor = "default";
 		});
@@ -300,6 +337,18 @@ $effect(() => {
 	}, 16);
 
 	return () => clearTimeout(id);
+});
+
+// Selection changes must not rebuild the graph or rerun FA2 — that would
+// visibly jank the layout on every click. This effect only recomputes the
+// selected node's neighbor set and asks Sigma to redraw with it.
+$effect(() => {
+	const node = selectedNode;
+	const g = graph;
+	if (!sigmaInst) return;
+	selectedNeighborSet =
+		node && g.hasNode(node) ? new Set(g.neighbors(node)) : new Set();
+	if (!hoveredNode) sigmaInst.refresh();
 });
 </script>
 
@@ -313,8 +362,9 @@ $effect(() => {
 <style>
 	.graph-wrapper {
 		position: relative;
-		height: 75vh;
-		min-height: 500px;
+		flex: 1;
+		min-width: 0;
+		height: 100%;
 		padding: 0;
 		overflow: hidden;
 	}
