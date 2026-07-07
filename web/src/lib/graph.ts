@@ -8,11 +8,15 @@ export function edgeWidth(count: number, maxShared: number): number {
 	return 0.5 + 5 * Math.sqrt(count / maxShared);
 }
 
-// Sqrt-scale edge opacity, used to fade thin edges relative to the strongest
-// edge of the same kind (edge kinds live on different weight scales, so each
-// kind must be normalized against its own max, not a global one).
+// Quadratic-scale edge opacity, used to fade thin edges relative to the
+// strongest edge of the same kind (edge kinds live on different weight
+// scales, so each kind must be normalized against its own max, not a global
+// one). Squaring (rather than sqrt) pushes weak/mid-weight edges much closer
+// to invisible so a dense graph doesn't wash out into a uniform haze, while
+// still letting the strongest edges read as clearly brighter.
 export function edgeOpacity(count: number, maxCount: number): number {
-	return 0.15 + 0.5 * Math.sqrt(maxCount > 0 ? count / maxCount : 0);
+	const t = maxCount > 0 ? count / maxCount : 0;
+	return 0.03 + 0.5 * t * t;
 }
 
 /**

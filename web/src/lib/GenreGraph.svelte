@@ -164,6 +164,25 @@ $effect(() => {
 
 	const { drawDiscNodeLabel } = sigmaRendering;
 
+	// Default (non-hover) label renderer: draws the normal label twice under a
+	// black shadow blur before the real pass, so text reads as having a dark
+	// halo/outline against the dense web of edges instead of sigma's plain
+	// flat-color text.
+	function drawNodeLabelWithHalo(
+		context: CanvasRenderingContext2D,
+		data: Record<string, unknown>,
+		settings: Record<string, unknown>,
+	): void {
+		context.save();
+		context.shadowColor = "#000000";
+		context.shadowBlur = 4;
+		context.shadowOffsetX = 0;
+		context.shadowOffsetY = 0;
+		drawDiscNodeLabel(context, data, settings);
+		drawDiscNodeLabel(context, data, settings);
+		context.restore();
+	}
+
 	// Border program: 3px black outer ring, community color fill.
 	// Border color is read from the `borderColor` attribute so the nodeReducer
 	// can dim it alongside the fill when a neighbor is not highlighted.
@@ -245,7 +264,11 @@ $effect(() => {
 				gravity: 1,
 				scalingRatio: 10,
 				adjustSizes: true,
-				barnesHutOptimize: false,
+				// Barnes-Hut approximation (O(n log n) per iteration) instead of the
+				// exact O(n²) pairwise repulsion — with ~1,300 mixed genre/artist
+				// nodes, the exact computation was blocking the main thread for
+				// several seconds before the graph could even paint.
+				barnesHutOptimize: true,
 			},
 			getEdgeWeight: "weight",
 		});
@@ -270,6 +293,7 @@ $effect(() => {
 			defaultEdgeColor: "rgb(96, 96, 160)",
 			defaultNodeColor: "#7c6af7",
 			defaultEdgeType: "curve",
+			defaultDrawNodeLabel: drawNodeLabelWithHalo,
 			defaultDrawNodeHover: drawDarkNodeHover,
 			edgeProgramClasses: { curve: edgeCurve },
 			nodeProgramClasses: { circle: nodeBorderProgram },
