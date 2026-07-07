@@ -5,6 +5,11 @@ declare global {
 		interface Platform {
 			env: {
 				DATABASE_URL: string;
+				SPOTIFY_PLAYLIST_ID: string;
+				GENRE_SPOTIFY_PLAYLIST_ID: string;
+				HIGH_SCORES_SPOTIFY_PLAYLIST_ID: string;
+				THROWBACK_SPOTIFY_PLAYLIST_ID: string;
+				VARIETY_SPOTIFY_PLAYLIST_ID: string;
 			};
 			context: {
 				waitUntil(promise: Promise<unknown>): void;
