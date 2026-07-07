@@ -8,6 +8,31 @@ export function edgeWidth(count: number, maxShared: number): number {
 	return 0.5 + 5 * Math.sqrt(count / maxShared);
 }
 
+// Sqrt-scale edge opacity, used to fade thin edges relative to the strongest
+// edge of the same kind (edge kinds live on different weight scales, so each
+// kind must be normalized against its own max, not a global one).
+export function edgeOpacity(count: number, maxCount: number): number {
+	return 0.15 + 0.5 * Math.sqrt(maxCount > 0 ? count / maxCount : 0);
+}
+
+/**
+ * Position for a degree-0 (isolated) node: its own community's cluster
+ * center, or the graph centroid if it has no community. Keeping isolated
+ * nodes anchored here (and marking them `fixed` for FA2) stops them from
+ * drifting away from the cluster during force simulation, since they have
+ * no edges to pull them back toward their community.
+ */
+export function isolatedNodePosition(
+	community: number | undefined,
+	communityCenters: Map<number, { x: number; y: number }>,
+): { x: number; y: number } {
+	if (community !== undefined) {
+		const center = communityCenters.get(community);
+		if (center) return center;
+	}
+	return { x: 0, y: 0 };
+}
+
 // 12 hues stepped by 150° so consecutive community IDs look maximally different.
 // Hex values (not HSL) — sigma's WebGL renderer parses hex/rgb only.
 export const COMMUNITY_PALETTE: readonly string[] = [
