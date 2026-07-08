@@ -95,9 +95,13 @@ const selectedGraphNodeId = $derived(
 );
 
 function selectNode(id: number, kind: "genre" | "artist"): void {
+	// pushState's second argument must be structured-cloneable by the History
+	// API, so a plain object literal is passed here rather than `selectedNode`
+	// itself — that's a $state reactive Proxy, which history.pushState throws
+	// a DataCloneError on and silently aborts the URL update.
 	selectedNode = { kind, id };
 	const prefix = kind === "genre" ? "g" : "a";
-	pushState(`?node=${prefix}:${id}`, { node: selectedNode });
+	pushState(`?node=${prefix}:${id}`, { node: { kind, id } });
 }
 
 function clearSelection(): void {
