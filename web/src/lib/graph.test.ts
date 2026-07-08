@@ -67,12 +67,12 @@ describe("edgeWidth", () => {
 });
 
 describe("edgeOpacity", () => {
-	it("returns the minimum opacity (0.015) when count is 0", () => {
-		expect(edgeOpacity(0, 10)).toBeCloseTo(0.015);
+	it("returns the minimum opacity (0.01) when count is 0", () => {
+		expect(edgeOpacity(0, 10)).toBeCloseTo(0.01);
 	});
 
-	it("returns the maximum opacity (0.315) when count equals maxCount", () => {
-		expect(edgeOpacity(10, 10)).toBeCloseTo(0.315);
+	it("returns the maximum opacity (0.12) when count equals maxCount", () => {
+		expect(edgeOpacity(10, 10)).toBeCloseTo(0.12);
 	});
 
 	it("is monotonically increasing with count", () => {
@@ -80,15 +80,16 @@ describe("edgeOpacity", () => {
 	});
 
 	it("returns the minimum opacity when maxCount is 0, without dividing by zero", () => {
-		expect(edgeOpacity(0, 0)).toBeCloseTo(0.015);
+		expect(edgeOpacity(0, 0)).toBeCloseTo(0.01);
 	});
 
-	it("weights weak/mid edges much lower than a linear falloff would (cubic curve)", () => {
+	it("weights weak/mid edges much lower than a linear falloff would (quartic curve)", () => {
 		// At half the max weight, opacity should sit far below the halfway point
-		// between min and max opacity — that's the whole point of cubing t.
+		// between min and max opacity — that's the whole point of raising t to
+		// the 4th power.
 		const half = edgeOpacity(5, 10);
-		const min = 0.015;
-		const max = 0.315;
+		const min = 0.01;
+		const max = 0.12;
 		expect(half).toBeLessThan(min + (max - min) / 2);
 	});
 
