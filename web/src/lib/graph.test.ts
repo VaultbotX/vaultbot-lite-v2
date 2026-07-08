@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	assignCommunityColors,
 	COMMUNITY_PALETTE,
+	desaturateColor,
 	edgeOpacity,
 	edgeWidth,
 	isolatedNodePosition,
@@ -98,6 +99,37 @@ describe("edgeOpacity", () => {
 		const strongWithinOwnKind = edgeOpacity(5, 5);
 		const weakAgainstOtherKindsMax = edgeOpacity(5, 500);
 		expect(strongWithinOwnKind).toBeGreaterThan(weakAgainstOtherKindsMax);
+	});
+});
+
+describe("desaturateColor", () => {
+	it("returns the same color unchanged when amount is 0", () => {
+		expect(desaturateColor("#DA654E", 0)).toBe("#da654e");
+	});
+
+	it("returns a pure gray (equal r/g/b) when amount is 1", () => {
+		const result = desaturateColor("#DA654E", 1);
+		const r = Number.parseInt(result.slice(1, 3), 16);
+		const g = Number.parseInt(result.slice(3, 5), 16);
+		const b = Number.parseInt(result.slice(5, 7), 16);
+		expect(r).toBe(g);
+		expect(g).toBe(b);
+	});
+
+	it("moves partway toward gray for an intermediate amount", () => {
+		const full = desaturateColor("#DA654E", 1);
+		const half = desaturateColor("#DA654E", 0.5);
+		const grayValue = Number.parseInt(full.slice(1, 3), 16);
+		const halfR = Number.parseInt(half.slice(1, 3), 16);
+		const origR = 0xda;
+		// Half-desaturated red channel should sit between the original and full gray.
+		expect(halfR).toBeGreaterThan(Math.min(origR, grayValue));
+		expect(halfR).toBeLessThan(Math.max(origR, grayValue));
+	});
+
+	it("preserves hue direction: a color already close to gray barely changes", () => {
+		const nearGray = "#808080";
+		expect(desaturateColor(nearGray, 0.5)).toBe("#808080");
 	});
 });
 

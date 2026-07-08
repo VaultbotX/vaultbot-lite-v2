@@ -73,6 +73,24 @@ export function assignCommunityColors(
 	return result;
 }
 
+/**
+ * Blends a hex color toward its own perceived-luminance gray, used to give
+ * artist nodes a visibly less saturated fill than genre nodes sharing the
+ * same community color — same hue, muted intensity — rather than introducing
+ * an unrelated color.
+ *
+ * `amount` is 0 (unchanged) to 1 (fully gray).
+ */
+export function desaturateColor(hex: string, amount: number): string {
+	const r = Number.parseInt(hex.slice(1, 3), 16);
+	const g = Number.parseInt(hex.slice(3, 5), 16);
+	const b = Number.parseInt(hex.slice(5, 7), 16);
+	const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+	const mix = (c: number) => Math.round(c + (gray - c) * amount);
+	const toHex = (c: number) => c.toString(16).padStart(2, "0");
+	return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
 export interface SelectedNode {
 	kind: "genre" | "artist";
 	id: number;
