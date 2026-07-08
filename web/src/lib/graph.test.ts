@@ -8,6 +8,8 @@ import {
 	isolatedNodePosition,
 	nodeSize,
 	parseNodeParam,
+	type SearchableNode,
+	searchNodes,
 } from "./graph";
 
 describe("nodeSize", () => {
@@ -212,6 +214,60 @@ describe("assignCommunityColors", () => {
 		const ids = Array.from({ length: 12 }, (_, i) => i);
 		const result = assignCommunityColors(ids, COMMUNITY_PALETTE);
 		expect(new Set(result.values()).size).toBe(12);
+	});
+});
+
+describe("searchNodes", () => {
+	const nodes: SearchableNode[] = [
+		{ id: 1, kind: "genre", name: "Pop" },
+		{ id: 2, kind: "genre", name: "Pop Rock" },
+		{ id: 3, kind: "artist", name: "Poppy" },
+		{ id: 4, kind: "artist", name: "K-Pop Stars" },
+		{ id: 5, kind: "genre", name: "Jazz" },
+	];
+
+	it("returns an empty array for an empty query", () => {
+		expect(searchNodes("", nodes)).toEqual([]);
+	});
+
+	it("returns an empty array for a whitespace-only query", () => {
+		expect(searchNodes("   ", nodes)).toEqual([]);
+	});
+
+	it("returns an empty array when nothing matches", () => {
+		expect(searchNodes("xyz", nodes)).toEqual([]);
+	});
+
+	it("matches case-insensitively", () => {
+		expect(searchNodes("JAZZ", nodes).map((n) => n.name)).toEqual(["Jazz"]);
+	});
+
+	it("ranks names that start with the query above names that only contain it", () => {
+		const results = searchNodes("pop", nodes);
+		// "Pop" and "Poppy" start with "pop"; "Pop Rock" also starts with it;
+		// "K-Pop Stars" only contains it, so it must sort last.
+		expect(results[results.length - 1].name).toBe("K-Pop Stars");
+	});
+
+	it("breaks ties among startsWith matches by shorter name first", () => {
+		const results = searchNodes("pop", nodes);
+		const startsWithNames = results
+			.filter((n) => n.name.toLowerCase().startsWith("pop"))
+			.map((n) => n.name);
+		expect(startsWithNames).toEqual(["Pop", "Poppy", "Pop Rock"]);
+	});
+
+	it("respects the limit parameter", () => {
+		expect(searchNodes("pop", nodes, 1).length).toBe(1);
+	});
+
+	it("defaults the limit to 8", () => {
+		const many: SearchableNode[] = Array.from({ length: 10 }, (_, i) => ({
+			id: i,
+			kind: "genre",
+			name: `Test ${i}`,
+		}));
+		expect(searchNodes("test", many).length).toBe(8);
 	});
 });
 
