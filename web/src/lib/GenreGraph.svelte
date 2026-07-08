@@ -1,13 +1,18 @@
 <script lang="ts">
 import type Graph from "graphology";
 import { onMount } from "svelte";
+import { isolatedNodePosition } from "./graph";
 
 let {
 	graph,
+	selectedNode,
 	onNodeTap,
+	onBackgroundClick,
 }: {
 	graph: Graph;
-	onNodeTap: (genreId: number) => void;
+	selectedNode: string | null;
+	onNodeTap: (id: number, kind: "genre" | "artist") => void;
+	onBackgroundClick: () => void;
 } = $props();
 
 // Structural types for dynamically-imported renderer libs — avoids bundling
@@ -63,6 +68,13 @@ let sigmaInst: SigmaInst | null = null;
 let containerEl: HTMLDivElement | undefined;
 let loading = $state(true);
 
+// Hover and selection state — closed over by the Sigma reducers/event
+// handlers below. Hover always takes visual priority over selection; when
+// hover ends, the selection's highlight (if any) reappears.
+let hoveredNode: string | null = null;
+let hoveredNeighborSet = new Set<string>();
+let selectedNeighborSet = new Set<string>();
+
 onMount(() => {
 	Promise.all([
 		import("sigma"),
@@ -100,15 +112,32 @@ function initCommunityLayout(g: Graph): void {
 
 	// Golden-angle spiral: fills a disk evenly with no ring/hollow-center artifact.
 	const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ≈ 137.5°
+	const communityCenters = new Map<number, { x: number; y: number }>();
 	commList.forEach((commId, ci) => {
 		const r = centerR * Math.sqrt(ci / commList.length);
-		const cx = r * Math.cos(ci * GOLDEN_ANGLE);
-		const cy = r * Math.sin(ci * GOLDEN_ANGLE);
+		communityCenters.set(commId, {
+			x: r * Math.cos(ci * GOLDEN_ANGLE),
+			y: r * Math.sin(ci * GOLDEN_ANGLE),
+		});
+	});
+
+	commList.forEach((commId) => {
 		const members = groups.get(commId) ?? [];
+		const center = communityCenters.get(commId) ?? { x: 0, y: 0 };
 		members.forEach((node, mi) => {
+			// Isolated (degree-0) nodes have no edges to pull them back toward
+			// their community during FA2, so anchor them at the community
+			// center and mark them fixed rather than letting them drift away.
+			if (g.degree(node) === 0) {
+				const pos = isolatedNodePosition(commId, communityCenters);
+				g.setNodeAttribute(node, "x", pos.x);
+				g.setNodeAttribute(node, "y", pos.y);
+				g.setNodeAttribute(node, "fixed", true);
+				return;
+			}
 			const a = (2 * Math.PI * mi) / members.length;
-			g.setNodeAttribute(node, "x", cx + memberR * Math.cos(a));
-			g.setNodeAttribute(node, "y", cy + memberR * Math.sin(a));
+			g.setNodeAttribute(node, "x", center.x + memberR * Math.cos(a));
+			g.setNodeAttribute(node, "y", center.y + memberR * Math.sin(a));
 		});
 	});
 }
@@ -121,11 +150,62 @@ $effect(() => {
 	const edgeCurve = edgeCurveLib;
 	const nodeBorder = nodeBorderLib;
 	const sigmaRendering = sigmaRenderingLib;
-	if (!Sigma || !fa2 || !edgeCurve || !container || !nodeBorder || !sigmaRendering) return;
+	if (
+		!Sigma ||
+		!fa2 ||
+		!edgeCurve ||
+		!container ||
+		!nodeBorder ||
+		!sigmaRendering
+	)
+		return;
 
 	loading = true;
 
 	const { drawDiscNodeLabel } = sigmaRendering;
+
+	// Default (non-hover) label renderer: draws a genre/artist glyph centered
+	// on the node itself, plus the name label as solid white text over a
+	// near-opaque black stroke (no blur) — maximum contrast against the dense
+	// web of edges, versus sigma's plain flat-color text.
+	function drawNodeLabelWithOutline(
+		context: CanvasRenderingContext2D,
+		data: Record<string, unknown>,
+		settings: Record<string, unknown>,
+	): void {
+		if (!data.label) return;
+		const size = settings.labelSize as number;
+		const font = settings.labelFont as string;
+		const weight = settings.labelWeight as string;
+		const x = data.x as number;
+		const y = data.y as number;
+		const nodeSize = data.size as number;
+		const label = data.label as string;
+		const kind = data.kind as string;
+
+		context.save();
+
+		const emoji = kind === "artist" ? "🎨" : "🎵";
+		const emojiSize = Math.max(8, nodeSize * 1.2);
+		context.font = `${emojiSize}px sans-serif`;
+		context.textAlign = "center";
+		context.textBaseline = "middle";
+		context.fillText(emoji, x, y);
+
+		context.textAlign = "left";
+		context.textBaseline = "alphabetic";
+		context.font = `${weight} ${size}px ${font}`;
+		context.lineJoin = "round";
+		context.lineWidth = 3;
+		context.strokeStyle = "rgba(0, 0, 0, 0.95)";
+		context.fillStyle = "#ffffff";
+		const labelX = x + nodeSize + 3;
+		const labelY = y + size / 3;
+		context.strokeText(label, labelX, labelY);
+		context.fillText(label, labelX, labelY);
+
+		context.restore();
+	}
 
 	// Border program: 3px black outer ring, community color fill.
 	// Border color is read from the `borderColor` attribute so the nodeReducer
@@ -136,7 +216,10 @@ $effect(() => {
 				size: { value: 3, mode: "pixels" },
 				color: { attribute: "borderColor", defaultValue: "#000000" },
 			},
-			{ size: { fill: true }, color: { attribute: "color", defaultValue: "#7c6af7" } },
+			{
+				size: { fill: true },
+				color: { attribute: "color", defaultValue: "#7c6af7" },
+			},
 		],
 	});
 
@@ -170,7 +253,9 @@ $effect(() => {
 			const boxHeight = Math.round(size + 2 * PADDING);
 			const radius = Math.max(nodeSize, size / 2) + PADDING;
 			const angleRadian = Math.asin(boxHeight / 2 / radius);
-			const xDeltaCoord = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
+			const xDeltaCoord = Math.sqrt(
+				Math.abs(radius ** 2 - (boxHeight / 2) ** 2),
+			);
 
 			context.beginPath();
 			context.moveTo(x + xDeltaCoord, y + boxHeight / 2);
@@ -191,6 +276,19 @@ $effect(() => {
 		context.shadowOffsetY = 0;
 		context.shadowBlur = 0;
 
+		// The hover renderer replaces the default label renderer entirely for the
+		// hovered node, so the kind glyph has to be redrawn here too — otherwise
+		// it visibly disappears the moment a node is hovered.
+		const kind = data.kind as string;
+		const emoji = kind === "artist" ? "🎨" : "🎵";
+		const emojiSize = Math.max(8, nodeSize * 1.2);
+		context.save();
+		context.font = `${emojiSize}px sans-serif`;
+		context.textAlign = "center";
+		context.textBaseline = "middle";
+		context.fillText(emoji, x, y);
+		context.restore();
+
 		drawDiscNodeLabel(context, data, settings);
 	}
 
@@ -203,15 +301,20 @@ $effect(() => {
 				gravity: 1,
 				scalingRatio: 10,
 				adjustSizes: true,
-				barnesHutOptimize: false,
+				// Barnes-Hut approximation (O(n log n) per iteration) instead of the
+				// exact O(n²) pairwise repulsion — with ~1,300 mixed genre/artist
+				// nodes, the exact computation was blocking the main thread for
+				// several seconds before the graph could even paint.
+				barnesHutOptimize: true,
 			},
-			getEdgeWeight: "shared",
+			getEdgeWeight: "weight",
 		});
 
-		// Hover state — closed over by the reducers and event handlers below.
-		let hoveredNode: string | null = null;
-		let neighborSet = new Set<string>();
 		let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+		selectedNeighborSet =
+			selectedNode && g.hasNode(selectedNode)
+				? new Set(g.neighbors(selectedNode))
+				: new Set();
 
 		sigmaInst?.kill();
 		sigmaInst = new Sigma(g, container, {
@@ -227,20 +330,31 @@ $effect(() => {
 			defaultEdgeColor: "rgb(96, 96, 160)",
 			defaultNodeColor: "#7c6af7",
 			defaultEdgeType: "curve",
+			defaultDrawNodeLabel: drawNodeLabelWithOutline,
 			defaultDrawNodeHover: drawDarkNodeHover,
 			edgeProgramClasses: { curve: edgeCurve },
 			nodeProgramClasses: { circle: nodeBorderProgram },
-			// Dim nodes/edges that are not part of the hovered node's neighborhood.
+			// Dim nodes/edges outside the active (hovered, or else selected) node's
+			// neighborhood. Hover takes priority over selection while it's active.
 			nodeReducer: (node: unknown, data: unknown) => {
 				const d = data as Record<string, unknown>;
-				if (!hoveredNode || node === hoveredNode || neighborSet.has(node as string)) {
+				const activeNode = hoveredNode ?? selectedNode;
+				const activeNeighbors = hoveredNode
+					? hoveredNeighborSet
+					: selectedNeighborSet;
+				if (
+					!activeNode ||
+					node === activeNode ||
+					activeNeighbors.has(node as string)
+				) {
 					return d;
 				}
 				return { ...d, color: "#1e1e28", borderColor: "#1e1e28", label: "" };
 			},
 			edgeReducer: (edge: unknown, data: unknown) => {
 				const d = data as Record<string, unknown>;
-				if (!hoveredNode || g.hasExtremity(edge as string, hoveredNode)) {
+				const activeNode = hoveredNode ?? selectedNode;
+				if (!activeNode || g.hasExtremity(edge as string, activeNode)) {
 					return d;
 				}
 				return { ...d, hidden: true };
@@ -249,15 +363,22 @@ $effect(() => {
 
 		sigmaInst.on("clickNode", (payload) => {
 			const node = payload.node as string;
-			onNodeTap(g.getNodeAttribute(node, "genreId") as number);
+			const kind = g.getNodeAttribute(node, "kind") as "genre" | "artist";
+			const id =
+				kind === "genre"
+					? (g.getNodeAttribute(node, "genreId") as number)
+					: (g.getNodeAttribute(node, "artistId") as number);
+			onNodeTap(id, kind);
 		});
+
+		sigmaInst.on("clickStage", () => onBackgroundClick());
 
 		sigmaInst.on("enterNode", (payload) => {
 			container.style.cursor = "pointer";
 			if (hoverTimer !== null) clearTimeout(hoverTimer);
 			hoverTimer = setTimeout(() => {
 				hoveredNode = payload.node as string;
-				neighborSet = new Set(g.neighbors(hoveredNode));
+				hoveredNeighborSet = new Set(g.neighbors(hoveredNode));
 				sigmaInst?.refresh();
 			}, 150);
 		});
@@ -268,7 +389,7 @@ $effect(() => {
 				hoverTimer = null;
 			}
 			hoveredNode = null;
-			neighborSet = new Set();
+			hoveredNeighborSet = new Set();
 			sigmaInst?.refresh();
 			container.style.cursor = "default";
 		});
@@ -277,6 +398,18 @@ $effect(() => {
 	}, 16);
 
 	return () => clearTimeout(id);
+});
+
+// Selection changes must not rebuild the graph or rerun FA2 — that would
+// visibly jank the layout on every click. This effect only recomputes the
+// selected node's neighbor set and asks Sigma to redraw with it.
+$effect(() => {
+	const node = selectedNode;
+	const g = graph;
+	if (!sigmaInst) return;
+	selectedNeighborSet =
+		node && g.hasNode(node) ? new Set(g.neighbors(node)) : new Set();
+	if (!hoveredNode) sigmaInst.refresh();
 });
 </script>
 
@@ -290,8 +423,9 @@ $effect(() => {
 <style>
 	.graph-wrapper {
 		position: relative;
-		height: 75vh;
-		min-height: 500px;
+		flex: 1;
+		min-width: 0;
+		height: 100%;
 		padding: 0;
 		overflow: hidden;
 	}

@@ -73,8 +73,8 @@ function fmtDate(iso: string): string {
 
 <StatsCharts
 	{data}
-	onGenreClick={(id) => goto(`/genres/${id}`)}
-	onArtistClick={(id) => goto(`/artists/${id}`)}
+	onGenreClick={(id) => goto(`/galaxy?node=g:${id}`)}
+	onArtistClick={(id) => goto(`/galaxy?node=a:${id}`)}
 />
 
 <style>

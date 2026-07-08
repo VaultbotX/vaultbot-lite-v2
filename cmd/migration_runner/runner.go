@@ -5,12 +5,13 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/migrations"
 )
 
 var (
-	migrationsList = [11]*migrations.Migration{
+	migrationsList = [12]*migrations.Migration{
 		migrations.Migration001,
 		migrations.Migration002,
 		migrations.Migration003,
@@ -22,12 +23,14 @@ var (
 		migrations.Migration009,
 		migrations.Migration010,
 		migrations.Migration011,
+		migrations.Migration012,
 	}
 )
 
 // could eventually configure this as a CLI tool, but for now just runs all `up` migrations
 func main() {
 	log.SetFormatter(&log.JSONFormatter{})
+	_ = godotenv.Load()
 
 	host, hostExists := os.LookupEnv("POSTGRES_HOST")
 	port, portExists := os.LookupEnv("POSTGRES_PORT")

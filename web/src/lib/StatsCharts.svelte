@@ -147,8 +147,11 @@ onMount(() => {
 					responsive: true,
 					maintainAspectRatio: false,
 					onClick: (_event: unknown, elements: unknown[]) => {
-						if (!(elements as { datasetIndex: number; index: number }[]).length) return;
-						const { index } = (elements as { datasetIndex: number; index: number }[])[0];
+						if (!(elements as { datasetIndex: number; index: number }[]).length)
+							return;
+						const { index } = (
+							elements as { datasetIndex: number; index: number }[]
+						)[0];
 						onArtistClick(artists[index].artist_id);
 					},
 					onHover: (_event: unknown, elements: unknown[]) => {
