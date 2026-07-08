@@ -8,17 +8,17 @@ export function edgeWidth(count: number, maxShared: number): number {
 	return 0.5 + 5 * Math.sqrt(count / maxShared);
 }
 
-// Cubic-scale edge opacity, used to fade thin edges relative to the
+// Quartic-scale edge opacity, used to fade thin edges relative to the
 // strongest edge of the same kind (edge kinds live on different weight
 // scales, so each kind must be normalized against its own max, not a global
-// one). Cubing (rather than squaring) pushes weak/mid-weight edges even
-// closer to invisible so a dense graph doesn't wash out into a uniform haze,
-// while still letting the strongest edges read as clearly brighter. The
-// floor and ceiling were both lowered a second time after squaring still
-// looked too noisy in a dense graph.
+// one). Raising t to the 4th power pushes weak/mid-weight edges even closer
+// to invisible than cubing did, and the ceiling is dropped hard (0.53 →
+// 0.315 → 0.12): with thousands of overlapping edges, alpha compositing
+// stacks even "low" per-edge opacity into a bright haze, so the ceiling has
+// to be much lower than it would need to be for a sparse graph.
 export function edgeOpacity(count: number, maxCount: number): number {
 	const t = maxCount > 0 ? count / maxCount : 0;
-	return 0.015 + 0.3 * t * t * t;
+	return 0.01 + 0.11 * t * t * t * t;
 }
 
 /**
