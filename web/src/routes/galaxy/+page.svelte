@@ -5,7 +5,8 @@ import { page } from "$app/state";
 import { untrack } from "svelte";
 import GenreGraph from "$lib/GenreGraph.svelte";
 import GraphDetailDrawer from "$lib/GraphDetailDrawer.svelte";
-import type { SelectedNode } from "$lib/graph";
+import type { SearchableNode, SelectedNode } from "$lib/graph";
+import { searchNodes } from "$lib/graph";
 import { buildMixedGraph } from "$lib/mixed-graph";
 import type { GraphData } from "../api/graph/+server";
 import type { PageData } from "./$types";
@@ -23,6 +24,13 @@ let showDynamic = $state(
 );
 let dynamicData = $state<GraphData | null>(null);
 let loadingDynamic = $state(false);
+
+let genreGraphInst = $state<{ focusNode: (nodeId: string) => void } | null>(
+	null,
+);
+let searchQuery = $state("");
+let activeIndex = $state(-1);
+let searchWrapperEl: HTMLDivElement | undefined;
 
 // Local state, not derived from the URL: `pushState` (shallow routing) never
 // updates `page.url` — only `page.state` — so re-deriving selection from
@@ -94,6 +102,61 @@ const selectedGraphNodeId = $derived(
 		: null,
 );
 
+const searchableNodes = $derived<SearchableNode[]>([
+	...activeData.genreVertices.map((v) => ({
+		id: v.genre_id,
+		kind: "genre" as const,
+		name: v.name,
+	})),
+	...visibleArtistVertices.map((v) => ({
+		id: v.artist_id,
+		kind: "artist" as const,
+		name: v.name,
+	})),
+]);
+
+const searchResults = $derived(searchNodes(searchQuery, searchableNodes));
+const searchOpen = $derived(searchQuery.trim().length > 0);
+
+function selectSearchResult(node: SearchableNode): void {
+	selectNode(node.id, node.kind);
+	const prefix = node.kind === "genre" ? "g" : "a";
+	genreGraphInst?.focusNode(`${prefix}:${node.id}`);
+	searchQuery = "";
+	activeIndex = -1;
+}
+
+function handleSearchKeydown(e: KeyboardEvent): void {
+	if (searchResults.length === 0) {
+		if (e.key === "Escape") {
+			searchQuery = "";
+			activeIndex = -1;
+		}
+		return;
+	}
+	if (e.key === "ArrowDown") {
+		e.preventDefault();
+		activeIndex = (activeIndex + 1) % searchResults.length;
+	} else if (e.key === "ArrowUp") {
+		e.preventDefault();
+		activeIndex =
+			(activeIndex - 1 + searchResults.length) % searchResults.length;
+	} else if (e.key === "Enter") {
+		e.preventDefault();
+		selectSearchResult(searchResults[Math.max(activeIndex, 0)]);
+	} else if (e.key === "Escape") {
+		searchQuery = "";
+		activeIndex = -1;
+	}
+}
+
+function handleWindowClick(e: MouseEvent): void {
+	if (searchWrapperEl && !searchWrapperEl.contains(e.target as Node)) {
+		searchQuery = "";
+		activeIndex = -1;
+	}
+}
+
 function selectNode(id: number, kind: "genre" | "artist"): void {
 	// pushState's second argument must be structured-cloneable by the History
 	// API, so a plain object literal is passed here rather than `selectedNode`
@@ -113,6 +176,8 @@ function clearSelection(): void {
 <svelte:head>
 	<title>Vaultbot :: Playlist Galaxy</title>
 </svelte:head>
+
+<svelte:window onclick={handleWindowClick} />
 
 <div class="page-header">
 	<h1>Playlist Galaxy</h1>
@@ -135,6 +200,37 @@ function clearSelection(): void {
 		/>
 		<span>Current playlist only <span class="pill">≤ 2 weeks</span></span>
 	</label>
+	<div class="search-wrapper" bind:this={searchWrapperEl}>
+		<input
+			type="text"
+			class="search-input"
+			placeholder="Find a genre or artist…"
+			bind:value={searchQuery}
+			onkeydown={handleSearchKeydown}
+		/>
+		{#if searchOpen}
+			<div class="search-dropdown card">
+				{#if searchResults.length === 0}
+					<div class="search-empty muted">No matches</div>
+				{:else}
+					{#each searchResults as result, i (`${result.kind}:${result.id}`)}
+						<button
+							type="button"
+							class="search-result"
+							class:active={i === activeIndex}
+							onclick={() => selectSearchResult(result)}
+							onmouseenter={() => (activeIndex = i)}
+						>
+							<span class="search-glyph"
+								>{result.kind === "artist" ? "🎨" : "🎵"}</span
+							>
+							<span class="search-name">{result.name}</span>
+						</button>
+					{/each}
+				{/if}
+			</div>
+		{/if}
+	</div>
 	<span class="stat mono muted"
 		>{activeData.genreVertices.length} genres · {visibleArtistVertices.length} artists · {connectionCount} connections</span
 	>
@@ -145,6 +241,7 @@ function clearSelection(): void {
 {:else}
 	<div class="graph-row">
 		<GenreGraph
+			bind:this={genreGraphInst}
 			{graph}
 			selectedNode={selectedGraphNodeId}
 			onNodeTap={selectNode}
@@ -208,6 +305,71 @@ function clearSelection(): void {
 	.stat {
 		margin-left: auto;
 		font-size: 12px;
+	}
+
+	.search-wrapper {
+		position: relative;
+		width: 240px;
+	}
+
+	.search-input {
+		width: 100%;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		color: var(--text);
+		font-size: 13px;
+		padding: 6px 10px;
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	.search-dropdown {
+		position: absolute;
+		top: calc(100% + 4px);
+		left: 0;
+		right: 0;
+		z-index: 10;
+		padding: 4px;
+		max-height: 280px;
+		overflow-y: auto;
+	}
+
+	.search-empty {
+		padding: 8px 10px;
+		font-size: 13px;
+	}
+
+	.search-result {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		padding: 6px 10px;
+		border-radius: calc(var(--radius) - 4px);
+		background: transparent;
+		color: var(--text);
+		font-size: 13px;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.search-result:hover,
+	.search-result.active {
+		background: var(--surface-2);
+	}
+
+	.search-glyph {
+		font-size: 12px;
+	}
+
+	.search-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.loading {

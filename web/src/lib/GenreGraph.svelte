@@ -21,6 +21,13 @@ type SigmaInst = {
 	kill(): void;
 	refresh(): void;
 	on(event: string, cb: (payload: Record<string, unknown>) => void): void;
+	getCamera(): {
+		animate(
+			state: Record<string, unknown>,
+			opts: Record<string, unknown>,
+		): void;
+	};
+	getNodeDisplayData(node: string): { x: number; y: number } | undefined;
 };
 type SigmaLib = {
 	new (
@@ -411,6 +418,23 @@ $effect(() => {
 		node && g.hasNode(node) ? new Set(g.neighbors(node)) : new Set();
 	if (!hoveredNode) sigmaInst.refresh();
 });
+
+// Pans/zooms the camera to a node, used by the galaxy page's search box to
+// jump straight to a match rather than requiring the user to hunt visually.
+// Camera x/y must be in Sigma's normalized "framed graph" space ([0,1] range
+// after Sigma fits the graph's bounding box), NOT the raw graphology x/y
+// attributes FA2 assigns (which are in arbitrary graph-layout units) —
+// animating the camera to raw coordinates points it at empty space and
+// leaves the canvas blank. getNodeDisplayData() returns the node's position
+// already converted to that normalized space.
+export function focusNode(nodeId: string): void {
+	if (!sigmaInst) return;
+	const data = sigmaInst.getNodeDisplayData(nodeId);
+	if (!data) return;
+	sigmaInst
+		.getCamera()
+		.animate({ x: data.x, y: data.y, ratio: 0.15 }, { duration: 500 });
+}
 </script>
 
 <div class="graph-wrapper card">
