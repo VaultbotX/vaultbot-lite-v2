@@ -10,15 +10,15 @@ let { children } = $props();
 
 <header>
 	<div class="header-inner">
-		<div class="brand">
+		<a class="brand" href="/">
 			<img src="/vaultbot.png" alt="Vaultbot logo" width="44" height="44" />
 			<div>
 				<span class="title">Vaultbot</span>
 				<span class="subtitle mono">Playlist analytics</span>
 			</div>
-		</div>
+		</a>
 		<nav>
-			<a href="/">Stats</a>
+			<a href="/">Home</a>
 			<a href="/graph">Graph</a>
 		</nav>
 	</div>
@@ -52,6 +52,12 @@ let { children } = $props();
 		display: flex;
 		align-items: center;
 		gap: 12px;
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.brand:hover {
+		text-decoration: none;
 	}
 
 	.title {
