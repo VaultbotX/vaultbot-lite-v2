@@ -98,6 +98,42 @@ export interface SelectedNode {
 	id: number;
 }
 
+export interface SearchableNode {
+	id: number;
+	kind: "genre" | "artist";
+	name: string;
+}
+
+/**
+ * Ranks nodes by name match against `query`: names that start with the query
+ * rank above names that merely contain it, then shorter names, then
+ * alphabetical. Purely client-side — the caller already has the full node
+ * list loaded to build the graph, so this just filters/sorts it.
+ */
+export function searchNodes(
+	query: string,
+	nodes: SearchableNode[],
+	limit = 8,
+): SearchableNode[] {
+	const q = query.trim().toLowerCase();
+	if (!q) return [];
+
+	const matches: SearchableNode[] = [];
+	for (const node of nodes) {
+		if (node.name.toLowerCase().includes(q)) matches.push(node);
+	}
+
+	matches.sort((a, b) => {
+		const aStarts = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+		const bStarts = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+		if (aStarts !== bStarts) return aStarts - bStarts;
+		if (a.name.length !== b.name.length) return a.name.length - b.name.length;
+		return a.name.localeCompare(b.name);
+	});
+
+	return matches.slice(0, limit);
+}
+
 // Parses the `?node=g:14` / `?node=a:7` deep-link query param used by the
 // graph page's detail drawer. Returns null for anything malformed so callers
 // never need to special-case a bad/stale link.
