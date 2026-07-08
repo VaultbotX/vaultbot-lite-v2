@@ -120,8 +120,6 @@ const searchOpen = $derived(searchQuery.trim().length > 0);
 
 function selectSearchResult(node: SearchableNode): void {
 	selectNode(node.id, node.kind);
-	const prefix = node.kind === "genre" ? "g" : "a";
-	genreGraphInst?.focusNode(`${prefix}:${node.id}`);
 	searchQuery = "";
 	activeIndex = -1;
 }
@@ -165,6 +163,10 @@ function selectNode(id: number, kind: "genre" | "artist"): void {
 	selectedNode = { kind, id };
 	const prefix = kind === "genre" ? "g" : "a";
 	pushState(`?node=${prefix}:${id}`, { node: { kind, id } });
+	// Single chokepoint for every selection path (canvas click, drawer
+	// cross-link pivot, search result) so the camera always frames whatever
+	// node is currently selected, not just search-originated ones.
+	genreGraphInst?.focusNode(`${prefix}:${id}`);
 }
 
 function clearSelection(): void {
