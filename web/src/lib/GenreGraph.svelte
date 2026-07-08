@@ -276,6 +276,19 @@ $effect(() => {
 		context.shadowOffsetY = 0;
 		context.shadowBlur = 0;
 
+		// The hover renderer replaces the default label renderer entirely for the
+		// hovered node, so the kind glyph has to be redrawn here too — otherwise
+		// it visibly disappears the moment a node is hovered.
+		const kind = data.kind as string;
+		const emoji = kind === "artist" ? "🎨" : "🎵";
+		const emojiSize = Math.max(8, nodeSize * 1.2);
+		context.save();
+		context.font = `${emojiSize}px sans-serif`;
+		context.textAlign = "center";
+		context.textBaseline = "middle";
+		context.fillText(emoji, x, y);
+		context.restore();
+
 		drawDiscNodeLabel(context, data, settings);
 	}
 
