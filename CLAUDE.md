@@ -24,7 +24,7 @@ A Spotify playlist tracker that polls a playlist on a schedule, stores tracks an
 | Frontend deploy | Cloudflare Pages |
 | DB driver (frontend) | `@neondatabase/serverless` (HTTP mode) |
 | Linting/formatting | Biome 2.x (covers `.ts` and `.svelte`) |
-| Graph visualization | Cytoscape.js (with Louvain community detection) |
+| Graph visualization | Sigma.js v3 + graphology (with `graphology-communities-louvain` community detection) |
 | Charts/treemap | Chart.js 4 + chartjs-chart-treemap |
 | Unit testing | Vitest (pure function tests in `src/**/*.test.ts`) |
 
@@ -117,22 +117,23 @@ go run ./cmd/stats                      # Generate stats JSON (stdout) — super
 │   │   │   ├── +layout.svelte  # Root layout (header, nav, footer)
 │   │   │   ├── +page.svelte    # Stats dashboard (summary cards + charts)
 │   │   │   ├── +page.ts        # Fetches /api/stats
-│   │   │   ├── graph/          # Interactive genre graph page
+│   │   │   ├── graph/          # Interactive mixed genre/artist graph page
 │   │   │   │   ├── +page.svelte
 │   │   │   │   └── +page.ts    # Fetches /api/graph
-│   │   │   ├── genre/[id]/     # Genre drilldown page
+│   │   │   ├── genres/[id]/    # Genre drilldown page
+│   │   │   ├── artists/[id]/   # Artist drilldown page (no index page — the graph is the entry point)
 │   │   │   └── api/            # Server-side API routes (Cloudflare Pages Functions)
 │   │   │       ├── stats/      # GET /api/stats
-│   │   │       ├── graph/      # GET /api/graph
-│   │   │       └── genre/[id]/ # GET /api/genre/:id
+│   │   │       ├── graph/      # GET /api/graph (mixed genre + artist vertices/edges)
+│   │   │       ├── genres/[id]/  # GET /api/genres/:id
+│   │   │       └── artists/[id]/ # GET /api/artists/:id
 │   │   └── lib/
-│   │       ├── GenreGraph.svelte   # Cytoscape.js graph component
+│   │       ├── GenreGraph.svelte   # Sigma.js graph renderer
+│   │       ├── mixed-graph.ts      # Builds the graphology Graph (genre + artist nodes/edges) from API data
 │   │       ├── StatsCharts.svelte  # Chart.js charts component (line, bar, treemap)
 │   │       ├── allNamed.ts         # Parallel DB query helper
-│   │       ├── graph.ts            # Pure fns: communityColor, nodeSize, edgeWidth
+│   │       ├── graph.ts            # Pure fns: nodeSize, edgeWidth, edgeOpacity, assignCommunityColors, isolatedNodePosition
 │   │       ├── graph.test.ts       # Unit tests for graph.ts
-│   │       ├── louvain.ts          # Louvain community detection algorithm
-│   │       ├── louvain.test.ts     # Unit tests for louvain.ts
 │   │       ├── stats.ts            # Pure fns: fmtMonth, treemapColor
 │   │       └── stats.test.ts       # Unit tests for stats.ts
 │   ├── static/                 # Static assets (logo, favicon)
@@ -162,8 +163,10 @@ songs          ←→ duplicate_song_lookup  (deduplication mapping — see belo
 v_songs        (canonical songs only — excludes duplicates)
 
 -- Materialized views (updated every 6 hours via refresh_graph_mv)
-genre_graph_vertices   (genre_id, name, artist_count)
-genre_graph_edges      (source_genre_id, target_genre_id, shared_artist_count)
+genre_graph_vertices   (genre_id, name, archive_count)
+genre_graph_edges      (source_genre_id, target_genre_id, shared_archive_count)
+artist_graph_vertices  (artist_id, name, archive_count)
+artist_graph_edges     (source_artist_id, target_artist_id, shared_song_count)
 ```
 
 ## Song deduplication model
@@ -229,8 +232,7 @@ Unit tests live alongside their source files in `web/src/lib/` as `*.test.ts`. T
 
 ```
 web/src/lib/
-├── graph.test.ts       # communityColor, nodeSize, edgeWidth
-├── louvain.test.ts     # detectCommunities (Louvain algorithm)
+├── graph.test.ts       # nodeSize, edgeWidth, edgeOpacity, assignCommunityColors, isolatedNodePosition
 └── stats.test.ts       # fmtMonth, treemapColor
 ```
 
@@ -238,7 +240,7 @@ web/src/lib/
 
 **Why `npm run check` must run before `npm test` in CI:** Vitest's esbuild resolves `web/tsconfig.json → .svelte-kit/tsconfig.json`, which only exists after `svelte-kit sync` runs. `npm run check` internally runs `svelte-kit sync`, so order the CI steps: Lint → Type check (`npm run check`) → Test (`npm test`).
 
-**Pure function extraction pattern:** Move any logic that doesn't depend on DOM, Svelte reactivity, or Chart.js/Cytoscape instances into a plain `.ts` file in `lib/`. This makes it directly testable with Vitest. Keep chart and graph configuration inside the component's `onMount` / `$effect`.
+**Pure function extraction pattern:** Move any logic that doesn't depend on DOM, Svelte reactivity, or Chart.js/Sigma instances into a plain `.ts` file in `lib/`. This makes it directly testable with Vitest. Keep chart and graph configuration inside the component's `onMount` / `$effect`.
 
 ## TypeScript conventions
 

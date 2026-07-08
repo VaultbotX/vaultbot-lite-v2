@@ -1,21 +1,21 @@
 <script lang="ts">
 let {
-	genre_id,
 	name,
 	count,
+	onClick,
 }: {
-	genre_id: number;
 	name: string;
 	count?: number;
+	onClick: () => void;
 } = $props();
 </script>
 
-<a href="/genres/{genre_id}" class="chip">
+<button type="button" class="chip" onclick={onClick}>
 	<span class="chip-name">{name}</span>
 	{#if count !== undefined}
 		<span class="chip-count mono">{count}</span>
 	{/if}
-</a>
+</button>
 
 <style>
 	.chip {
@@ -27,7 +27,9 @@ let {
 		border: 1px solid var(--border);
 		border-radius: 999px;
 		font-size: 12px;
+		font-family: inherit;
 		color: var(--text);
+		cursor: pointer;
 		transition: border-color 0.15s, color 0.15s;
 		text-decoration: none;
 	}

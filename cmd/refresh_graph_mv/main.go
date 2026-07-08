@@ -5,11 +5,13 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	log.SetFormatter(&log.JSONFormatter{})
+	_ = godotenv.Load()
 
 	host, hostExists := os.LookupEnv("POSTGRES_HOST")
 	port, portExists := os.LookupEnv("POSTGRES_PORT")
@@ -34,5 +36,11 @@ func main() {
 	log.Info("Refreshing genre_graph_edges")
 	db.MustExec("REFRESH MATERIALIZED VIEW CONCURRENTLY genre_graph_edges")
 
-	log.Info("Successfully refreshed genre graph materialized views")
+	log.Info("Refreshing artist_graph_vertices")
+	db.MustExec("REFRESH MATERIALIZED VIEW CONCURRENTLY artist_graph_vertices")
+
+	log.Info("Refreshing artist_graph_edges")
+	db.MustExec("REFRESH MATERIALIZED VIEW CONCURRENTLY artist_graph_edges")
+
+	log.Info("Successfully refreshed genre and artist graph materialized views")
 }

@@ -8,6 +8,37 @@ export function edgeWidth(count: number, maxShared: number): number {
 	return 0.5 + 5 * Math.sqrt(count / maxShared);
 }
 
+// Quartic-scale edge opacity, used to fade thin edges relative to the
+// strongest edge of the same kind (edge kinds live on different weight
+// scales, so each kind must be normalized against its own max, not a global
+// one). Raising t to the 4th power pushes weak/mid-weight edges even closer
+// to invisible than cubing did, and the ceiling is dropped hard (0.53 →
+// 0.315 → 0.12): with thousands of overlapping edges, alpha compositing
+// stacks even "low" per-edge opacity into a bright haze, so the ceiling has
+// to be much lower than it would need to be for a sparse graph.
+export function edgeOpacity(count: number, maxCount: number): number {
+	const t = maxCount > 0 ? count / maxCount : 0;
+	return 0.01 + 0.11 * t * t * t * t;
+}
+
+/**
+ * Position for a degree-0 (isolated) node: its own community's cluster
+ * center, or the graph centroid if it has no community. Keeping isolated
+ * nodes anchored here (and marking them `fixed` for FA2) stops them from
+ * drifting away from the cluster during force simulation, since they have
+ * no edges to pull them back toward their community.
+ */
+export function isolatedNodePosition(
+	community: number | undefined,
+	communityCenters: Map<number, { x: number; y: number }>,
+): { x: number; y: number } {
+	if (community !== undefined) {
+		const center = communityCenters.get(community);
+		if (center) return center;
+	}
+	return { x: 0, y: 0 };
+}
+
 // 12 hues stepped by 150° so consecutive community IDs look maximally different.
 // Hex values (not HSL) — sigma's WebGL renderer parses hex/rgb only.
 export const COMMUNITY_PALETTE: readonly string[] = [
@@ -42,4 +73,39 @@ export function assignCommunityColors(
 		result.set(commId, palette[i % palette.length]);
 	});
 	return result;
+}
+
+/**
+ * Blends a hex color toward its own perceived-luminance gray, used to give
+ * artist nodes a visibly less saturated fill than genre nodes sharing the
+ * same community color — same hue, muted intensity — rather than introducing
+ * an unrelated color.
+ *
+ * `amount` is 0 (unchanged) to 1 (fully gray).
+ */
+export function desaturateColor(hex: string, amount: number): string {
+	const r = Number.parseInt(hex.slice(1, 3), 16);
+	const g = Number.parseInt(hex.slice(3, 5), 16);
+	const b = Number.parseInt(hex.slice(5, 7), 16);
+	const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+	const mix = (c: number) => Math.round(c + (gray - c) * amount);
+	const toHex = (c: number) => c.toString(16).padStart(2, "0");
+	return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
+export interface SelectedNode {
+	kind: "genre" | "artist";
+	id: number;
+}
+
+// Parses the `?node=g:14` / `?node=a:7` deep-link query param used by the
+// graph page's detail drawer. Returns null for anything malformed so callers
+// never need to special-case a bad/stale link.
+export function parseNodeParam(value: string | null): SelectedNode | null {
+	if (!value) return null;
+	const match = /^(g|a):(\d+)$/.exec(value);
+	if (!match) return null;
+	const id = Number(match[2]);
+	if (!Number.isInteger(id) || id <= 0) return null;
+	return { kind: match[1] === "g" ? "genre" : "artist", id };
 }

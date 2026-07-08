@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
 	assignCommunityColors,
 	COMMUNITY_PALETTE,
+	desaturateColor,
+	edgeOpacity,
 	edgeWidth,
+	isolatedNodePosition,
 	nodeSize,
+	parseNodeParam,
 } from "./graph";
 
 describe("nodeSize", () => {
@@ -59,6 +63,94 @@ describe("edgeWidth", () => {
 		const w4 = edgeWidth(4, 10) - base;
 		// sqrt(4/10) / sqrt(1/10) = sqrt(4) = 2
 		expect(w4).toBeCloseTo(w1 * 2);
+	});
+});
+
+describe("edgeOpacity", () => {
+	it("returns the minimum opacity (0.01) when count is 0", () => {
+		expect(edgeOpacity(0, 10)).toBeCloseTo(0.01);
+	});
+
+	it("returns the maximum opacity (0.12) when count equals maxCount", () => {
+		expect(edgeOpacity(10, 10)).toBeCloseTo(0.12);
+	});
+
+	it("is monotonically increasing with count", () => {
+		expect(edgeOpacity(2, 10)).toBeLessThan(edgeOpacity(6, 10));
+	});
+
+	it("returns the minimum opacity when maxCount is 0, without dividing by zero", () => {
+		expect(edgeOpacity(0, 0)).toBeCloseTo(0.01);
+	});
+
+	it("weights weak/mid edges much lower than a linear falloff would (quartic curve)", () => {
+		// At half the max weight, opacity should sit far below the halfway point
+		// between min and max opacity — that's the whole point of raising t to
+		// the 4th power.
+		const half = edgeOpacity(5, 10);
+		const min = 0.01;
+		const max = 0.12;
+		expect(half).toBeLessThan(min + (max - min) / 2);
+	});
+
+	it("normalizes each edge kind against its own max rather than a shared max", () => {
+		// A weight of 5 out of a small-scale max (artist-artist, max 5) should
+		// read as "strong" even though the same raw weight would read as "weak"
+		// against a large-scale max (genre-genre, max 500).
+		const strongWithinOwnKind = edgeOpacity(5, 5);
+		const weakAgainstOtherKindsMax = edgeOpacity(5, 500);
+		expect(strongWithinOwnKind).toBeGreaterThan(weakAgainstOtherKindsMax);
+	});
+});
+
+describe("desaturateColor", () => {
+	it("returns the same color unchanged when amount is 0", () => {
+		expect(desaturateColor("#DA654E", 0)).toBe("#da654e");
+	});
+
+	it("returns a pure gray (equal r/g/b) when amount is 1", () => {
+		const result = desaturateColor("#DA654E", 1);
+		const r = Number.parseInt(result.slice(1, 3), 16);
+		const g = Number.parseInt(result.slice(3, 5), 16);
+		const b = Number.parseInt(result.slice(5, 7), 16);
+		expect(r).toBe(g);
+		expect(g).toBe(b);
+	});
+
+	it("moves partway toward gray for an intermediate amount", () => {
+		const full = desaturateColor("#DA654E", 1);
+		const half = desaturateColor("#DA654E", 0.5);
+		const grayValue = Number.parseInt(full.slice(1, 3), 16);
+		const halfR = Number.parseInt(half.slice(1, 3), 16);
+		const origR = 0xda;
+		// Half-desaturated red channel should sit between the original and full gray.
+		expect(halfR).toBeGreaterThan(Math.min(origR, grayValue));
+		expect(halfR).toBeLessThan(Math.max(origR, grayValue));
+	});
+
+	it("preserves hue direction: a color already close to gray barely changes", () => {
+		const nearGray = "#808080";
+		expect(desaturateColor(nearGray, 0.5)).toBe("#808080");
+	});
+});
+
+describe("isolatedNodePosition", () => {
+	const centers = new Map([
+		[0, { x: 100, y: 200 }],
+		[1, { x: -50, y: 30 }],
+	]);
+
+	it("returns the community center when the community has a known center", () => {
+		expect(isolatedNodePosition(0, centers)).toEqual({ x: 100, y: 200 });
+		expect(isolatedNodePosition(1, centers)).toEqual({ x: -50, y: 30 });
+	});
+
+	it("falls back to the origin when the community has no known center", () => {
+		expect(isolatedNodePosition(99, centers)).toEqual({ x: 0, y: 0 });
+	});
+
+	it("falls back to the origin when community is undefined", () => {
+		expect(isolatedNodePosition(undefined, centers)).toEqual({ x: 0, y: 0 });
 	});
 });
 
@@ -120,5 +212,36 @@ describe("assignCommunityColors", () => {
 		const ids = Array.from({ length: 12 }, (_, i) => i);
 		const result = assignCommunityColors(ids, COMMUNITY_PALETTE);
 		expect(new Set(result.values()).size).toBe(12);
+	});
+});
+
+describe("parseNodeParam", () => {
+	it("parses a genre node param", () => {
+		expect(parseNodeParam("g:14")).toEqual({ kind: "genre", id: 14 });
+	});
+
+	it("parses an artist node param", () => {
+		expect(parseNodeParam("a:7")).toEqual({ kind: "artist", id: 7 });
+	});
+
+	it("returns null for null input", () => {
+		expect(parseNodeParam(null)).toBeNull();
+	});
+
+	it("returns null for an empty string", () => {
+		expect(parseNodeParam("")).toBeNull();
+	});
+
+	it("returns null for an unrecognized prefix", () => {
+		expect(parseNodeParam("x:14")).toBeNull();
+	});
+
+	it("returns null for a non-numeric id", () => {
+		expect(parseNodeParam("g:abc")).toBeNull();
+	});
+
+	it("returns null for a zero or negative id", () => {
+		expect(parseNodeParam("g:0")).toBeNull();
+		expect(parseNodeParam("a:-3")).toBeNull();
 	});
 });
