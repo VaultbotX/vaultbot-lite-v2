@@ -107,12 +107,11 @@ function clearSelection(): void {
 </script>
 
 <svelte:head>
-	<title>Vaultbot :: Genre Graph</title>
+	<title>Vaultbot :: Playlist Galaxy</title>
 </svelte:head>
 
 <div class="page-header">
-	<h1>Genre Graph</h1>
-	<p class="muted">Explore connections between genres and artists in the archive. Click a node to drill down.</p>
+	<h1>Playlist Galaxy</h1>
 </div>
 
 <div class="toolbar card">
