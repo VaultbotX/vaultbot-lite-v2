@@ -164,22 +164,46 @@ $effect(() => {
 
 	const { drawDiscNodeLabel } = sigmaRendering;
 
-	// Default (non-hover) label renderer: draws the normal label twice under a
-	// black shadow blur before the real pass, so text reads as having a dark
-	// halo/outline against the dense web of edges instead of sigma's plain
-	// flat-color text.
-	function drawNodeLabelWithHalo(
+	// Default (non-hover) label renderer: draws a genre/artist glyph centered
+	// on the node itself, plus the name label as solid white text over a
+	// near-opaque black stroke (no blur) — maximum contrast against the dense
+	// web of edges, versus sigma's plain flat-color text.
+	function drawNodeLabelWithOutline(
 		context: CanvasRenderingContext2D,
 		data: Record<string, unknown>,
 		settings: Record<string, unknown>,
 	): void {
+		if (!data.label) return;
+		const size = settings.labelSize as number;
+		const font = settings.labelFont as string;
+		const weight = settings.labelWeight as string;
+		const x = data.x as number;
+		const y = data.y as number;
+		const nodeSize = data.size as number;
+		const label = data.label as string;
+		const kind = data.kind as string;
+
 		context.save();
-		context.shadowColor = "#000000";
-		context.shadowBlur = 4;
-		context.shadowOffsetX = 0;
-		context.shadowOffsetY = 0;
-		drawDiscNodeLabel(context, data, settings);
-		drawDiscNodeLabel(context, data, settings);
+
+		const emoji = kind === "artist" ? "🎨" : "🎵";
+		const emojiSize = Math.max(8, nodeSize * 1.2);
+		context.font = `${emojiSize}px sans-serif`;
+		context.textAlign = "center";
+		context.textBaseline = "middle";
+		context.fillText(emoji, x, y);
+
+		context.textAlign = "left";
+		context.textBaseline = "alphabetic";
+		context.font = `${weight} ${size}px ${font}`;
+		context.lineJoin = "round";
+		context.lineWidth = 3;
+		context.strokeStyle = "rgba(0, 0, 0, 0.95)";
+		context.fillStyle = "#ffffff";
+		const labelX = x + nodeSize + 3;
+		const labelY = y + size / 3;
+		context.strokeText(label, labelX, labelY);
+		context.fillText(label, labelX, labelY);
+
 		context.restore();
 	}
 
@@ -293,7 +317,7 @@ $effect(() => {
 			defaultEdgeColor: "rgb(96, 96, 160)",
 			defaultNodeColor: "#7c6af7",
 			defaultEdgeType: "curve",
-			defaultDrawNodeLabel: drawNodeLabelWithHalo,
+			defaultDrawNodeLabel: drawNodeLabelWithOutline,
 			defaultDrawNodeHover: drawDarkNodeHover,
 			edgeProgramClasses: { curve: edgeCurve },
 			nodeProgramClasses: { circle: nodeBorderProgram },

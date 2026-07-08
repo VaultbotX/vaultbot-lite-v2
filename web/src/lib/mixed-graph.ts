@@ -10,6 +10,7 @@ import type {
 import {
 	assignCommunityColors,
 	COMMUNITY_PALETTE,
+	desaturateColor,
 	edgeOpacity,
 	edgeWidth,
 } from "./graph";
@@ -78,19 +79,12 @@ export function buildMixedGraph(
 		1,
 	);
 
-	// Border color doubles as the genre/artist visual disambiguator: genres
-	// keep a black ring, artists get a light neutral ring, so the two kinds
-	// stay distinguishable even within a single community's color group.
-	const GENRE_BORDER_COLOR = "#000000";
-	const ARTIST_BORDER_COLOR = "#e2e2f0";
-
 	for (const v of genreVertices) {
 		graph.addNode(genreNodeId(v.genre_id), {
 			label: v.name,
 			kind: "genre" satisfies NodeKind,
 			genreId: v.genre_id,
 			archiveCount: v.archive_count,
-			borderColor: GENRE_BORDER_COLOR,
 		});
 	}
 
@@ -100,7 +94,6 @@ export function buildMixedGraph(
 			kind: "artist" satisfies NodeKind,
 			artistId: v.artist_id,
 			archiveCount: v.archive_count,
-			borderColor: ARTIST_BORDER_COLOR,
 		});
 	}
 
@@ -160,17 +153,25 @@ export function buildMixedGraph(
 	graph.forEachNode((_, attrs) => communityIds.add(attrs.community as number));
 	const colorMap = assignCommunityColors(communityIds, COMMUNITY_PALETTE);
 
+	// Artist fills are desaturated relative to their genre counterparts within
+	// the same community — same hue, muted intensity — so the two node kinds
+	// stay visually distinguishable even in a dense, same-colored cluster.
+	const ARTIST_DESATURATION = 0.35;
+
 	graph.forEachNode((node, attrs) => {
 		const kind = attrs.kind as NodeKind;
 		const archiveCount = attrs.archiveCount as number;
 		const maxForKind = kind === "genre" ? maxGenreArchive : maxArtistArchive;
 		const size = scaledNodeSize(archiveCount, maxForKind);
+		const baseColor = colorMap.get(attrs.community as number) ?? "#888888";
 
 		graph.setNodeAttribute(node, "size", size);
 		graph.setNodeAttribute(
 			node,
 			"color",
-			colorMap.get(attrs.community as number) ?? "#888888",
+			kind === "artist"
+				? desaturateColor(baseColor, ARTIST_DESATURATION)
+				: baseColor,
 		);
 	});
 
