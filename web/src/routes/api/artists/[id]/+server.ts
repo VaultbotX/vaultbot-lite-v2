@@ -17,11 +17,18 @@ export interface ArtistGenre {
 	name: string;
 }
 
+export interface ConnectedArtist {
+	artist_id: number;
+	name: string;
+	shared_song_count: number;
+}
+
 export interface ArtistDetail {
 	artist_name: string;
 	spotify_id: string;
 	songs: ArtistSong[];
 	genres: ArtistGenre[];
+	connected_artists: ConnectedArtist[];
 }
 
 export const GET: RequestHandler = async ({ platform, params }) => {
@@ -37,7 +44,7 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 
 	const sql = neon(dbUrl);
 
-	const { artistRows, songs, genres } = await allNamed({
+	const { artistRows, songs, genres, connected_artists } = await allNamed({
 		artistRows: typed<{ name: string; spotify_id: string }[]>(sql`
 			SELECT name, spotify_id FROM artists WHERE id = ${artistId}
 		`),
@@ -75,6 +82,19 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 			WHERE lag.artist_id = ${artistId}
 			ORDER BY g.name
 		`),
+		connected_artists: typed<ConnectedArtist[]>(sql`
+			SELECT a.id AS artist_id, a.name, e.shared_song_count
+			FROM artist_graph_edges e
+			JOIN artists a ON a.id = e.target_artist_id
+			WHERE e.source_artist_id = ${artistId}
+			UNION ALL
+			SELECT a.id AS artist_id, a.name, e.shared_song_count
+			FROM artist_graph_edges e
+			JOIN artists a ON a.id = e.source_artist_id
+			WHERE e.target_artist_id = ${artistId}
+			ORDER BY shared_song_count DESC
+			LIMIT 20
+		`),
 	});
 
 	if (artistRows.length === 0) {
@@ -86,5 +106,6 @@ export const GET: RequestHandler = async ({ platform, params }) => {
 		spotify_id: artistRows[0].spotify_id,
 		songs,
 		genres,
+		connected_artists,
 	} satisfies ArtistDetail);
 };

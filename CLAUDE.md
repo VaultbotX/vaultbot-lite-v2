@@ -117,18 +117,20 @@ go run ./cmd/stats                      # Generate stats JSON (stdout) — super
 │   │   │   ├── +layout.svelte  # Root layout (header, nav, footer)
 │   │   │   ├── +page.svelte    # Stats dashboard (summary cards + charts)
 │   │   │   ├── +page.ts        # Fetches /api/stats
-│   │   │   ├── graph/          # Interactive mixed genre/artist graph page
+│   │   │   ├── galaxy/         # Interactive mixed genre/artist graph page (drawer-based detail view)
 │   │   │   │   ├── +page.svelte
-│   │   │   │   └── +page.ts    # Fetches /api/graph
-│   │   │   ├── genres/[id]/    # Genre drilldown page
-│   │   │   ├── artists/[id]/   # Artist drilldown page (no index page — the graph is the entry point)
+│   │   │   │   └── +page.ts    # Fetches /api/graph; deep-links to a selected node's detail panel
 │   │   │   └── api/            # Server-side API routes (Cloudflare Pages Functions)
 │   │   │       ├── stats/      # GET /api/stats
 │   │   │       ├── graph/      # GET /api/graph (mixed genre + artist vertices/edges)
 │   │   │       ├── genres/[id]/  # GET /api/genres/:id
 │   │   │       └── artists/[id]/ # GET /api/artists/:id
 │   │   └── lib/
-│   │       ├── GenreGraph.svelte   # Sigma.js graph renderer
+│   │       ├── GenreGraph.svelte        # Sigma.js graph renderer
+│   │       ├── GraphDetailDrawer.svelte # Drawer that renders GenreDetailPanel/ArtistDetailPanel for the selected node
+│   │       ├── GenreDetailPanel.svelte  # Genre detail: artists, top tracks, related genres
+│   │       ├── ArtistDetailPanel.svelte # Artist detail: genres, songs, collaborators
+│   │       ├── GenreChip.svelte         # Generic name+count chip used by both detail panels
 │   │       ├── mixed-graph.ts      # Builds the graphology Graph (genre + artist nodes/edges) from API data
 │   │       ├── StatsCharts.svelte  # Chart.js charts component (line, bar, treemap)
 │   │       ├── allNamed.ts         # Parallel DB query helper
