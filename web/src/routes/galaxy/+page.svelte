@@ -1,8 +1,8 @@
 <script lang="ts">
+import { untrack } from "svelte";
 import { browser } from "$app/environment";
 import { pushState } from "$app/navigation";
 import { page } from "$app/state";
-import { untrack } from "svelte";
 import GenreGraph from "$lib/GenreGraph.svelte";
 import GraphDetailDrawer from "$lib/GraphDetailDrawer.svelte";
 import type { SearchableNode, SelectedNode } from "$lib/graph";

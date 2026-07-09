@@ -73,6 +73,21 @@ let {
 	{/if}
 </section>
 
+{#if data.connected_artists.length > 0}
+	<section class="block">
+		<h3>Collaborators</h3>
+		<div class="chips">
+			{#each data.connected_artists as artist}
+				<GenreChip
+					name={artist.name}
+					count={artist.shared_song_count}
+					onClick={() => onSelectArtist(artist.artist_id)}
+				/>
+			{/each}
+		</div>
+	</section>
+{/if}
+
 <style>
 	.title-row {
 		display: flex;
