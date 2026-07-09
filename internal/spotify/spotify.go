@@ -2,6 +2,7 @@ package spotify
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/vaultbotx/vaultbot-lite/internal/utils"
 	"github.com/zmb3/spotify/v2"
 	auth "github.com/zmb3/spotify/v2/auth"
+	"golang.org/x/oauth2"
 )
 
 var instance *Client
@@ -89,6 +91,14 @@ func NewSpotifyClient(ctx context.Context) (*Client, error) {
 
 	_, err = client.CurrentUser(ctx)
 	if err != nil {
+		var retrieveErr *oauth2.RetrieveError
+		if errors.As(err, &retrieveErr) && retrieveErr.ErrorCode == "invalid_grant" {
+			log.Fatalf("Spotify refresh token is expired or revoked (invalid_grant). "+
+				"Refresh tokens now expire 6 months after authorization (see "+
+				"https://developer.spotify.com/blog/2026-06-18-refresh-token-expiration). "+
+				"Re-run scripts/spotify-auth-code-flow to obtain a new token and update the "+
+				"SPOTIFY_TOKEN secret. Original error: %v", err)
+		}
 		log.Fatalf("Unable to validate Spotify credentials: %v", err)
 	}
 
