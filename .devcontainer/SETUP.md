@@ -46,18 +46,14 @@ Then visit `http://127.0.0.1:8888/login` in a browser. After authorizing, the ca
   "access_token": "...",
   "refresh_token": "...",
   "token_type": "Bearer",
-  "expires_in": 3600
+  "expires_in": 3600,
+  "formatted_token": "accessToken|refreshToken|Bearer|expiryUnix"
 }
 ```
 
-Construct `SPOTIFY_TOKEN` from that response in the format `accessToken|refreshToken|tokenType|expiryUnix`, where `expiryUnix` is the current Unix timestamp plus `expires_in`:
+Copy `formatted_token` directly — it's already in the `accessToken|refreshToken|tokenType|expiryUnix` format `SPOTIFY_TOKEN` expects, with `expiryUnix` computed as the current Unix timestamp plus `expires_in`. No hand-assembly needed.
 
-```sh
-# example (replace values from the JSON response)
-echo "ACCESS_TOKEN|REFRESH_TOKEN|Bearer|$(( $(date +%s) + 3600 ))"
-```
-
-Store the resulting string as the `SPOTIFY_TOKEN` secret. The embedded refresh token means the access token renews automatically on every run — but as of the [2026-06-18 Spotify policy change](https://developer.spotify.com/blog/2026-06-18-refresh-token-expiration), refresh tokens expire 6 months after authorization (existing apps affected from 2026-07-20). When that happens, every workflow using `SPOTIFY_TOKEN` will fail with an `invalid_grant` error — repeat this step to mint a fresh token and update the secret. Do this roughly every 6 months, or immediately after a workflow failure email points at `invalid_grant`.
+Store that value as the `SPOTIFY_TOKEN` secret. The embedded refresh token means the access token renews automatically on every run — but as of the [2026-06-18 Spotify policy change](https://developer.spotify.com/blog/2026-06-18-refresh-token-expiration), refresh tokens expire 6 months after authorization (existing apps affected from 2026-07-20). When that happens, every workflow using `SPOTIFY_TOKEN` will fail with an `invalid_grant` error — repeat this step to mint a fresh token and update the secret. Do this roughly every 6 months, or immediately after a workflow failure email points at `invalid_grant`.
 
 ---
 
