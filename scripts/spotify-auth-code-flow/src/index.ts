@@ -91,11 +91,19 @@ app.get('/callback', async (c) => {
 		return c.text('Failed to get access token', 422);
 	}
 
-	const responseBody = await res.json();
+	const responseBody = (await res.json()) as {
+		access_token: string;
+		refresh_token: string;
+		token_type: string;
+		expires_in: number;
+	};
 
-	console.log(responseBody);
+	const expiryUnix = Math.floor(Date.now() / 1000) + responseBody.expires_in;
+	const formatted_token = `${responseBody.access_token}|${responseBody.refresh_token}|${responseBody.token_type}|${expiryUnix}`;
 
-	return c.json(responseBody, 200);
+	console.log({ ...responseBody, formatted_token });
+
+	return c.json({ ...responseBody, formatted_token }, 200);
 });
 
 console.log(`Server is running on port ${port}`);
