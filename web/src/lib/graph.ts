@@ -185,3 +185,36 @@ export function parseNodeParam(value: string | null): SelectedNode | null {
 	if (!Number.isInteger(id) || id <= 0) return null;
 	return { kind: match[1] === "g" ? "genre" : "artist", id };
 }
+
+// Parses the `?start=&end=` epoch-second window shared by /api/genres/:id
+// and /api/artists/:id. Both params must be present and form a valid
+// [start, end] pair — anything else (missing, non-numeric, inverted) is
+// treated as "no time filter" rather than a request error, since a stale or
+// malformed link should fall back to all-time data instead of failing.
+export function parseTimeRangeParams(
+	searchParams: URLSearchParams,
+): TimeRange | null {
+	const startParam = searchParams.get("start");
+	const endParam = searchParams.get("end");
+	if (startParam === null || endParam === null) return null;
+	const start = Number(startParam);
+	const end = Number(endParam);
+	if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) {
+		return null;
+	}
+	return [start, end];
+}
+
+// Builds the detail-drawer fetch URL for a selected node, appending the
+// active time window as `start`/`end` query params when one is active.
+export function detailFetchUrl(
+	node: SelectedNode,
+	activeWindow: TimeRange | null,
+): string {
+	const base =
+		node.kind === "genre"
+			? `/api/genres/${node.id}`
+			: `/api/artists/${node.id}`;
+	if (!activeWindow) return base;
+	return `${base}?start=${activeWindow[0]}&end=${activeWindow[1]}`;
+}
