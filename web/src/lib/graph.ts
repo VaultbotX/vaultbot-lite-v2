@@ -218,3 +218,17 @@ export function detailFetchUrl(
 	if (!activeWindow) return base;
 	return `${base}?start=${activeWindow[0]}&end=${activeWindow[1]}`;
 }
+
+// Converts an inclusive [start, end] window into the half-open bounds a SQL
+// `created_at` filter needs. `end` names a whole second, but it was derived
+// by flooring a (sub-second-precision) timestamp — see the graph_vertices/
+// edges materialized views — so the row it's meant to include usually has a
+// fractional second past it. Filtering with `created_at < endExclusive`
+// against the bare column (rather than flooring `created_at` itself before
+// comparing) keeps the comparison sargable against idx_song_archive_created_at.
+export function sqlBounds(range: TimeRange): {
+	start: number;
+	endExclusive: number;
+} {
+	return { start: range[0], endExclusive: range[1] + 1 };
+}
