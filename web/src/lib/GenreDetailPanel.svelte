@@ -29,9 +29,7 @@ let {
 	<h3>Artists</h3>
 	{#if data.artists.length === 0}
 		<p class="empty mono muted">
-			{activeWindow
-				? "Something went wrong, this should not have happened!"
-				: "No artists found"}
+			{activeWindow ? "No artists in this time period" : "No artists found"}
 		</p>
 	{:else}
 		<table>

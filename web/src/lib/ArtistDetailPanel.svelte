@@ -44,9 +44,7 @@ let {
 	<h3>Songs <span class="count mono muted">({data.songs.length.toLocaleString()})</span></h3>
 	{#if data.songs.length === 0}
 		<p class="empty mono muted">
-			{activeWindow
-				? "Something went wrong, this should not have happened!"
-				: "No songs found"}
+			{activeWindow ? "No songs in this time period" : "No songs found"}
 		</p>
 	{:else}
 		<table>
