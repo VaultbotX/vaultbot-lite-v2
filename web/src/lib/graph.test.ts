@@ -3,12 +3,14 @@ import {
 	assignCommunityColors,
 	COMMUNITY_PALETTE,
 	desaturateColor,
+	detailFetchUrl,
 	edgeOpacity,
 	edgeWidth,
 	formatWindowRange,
 	isolatedNodePosition,
 	nodeSize,
 	parseNodeParam,
+	parseTimeRangeParams,
 	rangesOverlap,
 	type SearchableNode,
 	searchNodes,
@@ -334,6 +336,76 @@ describe("searchNodes", () => {
 			name: `Test ${i}`,
 		}));
 		expect(searchNodes("test", many).length).toBe(8);
+	});
+});
+
+describe("parseTimeRangeParams", () => {
+	it("returns null when both params are absent", () => {
+		expect(parseTimeRangeParams(new URLSearchParams())).toBeNull();
+	});
+
+	it("returns null when only start is present", () => {
+		expect(parseTimeRangeParams(new URLSearchParams("start=100"))).toBeNull();
+	});
+
+	it("returns null when only end is present", () => {
+		expect(parseTimeRangeParams(new URLSearchParams("end=200"))).toBeNull();
+	});
+
+	it("parses a valid start/end pair", () => {
+		expect(
+			parseTimeRangeParams(new URLSearchParams("start=100&end=200")),
+		).toEqual([100, 200]);
+	});
+
+	it("returns null when start is non-numeric", () => {
+		expect(
+			parseTimeRangeParams(new URLSearchParams("start=abc&end=200")),
+		).toBeNull();
+	});
+
+	it("returns null when end is non-numeric", () => {
+		expect(
+			parseTimeRangeParams(new URLSearchParams("start=100&end=xyz")),
+		).toBeNull();
+	});
+
+	it("returns null when start is after end", () => {
+		expect(
+			parseTimeRangeParams(new URLSearchParams("start=200&end=100")),
+		).toBeNull();
+	});
+
+	it("accepts start equal to end", () => {
+		expect(
+			parseTimeRangeParams(new URLSearchParams("start=100&end=100")),
+		).toEqual([100, 100]);
+	});
+});
+
+describe("detailFetchUrl", () => {
+	it("builds a bare genre URL when there is no active window", () => {
+		expect(detailFetchUrl({ kind: "genre", id: 14 }, null)).toBe(
+			"/api/genres/14",
+		);
+	});
+
+	it("builds a bare artist URL when there is no active window", () => {
+		expect(detailFetchUrl({ kind: "artist", id: 7 }, null)).toBe(
+			"/api/artists/7",
+		);
+	});
+
+	it("appends start/end params for a genre when a window is active", () => {
+		expect(detailFetchUrl({ kind: "genre", id: 14 }, [100, 200])).toBe(
+			"/api/genres/14?start=100&end=200",
+		);
+	});
+
+	it("appends start/end params for an artist when a window is active", () => {
+		expect(detailFetchUrl({ kind: "artist", id: 7 }, [100, 200])).toBe(
+			"/api/artists/7?start=100&end=200",
+		);
 	});
 });
 
