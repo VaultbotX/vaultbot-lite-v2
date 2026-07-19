@@ -5,8 +5,8 @@ import { pushState } from "$app/navigation";
 import { page } from "$app/state";
 import GenreGraph from "$lib/GenreGraph.svelte";
 import GraphDetailDrawer from "$lib/GraphDetailDrawer.svelte";
-import type { SearchableNode, SelectedNode } from "$lib/graph";
-import { searchNodes } from "$lib/graph";
+import type { SearchableNode, SelectedNode, TimeRange } from "$lib/graph";
+import { formatWindowRange, rangesOverlap, searchNodes } from "$lib/graph";
 import { buildMixedGraph } from "$lib/mixed-graph";
 import type { GraphData } from "../api/graph/+server";
 import type { PageData } from "./$types";
@@ -14,16 +14,36 @@ import type { PageData } from "./$types";
 let { data }: { data: PageData } = $props();
 
 const ARTISTS_KEY = "graph:showArtists";
-const DYNAMIC_KEY = "graph:showDynamic";
+const ALL_TIME_KEY = "graph:allTime";
+const FOURTEEN_DAYS_SECONDS = 14 * 24 * 60 * 60;
+
+function collectRanges(gd: GraphData): TimeRange[] {
+	return [
+		...gd.genreVertices.flatMap((v) => v.ranges),
+		...gd.artistVertices.flatMap((v) => v.ranges),
+	];
+}
 
 let showArtists = $state(
 	browser ? localStorage.getItem(ARTISTS_KEY) !== "false" : true,
 );
-let showDynamic = $state(
-	browser ? localStorage.getItem(DYNAMIC_KEY) === "true" : false,
+let allTime = $state(
+	browser ? localStorage.getItem(ALL_TIME_KEY) !== "false" : true,
 );
-let dynamicData = $state<GraphData | null>(null);
-let loadingDynamic = $state(false);
+
+// The slider always represents a fixed 14-day-wide window; only its start
+// (position within the archive's history) moves. Defaults to the most
+// recent 14 days the first time the user leaves all-time mode, mirroring
+// the old dynamic-mode default. Seeded once from the initial `data` load —
+// there's no refetch to re-seed from, the graph never changes underneath.
+let windowStart = $state(
+	untrack(() => {
+		const ranges = collectRanges(data);
+		const max =
+			ranges.length > 0 ? Math.max(...ranges.map(([, end]) => end)) : 0;
+		return Math.max(0, max - FOURTEEN_DAYS_SECONDS);
+	}),
+);
 
 let genreGraphInst = $state<{ focusNode: (nodeId: string) => void } | null>(
 	null,
@@ -51,49 +71,74 @@ $effect(() => {
 });
 
 $effect(() => {
-	localStorage.setItem(DYNAMIC_KEY, String(showDynamic));
+	localStorage.setItem(ALL_TIME_KEY, String(allTime));
 });
 
-$effect(() => {
-	if (!showDynamic || dynamicData) return;
-	loadingDynamic = true;
-	fetch("/api/graph?dynamic=true")
-		.then((r) => r.json() as Promise<GraphData>)
-		.then((d) => {
-			dynamicData = d;
-			loadingDynamic = false;
-		})
-		.catch(() => {
-			loadingDynamic = false;
-		});
-});
-
-const activeData = $derived(showDynamic && dynamicData ? dynamicData : data);
-
-const visibleArtistVertices = $derived(
-	showArtists ? activeData.artistVertices : [],
+// The full graph structure never changes with the window — only reducer
+// visibility does (see GenreGraph's `activeWindow` prop) — so this is the
+// only place the window is turned into a concrete [start, end] pair.
+const activeWindow = $derived<TimeRange | null>(
+	allTime ? null : [windowStart, windowStart + FOURTEEN_DAYS_SECONDS],
 );
+
+function isInWindow(ranges: TimeRange[]): boolean {
+	const w = activeWindow;
+	return !w || rangesOverlap(ranges, w[0], w[1]);
+}
+
+const allRanges = $derived(collectRanges(data));
+const minTimestamp = $derived(
+	allRanges.length > 0 ? Math.min(...allRanges.map(([start]) => start)) : 0,
+);
+const maxTimestamp = $derived(
+	allRanges.length > 0 ? Math.max(...allRanges.map(([, end]) => end)) : 0,
+);
+// The window's start can't push its end past the latest known activity.
+const windowStartMax = $derived(
+	Math.max(minTimestamp, maxTimestamp - FOURTEEN_DAYS_SECONDS),
+);
+
+const visibleArtistVertices = $derived(showArtists ? data.artistVertices : []);
 const visibleGenreArtistEdges = $derived(
-	showArtists ? activeData.genreArtistEdges : [],
+	showArtists ? data.genreArtistEdges : [],
 );
 const visibleArtistArtistEdges = $derived(
-	showArtists ? activeData.artistArtistEdges : [],
+	showArtists ? data.artistArtistEdges : [],
 );
 
 const graph = $derived(
 	buildMixedGraph(
-		activeData.genreVertices,
+		data.genreVertices,
 		visibleArtistVertices,
-		activeData.genreGenreEdges,
+		data.genreGenreEdges,
 		visibleGenreArtistEdges,
 		visibleArtistArtistEdges,
 	),
 );
 
+// Distinct from the vertex/edge lists above: those feed the (always-full)
+// graph structure, these are only for the stat line and search, which
+// should reflect what's actually visible under the current window.
+const genresInWindow = $derived(
+	data.genreVertices.filter((v) => isInWindow(v.ranges)),
+);
+const artistsInWindow = $derived(
+	visibleArtistVertices.filter((v) => isInWindow(v.ranges)),
+);
+const genreGenreEdgesInWindow = $derived(
+	data.genreGenreEdges.filter((e) => isInWindow(e.ranges)),
+);
+const genreArtistEdgesInWindow = $derived(
+	visibleGenreArtistEdges.filter((e) => isInWindow(e.ranges)),
+);
+const artistArtistEdgesInWindow = $derived(
+	visibleArtistArtistEdges.filter((e) => isInWindow(e.ranges)),
+);
+
 const connectionCount = $derived(
-	activeData.genreGenreEdges.length +
-		visibleGenreArtistEdges.length +
-		visibleArtistArtistEdges.length,
+	genreGenreEdgesInWindow.length +
+		genreArtistEdgesInWindow.length +
+		artistArtistEdgesInWindow.length,
 );
 
 const selectedGraphNodeId = $derived(
@@ -103,12 +148,12 @@ const selectedGraphNodeId = $derived(
 );
 
 const searchableNodes = $derived<SearchableNode[]>([
-	...activeData.genreVertices.map((v) => ({
+	...genresInWindow.map((v) => ({
 		id: v.genre_id,
 		kind: "genre" as const,
 		name: v.name,
 	})),
-	...visibleArtistVertices.map((v) => ({
+	...artistsInWindow.map((v) => ({
 		id: v.artist_id,
 		kind: "artist" as const,
 		name: v.name,
@@ -197,11 +242,27 @@ function clearSelection(): void {
 	<label>
 		<input
 			type="checkbox"
-			checked={showDynamic}
-			onchange={() => (showDynamic = !showDynamic)}
+			checked={allTime}
+			onchange={() => (allTime = !allTime)}
 		/>
-		<span>Current playlist only <span class="pill">≤ 2 weeks</span></span>
+		<span>All time</span>
 	</label>
+	{#if !allTime}
+		<div class="window-control">
+			<input
+				type="range"
+				class="window-slider"
+				min={minTimestamp}
+				max={windowStartMax}
+				step={3600}
+				value={windowStart}
+				oninput={(e) => (windowStart = Number(e.currentTarget.value))}
+			/>
+			<span class="window-label mono muted"
+				>{formatWindowRange(windowStart, windowStart + FOURTEEN_DAYS_SECONDS)}</span
+			>
+		</div>
+	{/if}
 	<div class="search-wrapper" bind:this={searchWrapperEl}>
 		<input
 			type="text"
@@ -234,29 +295,26 @@ function clearSelection(): void {
 		{/if}
 	</div>
 	<span class="stat mono muted"
-		>{activeData.genreVertices.length} genres · {visibleArtistVertices.length} artists · {connectionCount} connections</span
+		>{genresInWindow.length} genres · {artistsInWindow.length} artists · {connectionCount} connections</span
 	>
 </div>
 
-{#if loadingDynamic}
-	<div class="loading card">Loading current playlist graph…</div>
-{:else}
-	<div class="graph-row">
-		<GenreGraph
-			bind:this={genreGraphInst}
-			{graph}
-			selectedNode={selectedGraphNodeId}
-			onNodeTap={selectNode}
-			onBackgroundClick={clearSelection}
-		/>
-		<GraphDetailDrawer
-			selected={selectedNode}
-			initialDetail={data.initialDetail}
-			onSelect={selectNode}
-			onClose={clearSelection}
-		/>
-	</div>
-{/if}
+<div class="graph-row">
+	<GenreGraph
+		bind:this={genreGraphInst}
+		{graph}
+		selectedNode={selectedGraphNodeId}
+		{activeWindow}
+		onNodeTap={selectNode}
+		onBackgroundClick={clearSelection}
+	/>
+	<GraphDetailDrawer
+		selected={selectedNode}
+		initialDetail={data.initialDetail}
+		onSelect={selectNode}
+		onClose={clearSelection}
+	/>
+</div>
 
 <style>
 	.page-header {
@@ -292,16 +350,21 @@ function clearSelection(): void {
 		cursor: pointer;
 	}
 
-	.pill {
-		display: inline-block;
-		font-family: "IBM Plex Sans", monospace;
-		font-size: 10px;
-		padding: 1px 5px;
-		border-radius: 4px;
-		background: var(--surface-2);
-		border: 1px solid var(--border);
-		color: var(--text-muted);
-		vertical-align: middle;
+	.window-control {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.window-slider {
+		accent-color: var(--accent);
+		cursor: pointer;
+		width: 160px;
+	}
+
+	.window-label {
+		font-size: 11px;
+		white-space: nowrap;
 	}
 
 	.stat {
@@ -372,15 +435,6 @@ function clearSelection(): void {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-
-	.loading {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 400px;
-		color: var(--text-muted);
-		font-size: 14px;
 	}
 
 	.graph-row {
