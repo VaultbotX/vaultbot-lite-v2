@@ -98,6 +98,11 @@ const windowStartMax = $derived(
 	Math.max(minTimestamp, maxTimestamp - FOURTEEN_DAYS_SECONDS),
 );
 
+// The graph structure always contains every artist node/edge, regardless
+// of `showArtists` — hiding them is GenreGraph's reducer's job (a redraw),
+// not something that should rebuild the graph or rerun FA2/Louvain. These
+// `showArtists`-filtered lists exist only for the stat line and search
+// below, which should reflect what's actually visible.
 const visibleArtistVertices = $derived(showArtists ? data.artistVertices : []);
 const visibleGenreArtistEdges = $derived(
 	showArtists ? data.genreArtistEdges : [],
@@ -109,10 +114,10 @@ const visibleArtistArtistEdges = $derived(
 const graph = $derived(
 	buildMixedGraph(
 		data.genreVertices,
-		visibleArtistVertices,
+		data.artistVertices,
 		data.genreGenreEdges,
-		visibleGenreArtistEdges,
-		visibleArtistArtistEdges,
+		data.genreArtistEdges,
+		data.artistArtistEdges,
 	),
 );
 
@@ -305,6 +310,7 @@ function clearSelection(): void {
 		{graph}
 		selectedNode={selectedGraphNodeId}
 		{activeWindow}
+		{showArtists}
 		onNodeTap={selectNode}
 		onBackgroundClick={clearSelection}
 	/>
