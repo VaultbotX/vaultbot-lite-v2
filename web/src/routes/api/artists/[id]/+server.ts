@@ -45,6 +45,13 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 
 	const sql = neon(dbUrl);
 	const range = parseTimeRangeParams(url.searchParams);
+	// `range[1]` names a whole second, but the graph_vertices/edges materialized
+	// views that produced it floor a sub-second `created_at` down to that
+	// second (extract(epoch ...)::bigint), so the archive row it's meant to
+	// include is very often a fraction of a second *after* it. Comparing with
+	// `< range[1] + 1` treats it as an inclusive whole-second bound instead of
+	// silently excluding the very row a default (all-time-derived) window was
+	// built around.
 
 	const { artistRows, songs, genres, connected_artists } = await allNamed({
 		artistRows: typed<{ name: string; spotify_id: string }[]>(sql`
@@ -58,7 +65,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 					JOIN songs raw ON raw.id = sa.song_id
 					JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
 					WHERE sa.created_at >= to_timestamp(${range[0]})
-						AND sa.created_at <= to_timestamp(${range[1]})
+						AND sa.created_at < to_timestamp(${range[1] + 1})
 					GROUP BY dsl.target_song_spotify_id
 				),
 				song_all_artists AS (
@@ -116,7 +123,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				JOIN song_archive sa ON sa.song_id = lsa.song_id
 				WHERE lag.artist_id = ${artistId}
 					AND sa.created_at >= to_timestamp(${range[0]})
-					AND sa.created_at <= to_timestamp(${range[1]})
+					AND sa.created_at < to_timestamp(${range[1] + 1})
 				ORDER BY g.name
 			`)
 			: typed<ArtistGenre[]>(sql`
@@ -134,7 +141,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 					JOIN songs raw ON raw.id = sa.song_id
 					JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
 					WHERE sa.created_at >= to_timestamp(${range[0]})
-						AND sa.created_at <= to_timestamp(${range[1]})
+						AND sa.created_at < to_timestamp(${range[1] + 1})
 				),
 				artist_pair_song_events AS (
 					SELECT
