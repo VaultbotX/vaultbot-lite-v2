@@ -14,6 +14,7 @@ import {
 	rangesOverlap,
 	type SearchableNode,
 	searchNodes,
+	sqlBounds,
 	type TimeRange,
 } from "./graph";
 
@@ -380,6 +381,26 @@ describe("parseTimeRangeParams", () => {
 		expect(
 			parseTimeRangeParams(new URLSearchParams("start=100&end=100")),
 		).toEqual([100, 100]);
+	});
+});
+
+describe("sqlBounds", () => {
+	it("keeps start unchanged", () => {
+		expect(sqlBounds([100, 200]).start).toBe(100);
+	});
+
+	it("makes end exclusive by adding one second", () => {
+		expect(sqlBounds([100, 200]).endExclusive).toBe(201);
+	});
+
+	it("includes a whole-second boundary event that a naive <= end would miss", () => {
+		// A row floored to exactly `end` (the common case for the default,
+		// most-recent-activity-derived window) may really have occurred any
+		// time within that second, e.g. end + 0.9s — `< endExclusive` must
+		// still cover it.
+		const { endExclusive } = sqlBounds([100, 200]);
+		const rowEpochWithSubSecondFraction = 200.9;
+		expect(rowEpochWithSubSecondFraction < endExclusive).toBe(true);
 	});
 });
 

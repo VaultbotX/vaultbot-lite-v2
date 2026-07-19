@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { json } from "@sveltejs/kit";
 import { allNamed, typed } from "$lib/allNamed";
-import { parseTimeRangeParams } from "$lib/graph";
+import { parseTimeRangeParams, sqlBounds } from "$lib/graph";
 import type { RequestHandler } from "./$types";
 
 export interface ArtistSong {
@@ -45,27 +45,21 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 
 	const sql = neon(dbUrl);
 	const range = parseTimeRangeParams(url.searchParams);
-	// `range[1]` names a whole second, but the graph_vertices/edges materialized
-	// views that produced it floor a sub-second `created_at` down to that
-	// second (extract(epoch ...)::bigint), so the archive row it's meant to
-	// include is very often a fraction of a second *after* it. Comparing with
-	// `< range[1] + 1` treats it as an inclusive whole-second bound instead of
-	// silently excluding the very row a default (all-time-derived) window was
-	// built around.
+	const bounds = range ? sqlBounds(range) : null;
 
 	const { artistRows, songs, genres, connected_artists } = await allNamed({
 		artistRows: typed<{ name: string; spotify_id: string }[]>(sql`
 			SELECT name, spotify_id FROM artists WHERE id = ${artistId}
 		`),
-		songs: range
+		songs: bounds
 			? typed<ArtistSong[]>(sql`
 				WITH canonical_occurrences AS (
 					SELECT dsl.target_song_spotify_id AS canonical_spotify_id, COUNT(sa.id)::int AS occurrences
 					FROM song_archive sa
 					JOIN songs raw ON raw.id = sa.song_id
 					JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
-					WHERE sa.created_at >= to_timestamp(${range[0]})
-						AND sa.created_at < to_timestamp(${range[1] + 1})
+					WHERE sa.created_at >= to_timestamp(${bounds.start})
+						AND sa.created_at < to_timestamp(${bounds.endExclusive})
 					GROUP BY dsl.target_song_spotify_id
 				),
 				song_all_artists AS (
@@ -114,7 +108,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				GROUP BY s.id, s.name, s.spotify_id, co.occurrences
 				ORDER BY occurrences DESC
 			`),
-		genres: range
+		genres: bounds
 			? typed<ArtistGenre[]>(sql`
 				SELECT DISTINCT g.id AS genre_id, g.name
 				FROM genres g
@@ -122,8 +116,8 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				JOIN link_song_artists lsa ON lsa.artist_id = lag.artist_id
 				JOIN song_archive sa ON sa.song_id = lsa.song_id
 				WHERE lag.artist_id = ${artistId}
-					AND sa.created_at >= to_timestamp(${range[0]})
-					AND sa.created_at < to_timestamp(${range[1] + 1})
+					AND sa.created_at >= to_timestamp(${bounds.start})
+					AND sa.created_at < to_timestamp(${bounds.endExclusive})
 				ORDER BY g.name
 			`)
 			: typed<ArtistGenre[]>(sql`
@@ -133,15 +127,15 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				WHERE lag.artist_id = ${artistId}
 				ORDER BY g.name
 			`),
-		connected_artists: range
+		connected_artists: bounds
 			? typed<ConnectedArtist[]>(sql`
 				WITH canonical_events AS (
 					SELECT dsl.target_song_spotify_id AS canonical_spotify_id, sa.created_at
 					FROM song_archive sa
 					JOIN songs raw ON raw.id = sa.song_id
 					JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
-					WHERE sa.created_at >= to_timestamp(${range[0]})
-						AND sa.created_at < to_timestamp(${range[1] + 1})
+					WHERE sa.created_at >= to_timestamp(${bounds.start})
+						AND sa.created_at < to_timestamp(${bounds.endExclusive})
 				),
 				artist_pair_song_events AS (
 					SELECT
