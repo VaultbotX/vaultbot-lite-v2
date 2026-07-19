@@ -2,7 +2,8 @@
 import { untrack } from "svelte";
 import ArtistDetailPanel from "$lib/ArtistDetailPanel.svelte";
 import GenreDetailPanel from "$lib/GenreDetailPanel.svelte";
-import type { SelectedNode } from "$lib/graph";
+import type { SelectedNode, TimeRange } from "$lib/graph";
+import { detailFetchUrl } from "$lib/graph";
 import type { ArtistDetail } from "../routes/api/artists/[id]/+server";
 import type { GenreDetail } from "../routes/api/genres/[id]/+server";
 
@@ -13,11 +14,13 @@ type Detail =
 let {
 	selected,
 	initialDetail,
+	activeWindow,
 	onSelect,
 	onClose,
 }: {
 	selected: SelectedNode | null;
 	initialDetail: Detail | null;
+	activeWindow: TimeRange | null;
 	onSelect: (id: number, kind: "genre" | "artist") => void;
 	onClose: () => void;
 } = $props();
@@ -30,18 +33,26 @@ let loading = $state(false);
 let error = $state(false);
 
 // `initialDetail` is only trustworthy for the very first non-null `selected`
-// value (the parent seeds both together from the same deep-linked node) — it
-// must never be reused once the user has clicked through to something else.
+// value (the parent seeds both together from the same deep-linked node), and
+// only when there's no active time window — it was always fetched server-side
+// as all-time data — it must never be reused once the user has clicked
+// through to something else, or once a window is active.
 let consumedInitial = false;
 
 $effect(() => {
 	const node = selected;
+	const window = activeWindow;
 	if (!node) {
 		detail = null;
 		return;
 	}
 
-	if (!consumedInitial && initialDetail && initialDetail.kind === node.kind) {
+	if (
+		!consumedInitial &&
+		!window &&
+		initialDetail &&
+		initialDetail.kind === node.kind
+	) {
 		consumedInitial = true;
 		detail = initialDetail;
 		return;
@@ -50,26 +61,30 @@ $effect(() => {
 
 	loading = true;
 	error = false;
-	const url =
-		node.kind === "genre"
-			? `/api/genres/${node.id}`
-			: `/api/artists/${node.id}`;
-	fetch(url)
-		.then((r) => {
-			if (!r.ok) throw new Error(`Failed to load: ${r.status}`);
-			return r.json();
-		})
-		.then((data) => {
-			detail =
-				node.kind === "genre"
-					? { kind: "genre", data }
-					: { kind: "artist", data };
-			loading = false;
-		})
-		.catch(() => {
-			error = true;
-			loading = false;
-		});
+
+	// Debounced so dragging the galaxy page's time-window slider (which fires
+	// `oninput` continuously) doesn't flood the detail endpoint with a request
+	// per tick — only the settled value triggers a fetch.
+	const timeoutId = setTimeout(() => {
+		fetch(detailFetchUrl(node, window))
+			.then((r) => {
+				if (!r.ok) throw new Error(`Failed to load: ${r.status}`);
+				return r.json();
+			})
+			.then((data) => {
+				detail =
+					node.kind === "genre"
+						? { kind: "genre", data }
+						: { kind: "artist", data };
+				loading = false;
+			})
+			.catch(() => {
+				error = true;
+				loading = false;
+			});
+	}, 250);
+
+	return () => clearTimeout(timeoutId);
 });
 </script>
 
@@ -83,12 +98,14 @@ $effect(() => {
 		{:else if detail?.kind === "genre"}
 			<GenreDetailPanel
 				data={detail.data}
+				{activeWindow}
 				onSelectGenre={(id) => onSelect(id, "genre")}
 				onSelectArtist={(id) => onSelect(id, "artist")}
 			/>
 		{:else if detail?.kind === "artist"}
 			<ArtistDetailPanel
 				data={detail.data}
+				{activeWindow}
 				onSelectGenre={(id) => onSelect(id, "genre")}
 				onSelectArtist={(id) => onSelect(id, "artist")}
 			/>

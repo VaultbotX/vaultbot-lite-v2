@@ -1,25 +1,36 @@
 <script lang="ts">
 import GenreChip from "$lib/GenreChip.svelte";
+import type { TimeRange } from "$lib/graph";
+import { formatWindowRange } from "$lib/graph";
 import { spotifyUrl } from "$lib/spotify";
 import type { GenreDetail } from "../routes/api/genres/[id]/+server";
 
 let {
 	data,
+	activeWindow,
 	onSelectGenre,
 	onSelectArtist,
 }: {
 	data: GenreDetail;
+	activeWindow: TimeRange | null;
 	onSelectGenre: (id: number) => void;
 	onSelectArtist: (id: number) => void;
 } = $props();
 </script>
 
 <h2 class="title">{data.genre_name}</h2>
+{#if activeWindow}
+	<p class="window-note mono muted">
+		Showing {formatWindowRange(activeWindow[0], activeWindow[1])}
+	</p>
+{/if}
 
 <section class="block">
 	<h3>Artists</h3>
 	{#if data.artists.length === 0}
-		<p class="empty mono muted">No artists found</p>
+		<p class="empty mono muted">
+			{activeWindow ? "No artists in this time period" : "No artists found"}
+		</p>
 	{:else}
 		<table>
 			<thead>
@@ -105,6 +116,11 @@ let {
 	.title {
 		font-size: 20px;
 		margin-bottom: 1.25rem;
+	}
+
+	.window-note {
+		font-size: 11px;
+		margin: -1rem 0 1.25rem;
 	}
 
 	.block {

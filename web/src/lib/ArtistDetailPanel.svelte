@@ -1,15 +1,19 @@
 <script lang="ts">
 import GenreChip from "$lib/GenreChip.svelte";
+import type { TimeRange } from "$lib/graph";
+import { formatWindowRange } from "$lib/graph";
 import SpotifyLinkPill from "$lib/SpotifyLinkPill.svelte";
 import { spotifyUrl } from "$lib/spotify";
 import type { ArtistDetail } from "../routes/api/artists/[id]/+server";
 
 let {
 	data,
+	activeWindow,
 	onSelectGenre,
 	onSelectArtist,
 }: {
 	data: ArtistDetail;
+	activeWindow: TimeRange | null;
 	onSelectGenre: (id: number) => void;
 	onSelectArtist: (id: number) => void;
 } = $props();
@@ -19,6 +23,11 @@ let {
 	<h2 class="title">{data.artist_name}</h2>
 	<SpotifyLinkPill type="artist" id={data.spotify_id} label="Open in Spotify" />
 </div>
+{#if activeWindow}
+	<p class="window-note mono muted">
+		Showing {formatWindowRange(activeWindow[0], activeWindow[1])}
+	</p>
+{/if}
 
 {#if data.genres.length > 0}
 	<section class="block">
@@ -34,7 +43,9 @@ let {
 <section class="block">
 	<h3>Songs <span class="count mono muted">({data.songs.length.toLocaleString()})</span></h3>
 	{#if data.songs.length === 0}
-		<p class="empty mono muted">No songs found</p>
+		<p class="empty mono muted">
+			{activeWindow ? "No songs in this time period" : "No songs found"}
+		</p>
 	{:else}
 		<table>
 			<thead>
@@ -99,6 +110,11 @@ let {
 
 	.title {
 		font-size: 20px;
+	}
+
+	.window-note {
+		font-size: 11px;
+		margin: -0.75rem 0 1.25rem;
 	}
 
 	.block {
