@@ -1,3 +1,43 @@
+// A closed interval [startEpochSeconds, endEpochSeconds] during which a
+// node/edge had archive representation. Nodes/edges may carry several,
+// non-overlapping ranges (e.g. a genre that fell off the playlist for a
+// while and later came back).
+export type TimeRange = [number, number];
+
+// True if any of `ranges` overlaps the closed window [windowStart, windowEnd].
+// Used to filter the mixed graph to a sliding time window entirely
+// client-side — the server ships the full all-time graph plus these ranges
+// and does no date filtering itself.
+export function rangesOverlap(
+	ranges: TimeRange[],
+	windowStart: number,
+	windowEnd: number,
+): boolean {
+	return ranges.some(
+		([start, end]) => start <= windowEnd && end >= windowStart,
+	);
+}
+
+// Formats a window's [start, end) epoch-second bounds as a short display
+// range for the galaxy page's slider label, e.g. "Jun 1 – Jun 15, 2026".
+export function formatWindowRange(
+	windowStart: number,
+	windowEnd: number,
+): string {
+	const day = new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		day: "numeric",
+	});
+	const dayWithYear = new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	});
+	const start = new Date(windowStart * 1000);
+	const end = new Date(windowEnd * 1000);
+	return `${day.format(start)} – ${dayWithYear.format(end)}`;
+}
+
 // Log-scale node diameter
 export function nodeSize(count: number, maxCount: number): number {
 	return 14 + 50 * (Math.log(count + 1) / Math.log(maxCount + 1));

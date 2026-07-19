@@ -5,12 +5,78 @@ import {
 	desaturateColor,
 	edgeOpacity,
 	edgeWidth,
+	formatWindowRange,
 	isolatedNodePosition,
 	nodeSize,
 	parseNodeParam,
+	rangesOverlap,
 	type SearchableNode,
 	searchNodes,
+	type TimeRange,
 } from "./graph";
+
+describe("rangesOverlap", () => {
+	it("returns false for an empty ranges array", () => {
+		expect(rangesOverlap([], 0, 100)).toBe(false);
+	});
+
+	it("returns true when a range is fully inside the window", () => {
+		expect(rangesOverlap([[10, 20]], 0, 100)).toBe(true);
+	});
+
+	it("returns true when the window is fully inside a range", () => {
+		expect(rangesOverlap([[0, 100]], 10, 20)).toBe(true);
+	});
+
+	it("returns true when a range's start touches the window's end exactly", () => {
+		expect(rangesOverlap([[100, 200]], 0, 100)).toBe(true);
+	});
+
+	it("returns true when a range's end touches the window's start exactly", () => {
+		expect(rangesOverlap([[0, 100]], 100, 200)).toBe(true);
+	});
+
+	it("returns false for a range entirely before the window", () => {
+		expect(rangesOverlap([[0, 50]], 51, 100)).toBe(false);
+	});
+
+	it("returns false for a range entirely after the window", () => {
+		expect(rangesOverlap([[101, 150]], 0, 100)).toBe(false);
+	});
+
+	it("returns true when only one of several ranges overlaps", () => {
+		const ranges: TimeRange[] = [
+			[0, 10],
+			[500, 600],
+			[90, 110],
+		];
+		expect(rangesOverlap(ranges, 100, 200)).toBe(true);
+	});
+
+	it("returns false when none of several ranges overlap", () => {
+		const ranges: TimeRange[] = [
+			[0, 10],
+			[500, 600],
+		];
+		expect(rangesOverlap(ranges, 100, 200)).toBe(false);
+	});
+});
+
+describe("formatWindowRange", () => {
+	it("formats start without a year and end with a year", () => {
+		const start = new Date(2026, 5, 1).getTime() / 1000; // Jun 1, 2026 (local)
+		const end = new Date(2026, 5, 15).getTime() / 1000; // Jun 15, 2026 (local)
+		const result = formatWindowRange(start, end);
+		expect(result).toContain("Jun 1");
+		expect(result).toContain("Jun 15, 2026");
+	});
+
+	it("separates the two dates with an en dash", () => {
+		const start = new Date(2026, 0, 1).getTime() / 1000;
+		const end = new Date(2026, 0, 2).getTime() / 1000;
+		expect(formatWindowRange(start, end)).toContain(" – ");
+	});
+});
 
 describe("nodeSize", () => {
 	it("returns the minimum size (14) when count is 0", () => {

@@ -13,6 +13,7 @@ import {
 	desaturateColor,
 	edgeOpacity,
 	edgeWidth,
+	type TimeRange,
 } from "./graph";
 
 export type NodeKind = "genre" | "artist";
@@ -85,6 +86,7 @@ export function buildMixedGraph(
 			kind: "genre" satisfies NodeKind,
 			genreId: v.genre_id,
 			archiveCount: v.archive_count,
+			ranges: v.ranges,
 		});
 	}
 
@@ -94,6 +96,7 @@ export function buildMixedGraph(
 			kind: "artist" satisfies NodeKind,
 			artistId: v.artist_id,
 			archiveCount: v.archive_count,
+			ranges: v.ranges,
 		});
 	}
 
@@ -103,6 +106,7 @@ export function buildMixedGraph(
 		kind: "genre-genre" | "genre-artist" | "artist-artist",
 		weight: number,
 		maxWeight: number,
+		ranges: TimeRange[],
 	): void => {
 		if (!graph.hasNode(src) || !graph.hasNode(tgt) || graph.hasEdge(src, tgt))
 			return;
@@ -112,6 +116,7 @@ export function buildMixedGraph(
 			weight,
 			size: edgeWidth(weight, maxWeight),
 			color: `rgba(96, 96, 160, ${opacity.toFixed(2)})`,
+			ranges,
 		});
 	};
 
@@ -122,6 +127,7 @@ export function buildMixedGraph(
 			"genre-genre",
 			e.shared_archive_count,
 			maxGenreGenreWeight,
+			e.ranges,
 		);
 	}
 
@@ -132,6 +138,7 @@ export function buildMixedGraph(
 			"genre-artist",
 			e.archive_count,
 			maxGenreArtistWeight,
+			e.ranges,
 		);
 	}
 
@@ -142,6 +149,7 @@ export function buildMixedGraph(
 			"artist-artist",
 			e.shared_song_count,
 			maxArtistArtistWeight,
+			e.ranges,
 		);
 	}
 
