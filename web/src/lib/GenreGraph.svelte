@@ -1,16 +1,20 @@
 <script lang="ts">
 import type Graph from "graphology";
 import { onMount } from "svelte";
-import { isolatedNodePosition } from "./graph";
+import { isolatedNodePosition, rangesOverlap, type TimeRange } from "./graph";
 
 let {
 	graph,
 	selectedNode,
+	activeWindow,
+	showArtists,
 	onNodeTap,
 	onBackgroundClick,
 }: {
 	graph: Graph;
 	selectedNode: string | null;
+	activeWindow: TimeRange | null;
+	showArtists: boolean;
 	onNodeTap: (id: number, kind: "genre" | "artist") => void;
 	onBackgroundClick: () => void;
 } = $props();
@@ -343,8 +347,20 @@ $effect(() => {
 			nodeProgramClasses: { circle: nodeBorderProgram },
 			// Dim nodes/edges outside the active (hovered, or else selected) node's
 			// neighborhood. Hover takes priority over selection while it's active.
+			// A node/edge outside the active time window, or an artist node/edge
+			// while artists are toggled off, is hidden outright, ahead of and
+			// regardless of hover/selection dimming.
 			nodeReducer: (node: unknown, data: unknown) => {
 				const d = data as Record<string, unknown>;
+				if (!showArtists && d.kind === "artist") {
+					return { ...d, hidden: true };
+				}
+				if (activeWindow) {
+					const ranges = (d.ranges as TimeRange[] | undefined) ?? [];
+					if (!rangesOverlap(ranges, activeWindow[0], activeWindow[1])) {
+						return { ...d, hidden: true };
+					}
+				}
 				const activeNode = hoveredNode ?? selectedNode;
 				const activeNeighbors = hoveredNode
 					? hoveredNeighborSet
@@ -360,6 +376,15 @@ $effect(() => {
 			},
 			edgeReducer: (edge: unknown, data: unknown) => {
 				const d = data as Record<string, unknown>;
+				if (!showArtists && d.kind !== "genre-genre") {
+					return { ...d, hidden: true };
+				}
+				if (activeWindow) {
+					const ranges = (d.ranges as TimeRange[] | undefined) ?? [];
+					if (!rangesOverlap(ranges, activeWindow[0], activeWindow[1])) {
+						return { ...d, hidden: true };
+					}
+				}
 				const activeNode = hoveredNode ?? selectedNode;
 				if (!activeNode || g.hasExtremity(edge as string, activeNode)) {
 					return d;
@@ -417,6 +442,25 @@ $effect(() => {
 	selectedNeighborSet =
 		node && g.hasNode(node) ? new Set(g.neighbors(node)) : new Set();
 	if (!hoveredNode) sigmaInst.refresh();
+});
+
+// Same reasoning as the selection effect above: dragging the time-window
+// slider must only re-run the reducers (which read `activeWindow` directly)
+// and redraw, never rebuild the graph or re-run FA2/Louvain.
+$effect(() => {
+	void activeWindow;
+	if (!sigmaInst) return;
+	sigmaInst.refresh();
+});
+
+// Same reasoning again: toggling "Show artists" only needs the reducers
+// (which read `showArtists` directly) to re-run and redraw. The graph
+// still contains every artist node/edge underneath — only their visibility
+// changes — so there's nothing here to rebuild or re-layout.
+$effect(() => {
+	void showArtists;
+	if (!sigmaInst) return;
+	sigmaInst.refresh();
 });
 
 // Pans/zooms the camera to a node, used by the galaxy page's search box to

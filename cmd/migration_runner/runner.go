@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	migrationsList = [12]*migrations.Migration{
+	migrationsList = [13]*migrations.Migration{
 		migrations.Migration001,
 		migrations.Migration002,
 		migrations.Migration003,
@@ -24,6 +24,7 @@ var (
 		migrations.Migration010,
 		migrations.Migration011,
 		migrations.Migration012,
+		migrations.Migration013,
 	}
 )
 
