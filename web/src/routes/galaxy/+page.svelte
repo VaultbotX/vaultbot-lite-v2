@@ -317,6 +317,7 @@ function clearSelection(): void {
 	<GraphDetailDrawer
 		selected={selectedNode}
 		initialDetail={data.initialDetail}
+		{activeWindow}
 		onSelect={selectNode}
 		onClose={clearSelection}
 	/>
