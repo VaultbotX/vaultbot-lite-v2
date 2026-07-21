@@ -31,6 +31,8 @@ export interface GenreDetail {
 	artists: GenreArtist[];
 	tracks: GenreTrack[];
 	connected_genres: ConnectedGenre[];
+	rank: number;
+	rank_total: number;
 }
 
 export const GET: RequestHandler = async ({ platform, params, url }) => {
@@ -48,9 +50,12 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 	const range = parseTimeRangeParams(url.searchParams);
 	const bounds = range ? sqlBounds(range) : null;
 
-	const { genreRows, artists, tracks, connected_genres } = await allNamed({
+	const { genreRows, rankRows, artists, tracks, connected_genres } = await allNamed({
 		genreRows: typed<{ name: string }[]>(sql`
 			SELECT name FROM genres WHERE id = ${genreId}
+		`),
+		rankRows: typed<{ rank: number; total: number }[]>(sql`
+			SELECT rank, total FROM genre_rank WHERE genre_id = ${genreId}
 		`),
 		artists: bounds
 			? typed<GenreArtist[]>(sql`
@@ -191,5 +196,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 		artists,
 		tracks,
 		connected_genres,
+		rank: rankRows[0].rank,
+		rank_total: rankRows[0].total,
 	} satisfies GenreDetail);
 };
