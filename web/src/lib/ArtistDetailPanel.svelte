@@ -1,7 +1,7 @@
 <script lang="ts">
 import GenreChip from "$lib/GenreChip.svelte";
 import type { TimeRange } from "$lib/graph";
-import { formatWindowRange } from "$lib/graph";
+import { formatRank, formatWindowRange } from "$lib/graph";
 import SpotifyLinkPill from "$lib/SpotifyLinkPill.svelte";
 import { spotifyUrl } from "$lib/spotify";
 import type { ArtistDetail } from "../routes/api/artists/[id]/+server";
@@ -23,6 +23,7 @@ let {
 	<h2 class="title">{data.artist_name}</h2>
 	<SpotifyLinkPill type="artist" id={data.spotify_id} label="Open in Spotify" />
 </div>
+<p class="rank mono muted">{formatRank("artist", data.rank, data.rank_total)}</p>
 {#if activeWindow}
 	<p class="window-note mono muted">
 		Showing {formatWindowRange(activeWindow[0], activeWindow[1])}
@@ -112,9 +113,14 @@ let {
 		font-size: 20px;
 	}
 
-	.window-note {
+	.rank {
 		font-size: 11px;
 		margin: -0.75rem 0 1.25rem;
+	}
+
+	.window-note {
+		font-size: 11px;
+		margin: -1rem 0 1.25rem;
 	}
 
 	.block {

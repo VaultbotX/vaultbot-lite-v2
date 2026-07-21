@@ -42,5 +42,11 @@ func main() {
 	log.Info("Refreshing artist_graph_edges")
 	db.MustExec("REFRESH MATERIALIZED VIEW CONCURRENTLY artist_graph_edges")
 
+	log.Info("Refreshing artist_rank")
+	db.MustExec("REFRESH MATERIALIZED VIEW CONCURRENTLY artist_rank")
+
+	log.Info("Refreshing genre_rank")
+	db.MustExec("REFRESH MATERIALIZED VIEW CONCURRENTLY genre_rank")
+
 	log.Info("Successfully refreshed genre and artist graph materialized views")
 }

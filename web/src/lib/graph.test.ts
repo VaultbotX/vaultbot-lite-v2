@@ -6,6 +6,7 @@ import {
 	detailFetchUrl,
 	edgeOpacity,
 	edgeWidth,
+	formatRank,
 	formatWindowRange,
 	isolatedNodePosition,
 	nodeSize,
@@ -78,6 +79,22 @@ describe("formatWindowRange", () => {
 		const start = new Date(2026, 0, 1).getTime() / 1000;
 		const end = new Date(2026, 0, 2).getTime() / 1000;
 		expect(formatWindowRange(start, end)).toContain(" – ");
+	});
+});
+
+describe("formatRank", () => {
+	it("produces the correct artist string", () => {
+		expect(formatRank("artist", 1, 629)).toBe("Artist Rank: 1 out of 629");
+	});
+
+	it("produces the correct genre string", () => {
+		expect(formatRank("genre", 12, 340)).toBe("Genre Rank: 12 out of 340");
+	});
+
+	it("formats large totals with thousands separators", () => {
+		expect(formatRank("artist", 1000, 12345)).toBe(
+			"Artist Rank: 1,000 out of 12,345",
+		);
 	});
 });
 

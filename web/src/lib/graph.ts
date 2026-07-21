@@ -38,6 +38,18 @@ export function formatWindowRange(
 	return `${day.format(start)} – ${dayWithYear.format(end)}`;
 }
 
+// Formats the detail-drawer rank line, e.g. "Artist Rank: 1 out of 629".
+// Rank is always all-time (see artist_rank/genre_rank materialized views) —
+// it does not change when the galaxy page's time-window filter is active.
+export function formatRank(
+	kind: "artist" | "genre",
+	rank: number,
+	total: number,
+): string {
+	const label = kind === "artist" ? "Artist Rank" : "Genre Rank";
+	return `${label}: ${rank.toLocaleString()} out of ${total.toLocaleString()}`;
+}
+
 // Log-scale node diameter
 export function nodeSize(count: number, maxCount: number): number {
 	return 14 + 50 * (Math.log(count + 1) / Math.log(maxCount + 1));

@@ -1,7 +1,7 @@
 <script lang="ts">
 import GenreChip from "$lib/GenreChip.svelte";
 import type { TimeRange } from "$lib/graph";
-import { formatWindowRange } from "$lib/graph";
+import { formatRank, formatWindowRange } from "$lib/graph";
 import { spotifyUrl } from "$lib/spotify";
 import type { GenreDetail } from "../routes/api/genres/[id]/+server";
 
@@ -19,6 +19,7 @@ let {
 </script>
 
 <h2 class="title">{data.genre_name}</h2>
+<p class="rank mono muted">{formatRank("genre", data.rank, data.rank_total)}</p>
 {#if activeWindow}
 	<p class="window-note mono muted">
 		Showing {formatWindowRange(activeWindow[0], activeWindow[1])}
@@ -116,6 +117,11 @@ let {
 	.title {
 		font-size: 20px;
 		margin-bottom: 1.25rem;
+	}
+
+	.rank {
+		font-size: 11px;
+		margin: -1rem 0 1.25rem;
 	}
 
 	.window-note {

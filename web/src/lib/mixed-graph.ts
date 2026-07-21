@@ -82,7 +82,7 @@ export function buildMixedGraph(
 
 	for (const v of genreVertices) {
 		graph.addNode(genreNodeId(v.genre_id), {
-			label: v.name,
+			label: `${v.name} (#${v.rank})`,
 			kind: "genre" satisfies NodeKind,
 			genreId: v.genre_id,
 			archiveCount: v.archive_count,
@@ -92,7 +92,7 @@ export function buildMixedGraph(
 
 	for (const v of artistVertices) {
 		graph.addNode(artistNodeId(v.artist_id), {
-			label: v.name,
+			label: `${v.name} (#${v.rank})`,
 			kind: "artist" satisfies NodeKind,
 			artistId: v.artist_id,
 			archiveCount: v.archive_count,
