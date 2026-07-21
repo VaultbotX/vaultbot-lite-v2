@@ -9,6 +9,7 @@ export interface GenreVertex {
 	name: string;
 	archive_count: number;
 	ranges: TimeRange[];
+	rank: number;
 }
 
 export interface ArtistVertex {
@@ -16,6 +17,7 @@ export interface ArtistVertex {
 	name: string;
 	archive_count: number;
 	ranges: TimeRange[];
+	rank: number;
 }
 
 export interface GenreGenreEdge {
@@ -57,14 +59,16 @@ export const GET: RequestHandler = async ({ platform }) => {
 
 	const data = await allNamed({
 		genreVertices: typed<GenreVertex[]>(sql`
-			SELECT genre_id, name, archive_count, ranges
-			FROM genre_graph_vertices
-			ORDER BY archive_count DESC
+			SELECT gv.genre_id, gv.name, gv.archive_count, gv.ranges, gr.rank
+			FROM genre_graph_vertices gv
+			JOIN genre_rank gr ON gr.genre_id = gv.genre_id
+			ORDER BY gv.archive_count DESC
 		`),
 		artistVertices: typed<ArtistVertex[]>(sql`
-			SELECT artist_id, name, archive_count, ranges
-			FROM artist_graph_vertices
-			ORDER BY archive_count DESC
+			SELECT av.artist_id, av.name, av.archive_count, av.ranges, ar.rank
+			FROM artist_graph_vertices av
+			JOIN artist_rank ar ON ar.artist_id = av.artist_id
+			ORDER BY av.archive_count DESC
 		`),
 		genreGenreEdges: typed<GenreGenreEdge[]>(sql`
 			SELECT source_genre_id, target_genre_id, shared_archive_count, ranges
