@@ -1,7 +1,10 @@
 <script lang="ts">
 import "../app.css";
+import { page } from "$app/state";
 
 let { children } = $props();
+
+const fullBleed = $derived(page.url.pathname.startsWith("/galaxy"));
 </script>
 
 <svelte:head>
@@ -24,7 +27,7 @@ let { children } = $props();
 	</div>
 </header>
 
-<main>
+<main class:full-bleed={fullBleed}>
 	{@render children()}
 </main>
 
@@ -94,6 +97,10 @@ let { children } = $props();
 		max-width: 1400px;
 		margin: 0 auto;
 		padding: 2rem;
+	}
+
+	main.full-bleed {
+		max-width: none;
 	}
 
 	footer {
