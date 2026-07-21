@@ -30,6 +30,8 @@ export interface ArtistDetail {
 	songs: ArtistSong[];
 	genres: ArtistGenre[];
 	connected_artists: ConnectedArtist[];
+	rank: number;
+	rank_total: number;
 }
 
 export const GET: RequestHandler = async ({ platform, params, url }) => {
@@ -47,9 +49,12 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 	const range = parseTimeRangeParams(url.searchParams);
 	const bounds = range ? sqlBounds(range) : null;
 
-	const { artistRows, songs, genres, connected_artists } = await allNamed({
+	const { artistRows, rankRows, songs, genres, connected_artists } = await allNamed({
 		artistRows: typed<{ name: string; spotify_id: string }[]>(sql`
 			SELECT name, spotify_id FROM artists WHERE id = ${artistId}
+		`),
+		rankRows: typed<{ rank: number; total: number }[]>(sql`
+			SELECT rank, total FROM artist_rank WHERE artist_id = ${artistId}
 		`),
 		songs: bounds
 			? typed<ArtistSong[]>(sql`
@@ -181,5 +186,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 		songs,
 		genres,
 		connected_artists,
+		rank: rankRows[0].rank,
+		rank_total: rankRows[0].total,
 	} satisfies ArtistDetail);
 };
