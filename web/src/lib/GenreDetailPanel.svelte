@@ -193,6 +193,7 @@ let {
 		border: none;
 		padding: 0;
 		font: inherit;
+		text-align: left;
 		cursor: pointer;
 		color: var(--text);
 		transition: color 0.15s;
