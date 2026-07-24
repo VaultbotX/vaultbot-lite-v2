@@ -16,7 +16,7 @@
 		"test:watch": "vitest"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.3",
+		"@biomejs/biome": "2.5.5",
 		"@cloudflare/workers-types": "5.20260715.1",
 		"@sveltejs/adapter-cloudflare": "7.2.9",
 		"@sveltejs/kit": "2.70.1",
