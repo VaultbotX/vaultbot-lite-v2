@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/agnivade/levenshtein v1.2.1
 	github.com/bwmarrin/discordgo v0.29.0
-	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/sirupsen/logrus v1.10.2
