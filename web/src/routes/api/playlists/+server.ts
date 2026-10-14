@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
@@ -9,14 +10,13 @@ export interface PlaylistIds {
 	variety: string;
 }
 
-export const GET: RequestHandler = async ({ platform }) => {
-	const env = platform?.env;
+export const GET: RequestHandler = async () => {
 	if (
-		!env?.SPOTIFY_PLAYLIST_ID ||
-		!env?.GENRE_SPOTIFY_PLAYLIST_ID ||
-		!env?.HIGH_SCORES_SPOTIFY_PLAYLIST_ID ||
-		!env?.THROWBACK_SPOTIFY_PLAYLIST_ID ||
-		!env?.VARIETY_SPOTIFY_PLAYLIST_ID
+		!env.SPOTIFY_PLAYLIST_ID ||
+		!env.GENRE_SPOTIFY_PLAYLIST_ID ||
+		!env.HIGH_SCORES_SPOTIFY_PLAYLIST_ID ||
+		!env.THROWBACK_SPOTIFY_PLAYLIST_ID ||
+		!env.VARIETY_SPOTIFY_PLAYLIST_ID
 	) {
 		return new Response("Playlist IDs not configured", { status: 500 });
 	}

@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { neon } from "@neondatabase/serverless";
 import { json } from "@sveltejs/kit";
 import { allNamed, typed } from "#lib/allNamed.ts";
@@ -41,8 +42,8 @@ export interface StatsData {
 	genre_distribution: GenreCount[];
 }
 
-export const GET: RequestHandler = async ({ platform }) => {
-	const dbUrl = platform?.env?.DATABASE_URL;
+export const GET: RequestHandler = async () => {
+	const dbUrl = env.DATABASE_URL;
 	if (!dbUrl) {
 		return new Response("DATABASE_URL not configured", { status: 500 });
 	}
