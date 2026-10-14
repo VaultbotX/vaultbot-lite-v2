@@ -1,5 +1,5 @@
 <script lang="ts">
-import { spotifyUrl } from "$lib/spotify";
+import { spotifyUrl } from "#lib/spotify.ts";
 
 let {
 	type,

@@ -2,7 +2,7 @@
 import type { ChartComponent } from "chart.js";
 import type { TreemapDataPoint } from "chartjs-chart-treemap";
 import { onMount } from "svelte";
-import { fmtMonth, treemapColor } from "$lib/stats";
+import { fmtMonth, treemapColor } from "#lib/stats.ts";
 import type { StatsData } from "../routes/api/stats/+server";
 
 let {

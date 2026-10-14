@@ -1,9 +1,9 @@
 <script lang="ts">
 import { untrack } from "svelte";
-import ArtistDetailPanel from "$lib/ArtistDetailPanel.svelte";
-import GenreDetailPanel from "$lib/GenreDetailPanel.svelte";
-import type { SelectedNode, TimeRange } from "$lib/graph";
-import { detailFetchUrl } from "$lib/graph";
+import ArtistDetailPanel from "#lib/ArtistDetailPanel.svelte";
+import GenreDetailPanel from "#lib/GenreDetailPanel.svelte";
+import type { SelectedNode, TimeRange } from "#lib/graph.ts";
+import { detailFetchUrl } from "#lib/graph.ts";
 import type { ArtistDetail } from "../routes/api/artists/[id]/+server";
 import type { GenreDetail } from "../routes/api/genres/[id]/+server";
 

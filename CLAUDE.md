@@ -40,9 +40,9 @@ This does, in order:
 
 1. `npm install` inside `web/` — installs all frontend dependencies
 2. `cp web/.dev.vars.example web/.dev.vars` — creates a local env file for `wrangler pages dev` (skipped if already present)
-3. `npx svelte-kit sync` inside `web/` — generates `.svelte-kit/tsconfig.json` and `$types` imports that `tsconfig.json` extends
+3. `npx svelte-kit sync` inside `web/` — generates `node_modules/$app/tsconfig.json` and `$types` imports that `tsconfig.json` extends (via `"extends": "$app/tsconfig"`)
 
-**Always run `setup.sh` (or its steps manually) before building, type-checking, or running the frontend.** Without step 3, TypeScript fails with `tsconfig not found` errors because `web/tsconfig.json` extends `.svelte-kit/tsconfig.json`.
+**Always run `setup.sh` (or its steps manually) before building, type-checking, or running the frontend.** Without step 3, TypeScript fails with `tsconfig not found` errors because `web/tsconfig.json` extends the generated `$app/tsconfig`.
 
 In a devcontainer, this runs automatically as part of `postCreateCommand`.
 
@@ -240,7 +240,7 @@ web/src/lib/
 
 **Why a separate `vitest.config.ts`:** Vite 8 uses the rolldown backend whose `Plugin` type is incompatible with Vitest's bundled Vite version. Importing `defineConfig` from `vitest/config` inside `vite.config.ts` causes a type conflict. The fix is a standalone `vitest.config.ts` that imports from `vitest/config`, leaving `vite.config.ts` untouched.
 
-**Why `npm run check` must run before `npm test` in CI:** Vitest's esbuild resolves `web/tsconfig.json → .svelte-kit/tsconfig.json`, which only exists after `svelte-kit sync` runs. `npm run check` internally runs `svelte-kit sync`, so order the CI steps: Lint → Type check (`npm run check`) → Test (`npm test`).
+**Why `npm run check` must run before `npm test` in CI:** Vitest's esbuild resolves `web/tsconfig.json → $app/tsconfig`, which only exists (generated into `node_modules/$app/`) after `svelte-kit sync` runs. `npm run check` internally runs `svelte-kit sync`, so order the CI steps: Lint → Type check (`npm run check`) → Test (`npm test`).
 
 **Pure function extraction pattern:** Move any logic that doesn't depend on DOM, Svelte reactivity, or Chart.js/Sigma instances into a plain `.ts` file in `lib/`. This makes it directly testable with Vitest. Keep chart and graph configuration inside the component's `onMount` / `$effect`.
 
@@ -248,12 +248,25 @@ web/src/lib/
 
 **Use types as strictly as possible. Avoid `any` and avoid `as unknown as T` unless there is no other option.**
 
+### Import `src/lib/` via `#lib`, not `$lib`
+
+SvelteKit 3 removed the built-in `$lib` alias in favor of standard Node.js [subpath imports](https://nodejs.org/api/packages.html#subpath-imports), configured in `web/package.json`:
+
+```json
+"imports": {
+  "#lib": "./src/lib",
+  "#lib/*": "./src/lib/*"
+}
+```
+
+Component imports keep their `.svelte` extension as before (e.g. `"#lib/GenreChip.svelte"`). **Plain `.ts` module imports must include the explicit `.ts` extension** (e.g. `"#lib/allNamed.ts"`, not `"#lib/allNamed"`) — TypeScript's `bundler` module resolution does not probe extensions for `package.json` "imports" subpaths the way it does for relative imports, so an extensionless specifier fails `svelte-check`/`tsc` with `Cannot find module` even though Vite builds it fine.
+
 ### Parallel DB queries — always use `allNamed` + `typed`
 
 `Promise.all` with positional destructuring is fragile: inserting or reordering a query silently mismatches results to variable names with no compile-time error. Always use the helpers in `web/src/lib/allNamed.ts` instead:
 
 ```typescript
-import { allNamed, typed } from "$lib/allNamed";
+import { allNamed, typed } from "#lib/allNamed.ts";
 
 const { genreRows, artists } = await allNamed({
   genreRows: typed<{ name: string }[]>(sql`SELECT name FROM genres WHERE id = ${id}`),
