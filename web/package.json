@@ -35,13 +35,13 @@
 	"dependencies": {
 		"@neondatabase/serverless": "1.2.0",
 		"@sigma/edge-curve": "^3.1.0",
-		"@sigma/node-border": "^3.0.0",
+		"@sigma/node-border": "^4.0.0",
 		"chart.js": "4.5.1",
 		"chartjs-chart-treemap": "4.2.2",
 		"graphology": "^0.26.0",
 		"graphology-communities-louvain": "^2.0.2",
 		"graphology-layout": "^0.6.1",
 		"graphology-layout-forceatlas2": "^0.10.1",
-		"sigma": "^3.0.3"
+		"sigma": "^4.0.0"
 	}
 }
