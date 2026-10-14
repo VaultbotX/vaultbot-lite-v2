@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { neon } from "@neondatabase/serverless";
 import { json } from "@sveltejs/kit";
 import { allNamed, typed } from "#lib/allNamed.ts";
@@ -35,13 +36,13 @@ export interface GenreDetail {
 	rank_total: number;
 }
 
-export const GET: RequestHandler = async ({ platform, params, url }) => {
+export const GET: RequestHandler = async ({ params, url }) => {
 	const genreId = Number(params.id);
 	if (!Number.isInteger(genreId) || genreId <= 0) {
 		return new Response("Invalid genre ID", { status: 400 });
 	}
 
-	const dbUrl = platform?.env?.DATABASE_URL;
+	const dbUrl = env.DATABASE_URL;
 	if (!dbUrl) {
 		return new Response("DATABASE_URL not configured", { status: 500 });
 	}
@@ -50,15 +51,16 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 	const range = parseTimeRangeParams(url.searchParams);
 	const bounds = range ? sqlBounds(range) : null;
 
-	const { genreRows, rankRows, artists, tracks, connected_genres } = await allNamed({
-		genreRows: typed<{ name: string }[]>(sql`
+	const { genreRows, rankRows, artists, tracks, connected_genres } =
+		await allNamed({
+			genreRows: typed<{ name: string }[]>(sql`
 			SELECT name FROM genres WHERE id = ${genreId}
 		`),
-		rankRows: typed<{ rank: number; total: number }[]>(sql`
+			rankRows: typed<{ rank: number; total: number }[]>(sql`
 			SELECT rank, total FROM genre_rank WHERE genre_id = ${genreId}
 		`),
-		artists: bounds
-			? typed<GenreArtist[]>(sql`
+			artists: bounds
+				? typed<GenreArtist[]>(sql`
 				SELECT a.id AS artist_id, a.name, a.spotify_id, COUNT(sa.id)::int AS archive_count
 				FROM artists a
 				JOIN link_artist_genres lag ON lag.artist_id = a.id
@@ -71,7 +73,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				ORDER BY archive_count DESC
 				LIMIT 20
 			`)
-			: typed<GenreArtist[]>(sql`
+				: typed<GenreArtist[]>(sql`
 				SELECT a.id AS artist_id, a.name, a.spotify_id, COUNT(sa.id)::int AS archive_count
 				FROM artists a
 				JOIN link_artist_genres lag ON lag.artist_id = a.id
@@ -82,8 +84,8 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				ORDER BY archive_count DESC
 				LIMIT 20
 			`),
-		tracks: bounds
-			? typed<GenreTrack[]>(sql`
+			tracks: bounds
+				? typed<GenreTrack[]>(sql`
 				WITH canonical_occurrences AS (
 					SELECT dsl.target_song_spotify_id AS canonical_spotify_id, COUNT(sa.id)::int AS occurrences
 					FROM song_archive sa
@@ -114,7 +116,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				ORDER BY occurrences DESC
 				LIMIT 20
 			`)
-			: typed<GenreTrack[]>(sql`
+				: typed<GenreTrack[]>(sql`
 				WITH canonical_occurrences AS (
 					SELECT dsl.target_song_spotify_id AS canonical_spotify_id, COUNT(sa.id)::int AS occurrences
 					FROM song_archive sa
@@ -143,8 +145,8 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				ORDER BY occurrences DESC
 				LIMIT 20
 			`),
-		connected_genres: bounds
-			? typed<ConnectedGenre[]>(sql`
+			connected_genres: bounds
+				? typed<ConnectedGenre[]>(sql`
 				WITH canonical_events AS (
 					SELECT dsl.target_song_spotify_id AS canonical_spotify_id, sa.created_at
 					FROM song_archive sa
@@ -173,7 +175,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				GROUP BY g.id, g.name
 				ORDER BY shared_archive_count DESC
 			`)
-			: typed<ConnectedGenre[]>(sql`
+				: typed<ConnectedGenre[]>(sql`
 				SELECT g.id AS genre_id, g.name, e.shared_archive_count
 				FROM genre_graph_edges e
 				JOIN genres g ON g.id = e.target_genre_id
@@ -185,7 +187,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				WHERE e.target_genre_id = ${genreId}
 				ORDER BY shared_archive_count DESC
 			`),
-	});
+		});
 
 	if (genreRows.length === 0) {
 		return new Response("Genre not found", { status: 404 });

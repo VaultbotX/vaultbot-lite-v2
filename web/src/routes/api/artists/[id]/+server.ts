@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { neon } from "@neondatabase/serverless";
 import { json } from "@sveltejs/kit";
 import { allNamed, typed } from "#lib/allNamed.ts";
@@ -34,13 +35,13 @@ export interface ArtistDetail {
 	rank_total: number;
 }
 
-export const GET: RequestHandler = async ({ platform, params, url }) => {
+export const GET: RequestHandler = async ({ params, url }) => {
 	const artistId = Number(params.id);
 	if (!Number.isInteger(artistId) || artistId <= 0) {
 		return new Response("Invalid artist ID", { status: 400 });
 	}
 
-	const dbUrl = platform?.env?.DATABASE_URL;
+	const dbUrl = env.DATABASE_URL;
 	if (!dbUrl) {
 		return new Response("DATABASE_URL not configured", { status: 500 });
 	}
@@ -49,15 +50,16 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 	const range = parseTimeRangeParams(url.searchParams);
 	const bounds = range ? sqlBounds(range) : null;
 
-	const { artistRows, rankRows, songs, genres, connected_artists } = await allNamed({
-		artistRows: typed<{ name: string; spotify_id: string }[]>(sql`
+	const { artistRows, rankRows, songs, genres, connected_artists } =
+		await allNamed({
+			artistRows: typed<{ name: string; spotify_id: string }[]>(sql`
 			SELECT name, spotify_id FROM artists WHERE id = ${artistId}
 		`),
-		rankRows: typed<{ rank: number; total: number }[]>(sql`
+			rankRows: typed<{ rank: number; total: number }[]>(sql`
 			SELECT rank, total FROM artist_rank WHERE artist_id = ${artistId}
 		`),
-		songs: bounds
-			? typed<ArtistSong[]>(sql`
+			songs: bounds
+				? typed<ArtistSong[]>(sql`
 				WITH canonical_occurrences AS (
 					SELECT dsl.target_song_spotify_id AS canonical_spotify_id, COUNT(sa.id)::int AS occurrences
 					FROM song_archive sa
@@ -86,7 +88,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				GROUP BY s.id, s.name, s.spotify_id, co.occurrences
 				ORDER BY occurrences DESC
 			`)
-			: typed<ArtistSong[]>(sql`
+				: typed<ArtistSong[]>(sql`
 				WITH canonical_occurrences AS (
 					SELECT dsl.target_song_spotify_id AS canonical_spotify_id, COUNT(sa.id)::int AS occurrences
 					FROM song_archive sa
@@ -113,8 +115,8 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				GROUP BY s.id, s.name, s.spotify_id, co.occurrences
 				ORDER BY occurrences DESC
 			`),
-		genres: bounds
-			? typed<ArtistGenre[]>(sql`
+			genres: bounds
+				? typed<ArtistGenre[]>(sql`
 				SELECT DISTINCT g.id AS genre_id, g.name
 				FROM genres g
 				JOIN link_artist_genres lag ON lag.genre_id = g.id
@@ -125,15 +127,15 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 					AND sa.created_at < to_timestamp(${bounds.endExclusive})
 				ORDER BY g.name
 			`)
-			: typed<ArtistGenre[]>(sql`
+				: typed<ArtistGenre[]>(sql`
 				SELECT g.id AS genre_id, g.name
 				FROM genres g
 				JOIN link_artist_genres lag ON lag.genre_id = g.id
 				WHERE lag.artist_id = ${artistId}
 				ORDER BY g.name
 			`),
-		connected_artists: bounds
-			? typed<ConnectedArtist[]>(sql`
+			connected_artists: bounds
+				? typed<ConnectedArtist[]>(sql`
 				WITH canonical_events AS (
 					SELECT dsl.target_song_spotify_id AS canonical_spotify_id, sa.created_at
 					FROM song_archive sa
@@ -161,7 +163,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				ORDER BY shared_song_count DESC
 				LIMIT 20
 			`)
-			: typed<ConnectedArtist[]>(sql`
+				: typed<ConnectedArtist[]>(sql`
 				SELECT a.id AS artist_id, a.name, e.shared_song_count
 				FROM artist_graph_edges e
 				JOIN artists a ON a.id = e.target_artist_id
@@ -174,7 +176,7 @@ export const GET: RequestHandler = async ({ platform, params, url }) => {
 				ORDER BY shared_song_count DESC
 				LIMIT 20
 			`),
-	});
+		});
 
 	if (artistRows.length === 0) {
 		return new Response("Artist not found", { status: 404 });
