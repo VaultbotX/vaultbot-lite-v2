@@ -1,4 +1,4 @@
-import { parseNodeParam } from "$lib/graph";
+import { parseNodeParam } from "#lib/graph.ts";
 import type { ArtistDetail } from "../api/artists/[id]/+server";
 import type { GenreDetail } from "../api/genres/[id]/+server";
 import type { GraphData } from "../api/graph/+server";

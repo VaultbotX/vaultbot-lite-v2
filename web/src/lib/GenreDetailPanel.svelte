@@ -1,8 +1,8 @@
 <script lang="ts">
-import GenreChip from "$lib/GenreChip.svelte";
-import type { TimeRange } from "$lib/graph";
-import { formatRank, formatWindowRange } from "$lib/graph";
-import { spotifyUrl } from "$lib/spotify";
+import GenreChip from "#lib/GenreChip.svelte";
+import type { TimeRange } from "#lib/graph.ts";
+import { formatRank, formatWindowRange } from "#lib/graph.ts";
+import { spotifyUrl } from "#lib/spotify.ts";
 import type { GenreDetail } from "../routes/api/genres/[id]/+server";
 
 let {
