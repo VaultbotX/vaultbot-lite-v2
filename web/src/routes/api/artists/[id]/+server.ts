@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { json } from "@sveltejs/kit";
-import { allNamed, typed } from "$lib/allNamed";
-import { parseTimeRangeParams, sqlBounds } from "$lib/graph";
+import { allNamed, typed } from "#lib/allNamed.ts";
+import { parseTimeRangeParams, sqlBounds } from "#lib/graph.ts";
 import type { RequestHandler } from "./$types";
 
 export interface ArtistSong {

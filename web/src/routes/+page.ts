@@ -1,4 +1,4 @@
-import { allNamed } from "$lib/allNamed";
+import { allNamed } from "#lib/allNamed.ts";
 import type { PageLoad } from "./$types";
 import type { PlaylistIds } from "./api/playlists/+server";
 import type { StatsData } from "./api/stats/+server";
