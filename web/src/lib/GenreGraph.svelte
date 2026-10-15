@@ -140,6 +140,7 @@ function initCommunityLayout(g: Graph): void {
 }
 
 interface OverlayItem {
+	node: string;
 	x: number;
 	y: number;
 	size: number;
@@ -356,6 +357,8 @@ $effect(() => {
 		// name as solid text over a near-opaque black stroke (maximum contrast
 		// against the dense web of edges). The hovered node gets a dark pill
 		// so its label stays readable. Redrawn after every sigma render.
+		let labelledNodes: Set<string> | null = null;
+
 		function drawOverlay(): void {
 			const canvas = overlayEl;
 			const ctx = canvas?.getContext("2d");
@@ -386,6 +389,7 @@ $effect(() => {
 				const { x, y } = sigma.graphToViewport({ x: attrs.x, y: attrs.y });
 				if (x < -100 || y < -20 || x > width + 100 || y > height + 20) return;
 				const item: OverlayItem = {
+					node,
 					x,
 					y,
 					size,
@@ -399,12 +403,26 @@ $effect(() => {
 				candidates.push(item);
 			});
 
-			// Smallest first so the largest nodes' glyphs paint on top.
-			const visible = cullLabelsByGrid(
-				candidates,
-				LABEL_GRID_CELL_SIZE,
-				LABEL_DENSITY,
-			).reverse();
+			// The density cull buckets by screen position, so re-running it while
+			// the camera moves makes nodes trade cells and their labels blink in and
+			// out. Decide which nodes are labelled only while idle; during a drag or
+			// zoom, reuse that set (positions still update every frame) and re-cull
+			// once the camera settles. Smallest first so big nodes paint on top.
+			let visible: OverlayItem[];
+			const frozen = labelledNodes;
+			if (!sigma.getGraphState().isIdle && frozen) {
+				visible = candidates
+					.filter((item) => frozen.has(item.node))
+					.sort((a, b) => a.size - b.size);
+			} else {
+				const kept = cullLabelsByGrid(
+					candidates,
+					LABEL_GRID_CELL_SIZE,
+					LABEL_DENSITY,
+				);
+				labelledNodes = new Set(kept.map((item) => item.node));
+				visible = kept.reverse();
+			}
 			for (const item of visible) {
 				drawGlyph(ctx, item);
 				drawName(ctx, item, true);
