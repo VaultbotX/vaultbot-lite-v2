@@ -1,13 +1,13 @@
 <script lang="ts">
 import { untrack } from "svelte";
-import { browser } from "$app/env";
-import { pushState } from "$app/navigation";
-import { page } from "$app/state";
 import GenreGraph from "#lib/GenreGraph.svelte";
 import GraphDetailDrawer from "#lib/GraphDetailDrawer.svelte";
 import type { SearchableNode, SelectedNode, TimeRange } from "#lib/graph.ts";
 import { formatWindowRange, rangesOverlap, searchNodes } from "#lib/graph.ts";
 import { buildMixedGraph } from "#lib/mixed-graph.ts";
+import { browser } from "$app/env";
+import { pushState } from "$app/navigation";
+import { page } from "$app/state";
 import type { GraphData } from "../api/graph/+server";
 import type { PageData } from "./$types";
 

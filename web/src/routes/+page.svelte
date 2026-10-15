@@ -1,7 +1,7 @@
 <script lang="ts">
-import { goto } from "$app/navigation";
 import SpotifyLinkPill from "#lib/SpotifyLinkPill.svelte";
 import StatsCharts from "#lib/StatsCharts.svelte";
+import { goto } from "$app/navigation";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
