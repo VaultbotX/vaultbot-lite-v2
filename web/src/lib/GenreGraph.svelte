@@ -1,7 +1,16 @@
 <script lang="ts">
 import type Graph from "graphology";
+import type Sigma from "sigma";
 import { onMount } from "svelte";
-import { isolatedNodePosition, rangesOverlap, type TimeRange } from "./graph";
+import {
+	cullLabelsByGrid,
+	glyphSize,
+	isolatedNodePosition,
+	kindGlyph,
+	rangesOverlap,
+	shouldDrawLabel,
+	type TimeRange,
+} from "./graph";
 
 let {
 	graph,
@@ -19,65 +28,36 @@ let {
 	onBackgroundClick: () => void;
 } = $props();
 
-// Structural types for dynamically-imported renderer libs — avoids bundling
-// sigma/FA2 during SSR while still giving us precise type safety at call sites.
-type SigmaInst = {
-	kill(): void;
-	refresh(): void;
-	on(event: string, cb: (payload: Record<string, unknown>) => void): void;
-	getCamera(): {
-		animate(
-			state: Record<string, unknown>,
-			opts: Record<string, unknown>,
-		): void;
-	};
-	getNodeDisplayData(node: string): { x: number; y: number } | undefined;
-};
-type SigmaLib = {
-	new (
-		graph: Graph,
-		container: HTMLElement,
-		settings?: Record<string, unknown>,
-	): SigmaInst;
-};
-type FA2Lib = {
-	assign(
-		graph: Graph,
-		opts: {
-			iterations: number;
-			settings?: Record<string, unknown>;
-			getEdgeWeight?: string;
-		},
-	): void;
-	inferSettings(graph: Graph): Record<string, unknown>;
-};
-type NodeBorderLib = {
-	createNodeBorderProgram(options: {
-		borders: Array<{
-			size: { value: number; mode?: "relative" | "pixels" } | { fill: true };
-			color:
-				| { value: string }
-				| { attribute: string; defaultValue?: string }
-				| { transparent: true };
-		}>;
-	}): unknown;
-};
-type SigmaRenderingLib = {
-	drawDiscNodeLabel(
-		context: CanvasRenderingContext2D,
-		data: Record<string, unknown>,
-		settings: Record<string, unknown>,
-	): void;
-};
+// Sigma and its helpers are loaded dynamically so none of it is bundled into
+// (or executed during) SSR; the `import type` above is erased at build time.
+type SigmaModule = typeof import("sigma");
+type SigmaRenderingModule = typeof import("sigma/rendering");
+type NodeBorderModule = typeof import("@sigma/node-border");
+type FA2Module = typeof import("graphology-layout-forceatlas2");
 
-let sigmaLib = $state<SigmaLib | null>(null);
-let fa2Lib = $state<FA2Lib | null>(null);
-let edgeCurveLib = $state<unknown>(null);
-let nodeBorderLib = $state<NodeBorderLib | null>(null);
-let sigmaRenderingLib = $state<SigmaRenderingLib | null>(null);
-let sigmaInst: SigmaInst | null = null;
+// Label rendering. Sigma 4's native labels are monochrome SDF text, so the
+// kind glyph (color emoji) and outlined name labels are drawn on our own
+// overlay canvas — see drawOverlay().
+const LABEL_FONT = "'IBM Plex Sans', sans-serif";
+const LABEL_SIZE = 12;
+const LABEL_COLOR = "#e2e2f0";
+const LABEL_RENDERED_SIZE_THRESHOLD = 8;
+// Sigma 3 defaults (labelGridCellSize / labelDensity) that kept labels from piling up.
+const LABEL_GRID_CELL_SIZE = 100;
+const LABEL_DENSITY = 1;
+const DIMMED_COLOR = "#1e1e28";
+const HIGHLIGHTED_EDGE_OPACITY = 0.7;
+const EDGE_CURVATURE = 0.25;
+
+let sigmaMod = $state<SigmaModule | null>(null);
+let renderingMod = $state<SigmaRenderingModule | null>(null);
+let nodeBorderMod = $state<NodeBorderModule | null>(null);
+let fa2Mod = $state<FA2Module | null>(null);
+let sigmaInst: Sigma | null = null;
 let containerEl: HTMLDivElement | undefined;
+let overlayEl: HTMLCanvasElement | undefined;
 let loading = $state(true);
+let redrawOverlay: (() => void) | null = null;
 
 // Hover and selection state — closed over by the Sigma reducers/event
 // handlers below. Hover always takes visual priority over selection; when
@@ -89,18 +69,24 @@ let selectedNeighborSet = new Set<string>();
 onMount(() => {
 	Promise.all([
 		import("sigma"),
-		import("graphology-layout-forceatlas2"),
-		import("@sigma/edge-curve"),
-		import("@sigma/node-border"),
 		import("sigma/rendering"),
-	]).then(([s, f, ec, nb, sr]) => {
-		sigmaLib = s.default as unknown as SigmaLib;
-		fa2Lib = f.default as unknown as FA2Lib;
-		edgeCurveLib = ec.default;
-		nodeBorderLib = nb as unknown as NodeBorderLib;
-		sigmaRenderingLib = sr as unknown as SigmaRenderingLib;
+		import("@sigma/node-border"),
+		import("graphology-layout-forceatlas2"),
+	]).then(([s, r, nb, f]) => {
+		sigmaMod = s;
+		renderingMod = r;
+		nodeBorderMod = nb;
+		fa2Mod = f;
 	});
-	return () => sigmaInst?.kill();
+
+	// Keep the overlay's backing store in step with the container.
+	const resizeObserver = new ResizeObserver(() => redrawOverlay?.());
+	if (containerEl) resizeObserver.observe(containerEl);
+
+	return () => {
+		resizeObserver.disconnect();
+		sigmaInst?.kill();
+	};
 });
 
 /**
@@ -153,162 +139,98 @@ function initCommunityLayout(g: Graph): void {
 	});
 }
 
+interface OverlayItem {
+	node: string;
+	x: number;
+	y: number;
+	size: number;
+	label: string;
+	kind: "genre" | "artist";
+}
+
+function drawGlyph(ctx: CanvasRenderingContext2D, item: OverlayItem): void {
+	ctx.save();
+	ctx.font = `${glyphSize(item.size)}px sans-serif`;
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
+	ctx.fillText(kindGlyph(item.kind), item.x, item.y);
+	ctx.restore();
+}
+
+function drawName(
+	ctx: CanvasRenderingContext2D,
+	item: OverlayItem,
+	outlined: boolean,
+): void {
+	ctx.save();
+	ctx.textAlign = "left";
+	ctx.textBaseline = "alphabetic";
+	ctx.font = `normal ${LABEL_SIZE}px ${LABEL_FONT}`;
+	const labelX = item.x + item.size + 3;
+	const labelY = item.y + LABEL_SIZE / 3;
+	if (outlined) {
+		ctx.lineJoin = "round";
+		ctx.lineWidth = 3;
+		ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
+		ctx.fillStyle = "#ffffff";
+		ctx.strokeText(item.label, labelX, labelY);
+	} else {
+		ctx.fillStyle = LABEL_COLOR;
+	}
+	ctx.fillText(item.label, labelX, labelY);
+	ctx.restore();
+}
+
+// Same pill shape as Sigma 3's default hover but with a dark background so
+// the label text is readable against `--surface`.
+function drawHoverPill(ctx: CanvasRenderingContext2D, item: OverlayItem): void {
+	const PADDING = 2;
+	ctx.save();
+	ctx.font = `normal ${LABEL_SIZE}px ${LABEL_FONT}`;
+	ctx.fillStyle = "#131318";
+	ctx.shadowOffsetX = 0;
+	ctx.shadowOffsetY = 0;
+	ctx.shadowBlur = 8;
+	ctx.shadowColor = "#000";
+
+	const { x, y, size } = item;
+	const textWidth = ctx.measureText(item.label).width;
+	const boxWidth = Math.round(textWidth + 5);
+	const boxHeight = Math.round(LABEL_SIZE + 2 * PADDING);
+	const radius = Math.max(size, LABEL_SIZE / 2) + PADDING;
+	const angleRadian = Math.asin(boxHeight / 2 / radius);
+	const xDeltaCoord = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
+
+	ctx.beginPath();
+	ctx.moveTo(x + xDeltaCoord, y + boxHeight / 2);
+	ctx.lineTo(x + radius + boxWidth, y + boxHeight / 2);
+	ctx.lineTo(x + radius + boxWidth, y - boxHeight / 2);
+	ctx.lineTo(x + xDeltaCoord, y - boxHeight / 2);
+	ctx.arc(x, y, radius, angleRadian, -angleRadian);
+	ctx.closePath();
+	ctx.fill();
+	ctx.restore();
+}
+
 $effect(() => {
 	const g = graph;
-	const Sigma = sigmaLib;
-	const fa2 = fa2Lib;
+	const sigmaModule = sigmaMod;
+	const rendering = renderingMod;
+	const nodeBorder = nodeBorderMod;
+	const fa2 = fa2Mod;
 	const container = containerEl;
-	const edgeCurve = edgeCurveLib;
-	const nodeBorder = nodeBorderLib;
-	const sigmaRendering = sigmaRenderingLib;
-	if (
-		!Sigma ||
-		!fa2 ||
-		!edgeCurve ||
-		!container ||
-		!nodeBorder ||
-		!sigmaRendering
-	)
-		return;
+	if (!sigmaModule || !rendering || !nodeBorder || !fa2 || !container) return;
 
 	loading = true;
 
-	const { drawDiscNodeLabel } = sigmaRendering;
-
-	// Default (non-hover) label renderer: draws a genre/artist glyph centered
-	// on the node itself, plus the name label as solid white text over a
-	// near-opaque black stroke (no blur) — maximum contrast against the dense
-	// web of edges, versus sigma's plain flat-color text.
-	function drawNodeLabelWithOutline(
-		context: CanvasRenderingContext2D,
-		data: Record<string, unknown>,
-		settings: Record<string, unknown>,
-	): void {
-		if (!data.label) return;
-		const size = settings.labelSize as number;
-		const font = settings.labelFont as string;
-		const weight = settings.labelWeight as string;
-		const x = data.x as number;
-		const y = data.y as number;
-		const nodeSize = data.size as number;
-		const label = data.label as string;
-		const kind = data.kind as string;
-
-		context.save();
-
-		const emoji = kind === "artist" ? "🎨" : "🎵";
-		const emojiSize = Math.max(8, nodeSize * 1.2);
-		context.font = `${emojiSize}px sans-serif`;
-		context.textAlign = "center";
-		context.textBaseline = "middle";
-		context.fillText(emoji, x, y);
-
-		context.textAlign = "left";
-		context.textBaseline = "alphabetic";
-		context.font = `${weight} ${size}px ${font}`;
-		context.lineJoin = "round";
-		context.lineWidth = 3;
-		context.strokeStyle = "rgba(0, 0, 0, 0.95)";
-		context.fillStyle = "#ffffff";
-		const labelX = x + nodeSize + 3;
-		const labelY = y + size / 3;
-		context.strokeText(label, labelX, labelY);
-		context.fillText(label, labelX, labelY);
-
-		context.restore();
-	}
-
-	// Border program: 3px black outer ring, community color fill.
-	// Border color is read from the `borderColor` attribute so the nodeReducer
-	// can dim it alongside the fill when a neighbor is not highlighted.
-	const nodeBorderProgram = nodeBorder.createNodeBorderProgram({
-		borders: [
-			{
-				size: { value: 3, mode: "pixels" },
-				color: { attribute: "borderColor", defaultValue: "#000000" },
-			},
-			{
-				size: { fill: true },
-				color: { attribute: "color", defaultValue: "#7c6af7" },
-			},
-		],
-	});
-
-	// Custom hover renderer: same pill shape as Sigma's default but with a dark
-	// background so the white label text is readable against `--surface`.
-	function drawDarkNodeHover(
-		context: CanvasRenderingContext2D,
-		data: Record<string, unknown>,
-		settings: Record<string, unknown>,
-	): void {
-		const size = settings.labelSize as number;
-		const font = settings.labelFont as string;
-		const weight = settings.labelWeight as string;
-		context.font = `${weight} ${size}px ${font}`;
-
-		context.fillStyle = "#131318";
-		context.shadowOffsetX = 0;
-		context.shadowOffsetY = 0;
-		context.shadowBlur = 8;
-		context.shadowColor = "#000";
-
-		const PADDING = 2;
-		const label = data.label as string | null;
-		const x = data.x as number;
-		const y = data.y as number;
-		const nodeSize = data.size as number;
-
-		if (typeof label === "string") {
-			const textWidth = context.measureText(label).width;
-			const boxWidth = Math.round(textWidth + 5);
-			const boxHeight = Math.round(size + 2 * PADDING);
-			const radius = Math.max(nodeSize, size / 2) + PADDING;
-			const angleRadian = Math.asin(boxHeight / 2 / radius);
-			const xDeltaCoord = Math.sqrt(
-				Math.abs(radius ** 2 - (boxHeight / 2) ** 2),
-			);
-
-			context.beginPath();
-			context.moveTo(x + xDeltaCoord, y + boxHeight / 2);
-			context.lineTo(x + radius + boxWidth, y + boxHeight / 2);
-			context.lineTo(x + radius + boxWidth, y - boxHeight / 2);
-			context.lineTo(x + xDeltaCoord, y - boxHeight / 2);
-			context.arc(x, y, radius, angleRadian, -angleRadian);
-			context.closePath();
-			context.fill();
-		} else {
-			context.beginPath();
-			context.arc(x, y, nodeSize + PADDING, 0, Math.PI * 2);
-			context.closePath();
-			context.fill();
-		}
-
-		context.shadowOffsetX = 0;
-		context.shadowOffsetY = 0;
-		context.shadowBlur = 0;
-
-		// The hover renderer replaces the default label renderer entirely for the
-		// hovered node, so the kind glyph has to be redrawn here too — otherwise
-		// it visibly disappears the moment a node is hovered.
-		const kind = data.kind as string;
-		const emoji = kind === "artist" ? "🎨" : "🎵";
-		const emojiSize = Math.max(8, nodeSize * 1.2);
-		context.save();
-		context.font = `${emojiSize}px sans-serif`;
-		context.textAlign = "center";
-		context.textBaseline = "middle";
-		context.fillText(emoji, x, y);
-		context.restore();
-
-		drawDiscNodeLabel(context, data, settings);
-	}
+	const Sigma = sigmaModule.default;
 
 	const id = setTimeout(() => {
 		initCommunityLayout(g);
-		fa2.assign(g, {
+		fa2.default.assign(g, {
 			iterations: 500,
 			settings: {
-				...fa2.inferSettings(g),
+				...fa2.default.inferSettings(g),
 				gravity: 1,
 				scalingRatio: 10,
 				adjustSizes: true,
@@ -328,94 +250,217 @@ $effect(() => {
 				: new Set();
 
 		sigmaInst?.kill();
-		sigmaInst = new Sigma(g, container, {
-			renderEdgeLabels: false,
-			labelFont: "'IBM Plex Sans', sans-serif",
-			labelSize: 12,
-			labelWeight: "normal",
-			labelColor: { color: "#e2e2f0" },
-			labelRenderedSizeThreshold: 8,
-			minCameraRatio: 0.05,
-			maxCameraRatio: 8,
-			stagePadding: 40,
-			defaultEdgeColor: "rgb(96, 96, 160)",
-			defaultNodeColor: "#7c6af7",
-			defaultEdgeType: "curve",
-			defaultDrawNodeLabel: drawNodeLabelWithOutline,
-			defaultDrawNodeHover: drawDarkNodeHover,
-			edgeProgramClasses: { curve: edgeCurve },
-			nodeProgramClasses: { circle: nodeBorderProgram },
+		const sigma = new Sigma(g, container, {
+			primitives: {
+				nodes: {
+					shapes: [rendering.sdfCircle()],
+					// 3px black outer ring, community color fill.
+					layers: [
+						nodeBorder.layerBorder({
+							borders: [
+								{ size: 3, mode: "pixels", color: "#000000" },
+								{ fill: true, color: { attribute: "color" } },
+							],
+						}),
+					],
+				},
+				edges: {
+					paths: [rendering.pathCurved()],
+					// Same bow as @sigma/edge-curve's default. pathCurved() ignores
+					// its `curvature` option; the amount is a per-edge variable
+					// whose default (0) is a straight line.
+					variables: {
+						curvature: { type: "number", default: EDGE_CURVATURE },
+					},
+				},
+			},
+			styles: {
+				nodes: [
+					sigmaModule.DEFAULT_STYLES.nodes,
+					// No grow-on-hover and no backdrop: the hover pill is ours.
+					{
+						size: { attribute: "size" },
+						color: { attribute: "color", defaultValue: "#7c6af7" },
+						backdropVisibility: "hidden",
+					},
+				],
+				edges: [
+					sigmaModule.DEFAULT_STYLES.edges,
+					{
+						path: "curved",
+						color: { attribute: "color", defaultValue: "#6060a0" },
+						opacity: { attribute: "opacity", defaultValue: 1 },
+					},
+				],
+			},
+			settings: {
+				renderLabels: false,
+				renderEdgeLabels: false,
+				// v3 sizes were screen pixels; v4 defaults to graph units.
+				itemSizesReference: "screen",
+				// Fit the camera to the graph once. The default re-fits on every
+				// refresh, so hovering (which hides non-incident edges) zoomed the
+				// view to whatever stayed visible.
+				autoRescale: "once",
+				minCameraRatio: 0.05,
+				maxCameraRatio: 8,
+				stagePadding: 40,
+			},
 			// Dim nodes/edges outside the active (hovered, or else selected) node's
 			// neighborhood. Hover takes priority over selection while it's active.
 			// A node/edge outside the active time window, or an artist node/edge
 			// while artists are toggled off, is hidden outright, ahead of and
 			// regardless of hover/selection dimming.
-			nodeReducer: (node: unknown, data: unknown) => {
-				const d = data as Record<string, unknown>;
-				if (!showArtists && d.kind === "artist") {
-					return { ...d, hidden: true };
+			nodeReducer: (node, _display, attrs) => {
+				if (!showArtists && attrs.kind === "artist") {
+					return { visibility: "hidden" };
 				}
 				if (activeWindow) {
-					const ranges = (d.ranges as TimeRange[] | undefined) ?? [];
+					const ranges: TimeRange[] = attrs.ranges ?? [];
 					if (!rangesOverlap(ranges, activeWindow[0], activeWindow[1])) {
-						return { ...d, hidden: true };
+						return { visibility: "hidden" };
 					}
 				}
 				const activeNode = hoveredNode ?? selectedNode;
 				const activeNeighbors = hoveredNode
 					? hoveredNeighborSet
 					: selectedNeighborSet;
-				if (
-					!activeNode ||
-					node === activeNode ||
-					activeNeighbors.has(node as string)
-				) {
-					return d;
+				if (!activeNode || node === activeNode || activeNeighbors.has(node)) {
+					return {};
 				}
-				return { ...d, color: "#1e1e28", borderColor: "#1e1e28", label: "" };
+				return { color: DIMMED_COLOR, label: "" };
 			},
-			edgeReducer: (edge: unknown, data: unknown) => {
-				const d = data as Record<string, unknown>;
-				if (!showArtists && d.kind !== "genre-genre") {
-					return { ...d, hidden: true };
+			edgeReducer: (edge, _display, attrs) => {
+				if (!showArtists && attrs.kind !== "genre-genre") {
+					return { visibility: "hidden" };
 				}
 				if (activeWindow) {
-					const ranges = (d.ranges as TimeRange[] | undefined) ?? [];
+					const ranges: TimeRange[] = attrs.ranges ?? [];
 					if (!rangesOverlap(ranges, activeWindow[0], activeWindow[1])) {
-						return { ...d, hidden: true };
+						return { visibility: "hidden" };
 					}
 				}
 				const activeNode = hoveredNode ?? selectedNode;
-				if (!activeNode || g.hasExtremity(edge as string, activeNode)) {
-					return d;
+				if (!activeNode) return {};
+				// A focused node's own edges are emphasized: at their resting opacity
+				// they read as faint, which is right for the whole web but not for
+				// the handful the user is actually looking at.
+				if (g.hasExtremity(edge, activeNode)) {
+					return { opacity: HIGHLIGHTED_EDGE_OPACITY };
 				}
-				return { ...d, hidden: true };
+				return { visibility: "hidden" };
 			},
 		});
+		sigmaInst = sigma;
 
-		sigmaInst.on("clickNode", (payload) => {
-			const node = payload.node as string;
-			const kind = g.getNodeAttribute(node, "kind") as "genre" | "artist";
+		// Overlay canvas: kind glyph centered on each labelled node, plus the
+		// name as solid text over a near-opaque black stroke (maximum contrast
+		// against the dense web of edges). The hovered node gets a dark pill
+		// so its label stays readable. Redrawn after every sigma render.
+		let labelledNodes: Set<string> | null = null;
+
+		function drawOverlay(): void {
+			const canvas = overlayEl;
+			const ctx = canvas?.getContext("2d");
+			if (!canvas || !ctx || !container) return;
+			const { width, height } = container.getBoundingClientRect();
+			const dpr = window.devicePixelRatio || 1;
+			if (
+				canvas.width !== Math.round(width * dpr) ||
+				canvas.height !== Math.round(height * dpr)
+			) {
+				canvas.width = Math.round(width * dpr);
+				canvas.height = Math.round(height * dpr);
+			}
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			ctx.clearRect(0, 0, width, height);
+
+			let hoveredDraw: OverlayItem | null = null;
+
+			const candidates: OverlayItem[] = [];
+			g.forEachNode((node, attrs) => {
+				const display = sigma.getNodeDisplayData(node);
+				if (!display || display.visibility === "hidden") return;
+				if (!display.label) return; // dimmed by the reducer
+				const size = sigma.scaleSize(display.size);
+				const isHovered = node === hoveredNode;
+				if (!shouldDrawLabel(size, LABEL_RENDERED_SIZE_THRESHOLD, isHovered))
+					return;
+				const { x, y } = sigma.graphToViewport({ x: attrs.x, y: attrs.y });
+				if (x < -100 || y < -20 || x > width + 100 || y > height + 20) return;
+				const item: OverlayItem = {
+					node,
+					x,
+					y,
+					size,
+					label: display.label,
+					kind: attrs.kind as "genre" | "artist",
+				};
+				if (isHovered) {
+					hoveredDraw = item;
+					return;
+				}
+				candidates.push(item);
+			});
+
+			// The density cull buckets by screen position, so re-running it while
+			// the camera moves makes nodes trade cells and their labels blink in and
+			// out. Decide which nodes are labelled only while idle; during a drag or
+			// zoom, reuse that set (positions still update every frame) and re-cull
+			// once the camera settles. Smallest first so big nodes paint on top.
+			let visible: OverlayItem[];
+			const frozen = labelledNodes;
+			if (!sigma.getGraphState().isIdle && frozen) {
+				visible = candidates
+					.filter((item) => frozen.has(item.node))
+					.sort((a, b) => a.size - b.size);
+			} else {
+				const kept = cullLabelsByGrid(
+					candidates,
+					LABEL_GRID_CELL_SIZE,
+					LABEL_DENSITY,
+				);
+				labelledNodes = new Set(kept.map((item) => item.node));
+				visible = kept.reverse();
+			}
+			for (const item of visible) {
+				drawGlyph(ctx, item);
+				drawName(ctx, item, true);
+			}
+
+			if (hoveredDraw) {
+				drawHoverPill(ctx, hoveredDraw);
+				drawGlyph(ctx, hoveredDraw);
+				drawName(ctx, hoveredDraw, false);
+			}
+		}
+
+		redrawOverlay = drawOverlay;
+		sigma.on("afterRender", drawOverlay);
+
+		sigma.on("clickNode", (payload) => {
+			const node = payload.node;
+			const kind: "genre" | "artist" = g.getNodeAttribute(node, "kind");
 			const id =
 				kind === "genre"
-					? (g.getNodeAttribute(node, "genreId") as number)
-					: (g.getNodeAttribute(node, "artistId") as number);
+					? g.getNodeAttribute(node, "genreId")
+					: g.getNodeAttribute(node, "artistId");
 			onNodeTap(id, kind);
 		});
 
-		sigmaInst.on("clickStage", () => onBackgroundClick());
+		sigma.on("clickStage", () => onBackgroundClick());
 
-		sigmaInst.on("enterNode", (payload) => {
+		sigma.on("enterNode", (payload) => {
 			container.style.cursor = "pointer";
 			if (hoverTimer !== null) clearTimeout(hoverTimer);
 			hoverTimer = setTimeout(() => {
-				hoveredNode = payload.node as string;
+				hoveredNode = payload.node;
 				hoveredNeighborSet = new Set(g.neighbors(hoveredNode));
 				sigmaInst?.refresh();
 			}, 150);
 		});
 
-		sigmaInst.on("leaveNode", () => {
+		sigma.on("leaveNode", () => {
 			if (hoverTimer !== null) {
 				clearTimeout(hoverTimer);
 				hoverTimer = null;
@@ -486,6 +531,7 @@ export function focusNode(nodeId: string): void {
 		<div class="overlay mono muted">Loading graph…</div>
 	{/if}
 	<div class="graph-container" bind:this={containerEl}></div>
+	<canvas class="graph-overlay" bind:this={overlayEl}></canvas>
 </div>
 
 <style>
@@ -507,6 +553,14 @@ export function focusNode(nodeId: string): void {
 		font-size: 13px;
 		z-index: 1;
 		background: var(--surface);
+	}
+
+	.graph-overlay {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
 	}
 
 	.graph-container {
