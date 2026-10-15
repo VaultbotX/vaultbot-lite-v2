@@ -24,7 +24,7 @@ A Spotify playlist tracker that polls a playlist on a schedule, stores tracks an
 | Frontend deploy | Cloudflare Pages |
 | DB driver (frontend) | `@neondatabase/serverless` (HTTP mode) |
 | Linting/formatting | Biome 2.x (covers `.ts` and `.svelte`) |
-| Graph visualization | Sigma.js v3 + graphology (with `graphology-communities-louvain` community detection) |
+| Graph visualization | Sigma.js v4 + graphology (with `graphology-communities-louvain` community detection) |
 | Charts/treemap | Chart.js 4 + chartjs-chart-treemap |
 | Unit testing | Vitest (pure function tests in `src/**/*.test.ts`) |
 
@@ -241,6 +241,8 @@ web/src/lib/
 **Why a separate `vitest.config.ts`:** Vite 8 uses the rolldown backend whose `Plugin` type is incompatible with Vitest's bundled Vite version. Importing `defineConfig` from `vitest/config` inside `vite.config.ts` causes a type conflict. The fix is a standalone `vitest.config.ts` that imports from `vitest/config`, leaving `vite.config.ts` untouched.
 
 **Why `npm run check` must run before `npm test` in CI:** Vitest's esbuild resolves `web/tsconfig.json → $app/tsconfig`, which only exists (generated into `node_modules/$app/`) after `svelte-kit sync` runs. `npm run check` internally runs `svelte-kit sync`, so order the CI steps: Lint → Type check (`npm run check`) → Test (`npm test`).
+
+**Sigma 4 graph rendering notes (`GenreGraph.svelte`):** node labels, the 🎵/🎨 kind glyph, and the hover pill are drawn on an overlay `<canvas>` after every sigma render, because sigma 4's native labels are monochrome SDF text. Edge curvature is the `curvature` edge variable (the `pathCurved()` option is ignored), edge fade is the native `opacity` style (not an rgba color), and `autoRescale: "once"` stops the camera re-fitting on every hover/refresh.
 
 **Pure function extraction pattern:** Move any logic that doesn't depend on DOM, Svelte reactivity, or Chart.js/Sigma instances into a plain `.ts` file in `lib/`. This makes it directly testable with Vitest. Keep chart and graph configuration inside the component's `onMount` / `$effect`.
 

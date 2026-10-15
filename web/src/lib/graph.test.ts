@@ -2,19 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
 	assignCommunityColors,
 	COMMUNITY_PALETTE,
+	cullLabelsByGrid,
 	desaturateColor,
 	detailFetchUrl,
 	edgeOpacity,
 	edgeWidth,
 	formatRank,
 	formatWindowRange,
+	glyphSize,
 	isolatedNodePosition,
+	kindGlyph,
 	nodeSize,
 	parseNodeParam,
 	parseTimeRangeParams,
 	rangesOverlap,
 	type SearchableNode,
 	searchNodes,
+	shouldDrawLabel,
 	sqlBounds,
 	type TimeRange,
 } from "./graph";
@@ -155,12 +159,12 @@ describe("edgeWidth", () => {
 });
 
 describe("edgeOpacity", () => {
-	it("returns the minimum opacity (0.01) when count is 0", () => {
-		expect(edgeOpacity(0, 10)).toBeCloseTo(0.01);
+	it("returns the minimum opacity (0.15) when count is 0", () => {
+		expect(edgeOpacity(0, 10)).toBeCloseTo(0.15);
 	});
 
-	it("returns the maximum opacity (0.12) when count equals maxCount", () => {
-		expect(edgeOpacity(10, 10)).toBeCloseTo(0.12);
+	it("returns the maximum opacity (0.5) when count equals maxCount", () => {
+		expect(edgeOpacity(10, 10)).toBeCloseTo(0.5);
 	});
 
 	it("is monotonically increasing with count", () => {
@@ -168,7 +172,7 @@ describe("edgeOpacity", () => {
 	});
 
 	it("returns the minimum opacity when maxCount is 0, without dividing by zero", () => {
-		expect(edgeOpacity(0, 0)).toBeCloseTo(0.01);
+		expect(edgeOpacity(0, 0)).toBeCloseTo(0.15);
 	});
 
 	it("weights weak/mid edges much lower than a linear falloff would (quartic curve)", () => {
@@ -176,8 +180,8 @@ describe("edgeOpacity", () => {
 		// between min and max opacity — that's the whole point of raising t to
 		// the 4th power.
 		const half = edgeOpacity(5, 10);
-		const min = 0.01;
-		const max = 0.12;
+		const min = 0.15;
+		const max = 0.5;
 		expect(half).toBeLessThan(min + (max - min) / 2);
 	});
 
@@ -475,5 +479,69 @@ describe("parseNodeParam", () => {
 	it("returns null for a zero or negative id", () => {
 		expect(parseNodeParam("g:0")).toBeNull();
 		expect(parseNodeParam("a:-3")).toBeNull();
+	});
+});
+
+describe("kindGlyph", () => {
+	it("returns a distinct glyph per node kind", () => {
+		expect(kindGlyph("genre")).toBe("🎵");
+		expect(kindGlyph("artist")).toBe("🎨");
+	});
+});
+
+describe("glyphSize", () => {
+	it("scales with node size", () => {
+		expect(glyphSize(20)).toBeCloseTo(24);
+	});
+
+	it("never drops below 8px", () => {
+		expect(glyphSize(2)).toBe(8);
+	});
+});
+
+describe("shouldDrawLabel", () => {
+	it("draws nodes at or above the threshold", () => {
+		expect(shouldDrawLabel(8, 8, false)).toBe(true);
+		expect(shouldDrawLabel(20, 8, false)).toBe(true);
+	});
+
+	it("skips nodes below the threshold", () => {
+		expect(shouldDrawLabel(7.9, 8, false)).toBe(false);
+	});
+
+	it("always draws the hovered node", () => {
+		expect(shouldDrawLabel(1, 8, true)).toBe(true);
+	});
+});
+
+describe("cullLabelsByGrid", () => {
+	it("keeps only the largest item per grid cell", () => {
+		const items = [
+			{ x: 10, y: 10, size: 5 },
+			{ x: 20, y: 30, size: 12 },
+			{ x: 150, y: 10, size: 3 },
+		];
+		const kept = cullLabelsByGrid(items, 100, 1);
+		expect(kept).toEqual([
+			{ x: 20, y: 30, size: 12 },
+			{ x: 150, y: 10, size: 3 },
+		]);
+	});
+
+	it("allows up to perCell items in one cell", () => {
+		const items = [
+			{ x: 1, y: 1, size: 1 },
+			{ x: 2, y: 2, size: 2 },
+			{ x: 3, y: 3, size: 3 },
+		];
+		expect(cullLabelsByGrid(items, 100, 2)).toHaveLength(2);
+	});
+
+	it("handles negative coordinates as their own cells", () => {
+		const items = [
+			{ x: -10, y: -10, size: 1 },
+			{ x: 10, y: 10, size: 1 },
+		];
+		expect(cullLabelsByGrid(items, 100, 1)).toHaveLength(2);
 	});
 });
