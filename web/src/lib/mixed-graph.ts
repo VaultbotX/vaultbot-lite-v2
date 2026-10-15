@@ -18,6 +18,9 @@ import {
 
 export type NodeKind = "genre" | "artist";
 
+// Edges share one color; their per-edge fade is the native `opacity` style.
+const EDGE_COLOR = "#6060a0";
+
 function genreNodeId(genreId: number): string {
 	return `g:${genreId}`;
 }
@@ -39,7 +42,7 @@ function scaledNodeSize(count: number, maxCount: number): number {
  * with genre-genre, genre-artist, and artist-artist edges.
  *
  * Node attributes set: label, kind, genreId | artistId, size, color, community
- * Edge attributes set: kind, weight, size (width), color (rgba string)
+ * Edge attributes set: kind, weight, size (width), color, opacity
  *
  * Each node/edge kind is size-normalized against its own kind's max, not a
  * global max, since genre archive counts (summed across many artists) live
@@ -115,7 +118,8 @@ export function buildMixedGraph(
 			kind,
 			weight,
 			size: edgeWidth(weight, maxWeight),
-			color: `rgba(96, 96, 160, ${opacity.toFixed(2)})`,
+			color: EDGE_COLOR,
+			opacity,
 			ranges,
 		});
 	};

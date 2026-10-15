@@ -50,6 +50,49 @@ export function formatRank(
 	return `${label}: ${rank.toLocaleString()} out of ${total.toLocaleString()}`;
 }
 
+// Kind glyph drawn centered on a node by the galaxy graph's overlay canvas.
+// Sigma 4's native labels are monochrome SDF text, so color emoji can only
+// come from our own canvas layer.
+export function kindGlyph(kind: "genre" | "artist"): string {
+	return kind === "artist" ? "🎨" : "🎵";
+}
+
+// Glyph font size scales with the node but never drops below a legible floor.
+export function glyphSize(renderedNodeSize: number): number {
+	return Math.max(8, renderedNodeSize * 1.2);
+}
+
+// Whether the overlay draws a node's glyph + label. Mirrors Sigma 3's
+// `labelRenderedSizeThreshold` (small nodes stay unlabeled until zoomed in),
+// except the hovered node always gets drawn so its pill is never missing.
+export function shouldDrawLabel(
+	renderedNodeSize: number,
+	threshold: number,
+	isHovered: boolean,
+): boolean {
+	return isHovered || renderedNodeSize >= threshold;
+}
+
+// Thins a set of label candidates so no grid cell holds more than `perCell`
+// labels, keeping the largest nodes in each cell. Stands in for Sigma 3's
+// label grid (`labelGridCellSize`/`labelDensity`), which native Sigma 4 labels
+// have but our overlay canvas does not get for free. Input order is not
+// preserved: the result is sorted largest-first.
+export function cullLabelsByGrid<
+	T extends { x: number; y: number; size: number },
+>(items: T[], cellSize: number, perCell: number): T[] {
+	const counts = new Map<string, number>();
+	const kept: T[] = [];
+	for (const item of [...items].sort((a, b) => b.size - a.size)) {
+		const key = `${Math.floor(item.x / cellSize)}:${Math.floor(item.y / cellSize)}`;
+		const used = counts.get(key) ?? 0;
+		if (used >= perCell) continue;
+		counts.set(key, used + 1);
+		kept.push(item);
+	}
+	return kept;
+}
+
 // Log-scale node diameter
 export function nodeSize(count: number, maxCount: number): number {
 	return 14 + 50 * (Math.log(count + 1) / Math.log(maxCount + 1));
@@ -63,14 +106,17 @@ export function edgeWidth(count: number, maxShared: number): number {
 // Quartic-scale edge opacity, used to fade thin edges relative to the
 // strongest edge of the same kind (edge kinds live on different weight
 // scales, so each kind must be normalized against its own max, not a global
-// one). Raising t to the 4th power pushes weak/mid-weight edges even closer
-// to invisible than cubing did, and the ceiling is dropped hard (0.53 →
-// 0.315 → 0.12): with thousands of overlapping edges, alpha compositing
-// stacks even "low" per-edge opacity into a bright haze, so the ceiling has
-// to be much lower than it would need to be for a sparse graph.
+// one). Raising t to the 4th power pushes weak/mid-weight edges close to
+// invisible, which matters because with thousands of overlapping edges, alpha
+// compositing stacks even "low" per-edge opacity into a bright haze.
+//
+// The range (0.15–0.5) is tuned for Sigma 4's native edge `opacity` style,
+// which composites more faintly than the alpha channel Sigma 3's curved edge
+// program read from an rgba() color; the 0.01–0.12 range that looked right
+// there renders as no visible edges at all.
 export function edgeOpacity(count: number, maxCount: number): number {
 	const t = maxCount > 0 ? count / maxCount : 0;
-	return 0.01 + 0.11 * t * t * t * t;
+	return 0.15 + 0.35 * t * t * t * t;
 }
 
 /**
