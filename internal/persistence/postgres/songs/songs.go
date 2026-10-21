@@ -3,6 +3,7 @@ package songs
 import (
 	"database/sql"
 	"errors"
+	"math/rand/v2"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -140,55 +141,89 @@ func GetOverallTopSongs(db *sqlx.DB, limit int) ([]Song, error) {
 	return songs, nil
 }
 
-// GetTopSongsByYear retrieves songs from the release year that has the most archived tracks, provided it meets
-// the minimum threshold. It returns the songs (ordered by archive count descending) and the year, or an empty
-// slice and 0 if no year meets the threshold.
-func GetTopSongsByYear(db *sqlx.DB, minCount int) ([]Song, int, error) {
-	// Find the year with the most tracks, subject to the minimum threshold.
-	var year int
-	err := db.QueryRowx(`
-		SELECT EXTRACT(YEAR FROM s.release_date)::int AS release_year
-		FROM song_archive sa
-		         JOIN songs raw ON sa.song_id = raw.id
-		         JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
-		         JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
-		GROUP BY release_year
-		HAVING COUNT(sa.id) >= $1
-		ORDER BY RANDOM()
-		LIMIT 1;
-	`, minCount).Scan(&year)
+// GetTopSongsByWindow retrieves the top songs added to the archive during a randomly selected window of time
+// of duration windowDuration, bounded between the earliest archived song and min(latest archived song, now - bufferDuration).
+// If the selected window contains fewer than minCount tracks, it retries up to maxAttempts times.
+// Returns the selected songs, the window start and end time, or nil and zero times if no valid window is found.
+func GetTopSongsByWindow(db *sqlx.DB, windowDuration, bufferDuration time.Duration, minCount, limit, maxAttempts int) ([]Song, time.Time, time.Time, error) {
+	var bounds struct {
+		MinCreatedAt sql.NullTime `db:"min_created_at"`
+		MaxCreatedAt sql.NullTime `db:"max_created_at"`
+	}
+
+	err := db.Get(&bounds, `
+		SELECT MIN(created_at) AS min_created_at,
+		       MAX(created_at) AS max_created_at
+		FROM song_archive
+	`)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, 0, nil
+			return nil, time.Time{}, time.Time{}, nil
 		}
-		return nil, 0, err
+		return nil, time.Time{}, time.Time{}, err
 	}
 
-	var songs []Song
-	err = db.Select(&songs, `
-		SELECT s.id,
-		       s.spotify_id,
-		       s.name,
-		       s.release_date,
-		       s.spotify_album_id,
-		       s.created_at,
-		       s.duration,
-		       s.popularity,
-		       s.album_name
-		FROM song_archive sa
-		         JOIN songs raw ON sa.song_id = raw.id
-		         JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
-		         JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
-		WHERE EXTRACT(YEAR FROM s.release_date)::int = $1
-		GROUP BY s.id
-		ORDER BY COUNT(sa.id) DESC
-		LIMIT 100;
-	`, year)
-	if err != nil {
-		return nil, 0, err
+	if !bounds.MinCreatedAt.Valid || !bounds.MaxCreatedAt.Valid {
+		return nil, time.Time{}, time.Time{}, nil
 	}
 
-	return songs, year, nil
+	minDate := bounds.MinCreatedAt.Time
+	maxDate := bounds.MaxCreatedAt.Time
+	now := time.Now()
+
+	latestPossibleEnd := maxDate
+	if bufferLimit := now.Add(-bufferDuration); bufferLimit.Before(latestPossibleEnd) {
+		latestPossibleEnd = bufferLimit
+	}
+
+	latestPossibleStart := latestPossibleEnd.Add(-windowDuration)
+	if latestPossibleStart.Before(minDate) {
+		// Not enough history to form the required window and buffer
+		return nil, time.Time{}, time.Time{}, nil
+	}
+
+	rangeSeconds := int64(latestPossibleStart.Sub(minDate).Seconds())
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		var windowStart time.Time
+		if rangeSeconds <= 0 {
+			windowStart = minDate
+		} else {
+			offset := rand.Int64N(rangeSeconds + 1)
+			windowStart = minDate.Add(time.Duration(offset) * time.Second)
+		}
+		windowEnd := windowStart.Add(windowDuration)
+
+		var songs []Song
+		err = db.Select(&songs, `
+			SELECT s.id,
+			       s.spotify_id,
+			       s.name,
+			       s.release_date,
+			       s.spotify_album_id,
+			       s.created_at,
+			       s.duration,
+			       s.popularity,
+			       s.album_name
+			FROM song_archive sa
+			         JOIN songs raw ON sa.song_id = raw.id
+			         JOIN duplicate_song_lookup dsl ON dsl.source_song_spotify_id = raw.spotify_id
+			         JOIN songs s ON s.spotify_id = dsl.target_song_spotify_id
+			WHERE sa.created_at >= $1 AND sa.created_at < $2
+			GROUP BY s.id
+			ORDER BY COUNT(sa.id) DESC
+			LIMIT $3;
+		`, windowStart, windowEnd, limit)
+		if err != nil {
+			return nil, time.Time{}, time.Time{}, err
+		}
+
+		if len(songs) >= minCount {
+			return songs, windowStart, windowEnd, nil
+		}
+	}
+
+	return nil, time.Time{}, time.Time{}, nil
 }
 
 // GetRandomSongs retrieves a random selection of songs from the archive.
