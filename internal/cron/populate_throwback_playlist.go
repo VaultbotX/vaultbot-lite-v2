@@ -3,6 +3,7 @@ package cron
 import (
 	"context"
 	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
@@ -13,8 +14,11 @@ import (
 )
 
 const (
-	throwbackMinTrackCount          = 20
-	baseThrowbackPlaylistDescription = "A randomly selected release year tracked by Vaultbot."
+	throwbackWindowDuration = 90 * 24 * time.Hour
+	throwbackBufferDuration = 30 * 24 * time.Hour
+	throwbackMinTrackCount  = 30
+	throwbackTrackLimit     = 50
+	throwbackMaxAttempts    = 3
 )
 
 func RunPopulateThrowbackPlaylist(ctx context.Context) error {
@@ -37,13 +41,13 @@ func RunPopulateThrowbackPlaylist(ctx context.Context) error {
 }
 
 func populateThrowbackPlaylist(ctx context.Context, playlistService *domain.SpotifyPlaylistService, trackRepo domain.AddTrackRepository) error {
-	tracksToAdd, year, err := trackRepo.GetTopYearTracks(throwbackMinTrackCount)
+	tracksToAdd, start, end, err := trackRepo.GetTopWindowTracks(throwbackWindowDuration, throwbackBufferDuration, throwbackMinTrackCount, throwbackTrackLimit, throwbackMaxAttempts)
 	if err != nil {
 		return err
 	}
 
 	if len(tracksToAdd) == 0 {
-		log.Info("No release year meets the minimum track threshold; skipping throwback playlist update")
+		log.Info("No window meets the minimum track threshold; skipping throwback playlist update")
 		return nil
 	}
 
@@ -73,15 +77,16 @@ func populateThrowbackPlaylist(ctx context.Context, playlistService *domain.Spot
 		}
 	}
 
-	newDescription := baseThrowbackPlaylistDescription
-	if year > 0 {
-		newDescription += fmt.Sprintf(" Current year: %d.", year)
-	}
+	newDescription := fmt.Sprintf("The top tracks added to the dynamic playlist from %s to %s!",
+		start.Format("Jan 02, 2006"),
+		end.Format("Jan 02, 2006"),
+	)
 
 	if err := playlistService.Repo.UpdatePlaylistDescription(ctx, newDescription); err != nil {
 		log.Errorf("Failed to update throwback playlist description: %v", err)
 	}
 
-	log.Infof("Finished populating throwback playlist. Added: %d, Removed: %d, Total desired: %d. Year: %d", len(toAdd), len(toRemove), len(desiredOrder), year)
+	log.Infof("Finished populating throwback playlist. Added: %d, Removed: %d, Total desired: %d. Window: %s to %s",
+		len(toAdd), len(toRemove), len(desiredOrder), start.Format("Jan 02, 2006"), end.Format("Jan 02, 2006"))
 	return nil
 }
