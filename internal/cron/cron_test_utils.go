@@ -49,8 +49,8 @@ func (m *mockTrackRepo) GetRandomGenreTracks() (songs []psongs.Song, genreName s
 func (m *mockTrackRepo) GetTop50Tracks() (songs []psongs.Song, err error) {
 	return m.rows, nil
 }
-func (m *mockTrackRepo) GetTopYearTracks(minCount int) (songs []psongs.Song, year int, err error) {
-	return m.rows, 2000, nil
+func (m *mockTrackRepo) GetTopWindowTracks(windowDuration, bufferDuration time.Duration, minCount, limit, maxAttempts int) (songs []psongs.Song, start, end time.Time, err error) {
+	return m.rows, time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC), time.Date(2023, 4, 2, 0, 0, 0, 0, time.UTC), nil
 }
 func (m *mockTrackRepo) GetRandomTracks(limit int) (songs []psongs.Song, err error) {
 	return m.rows, nil
