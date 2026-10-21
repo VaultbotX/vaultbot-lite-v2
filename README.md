@@ -60,7 +60,3 @@ When finished with a branch, delete its Neon branch by running:
 ```sh
 bash .devcontainer/scripts/neon-branch-teardown.sh
 ```
-
-## Database schema
-
-![db schema](assets/schema.png "schema")
