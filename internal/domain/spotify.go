@@ -15,7 +15,7 @@ const (
 	GenrePlaylist
 	// HighScoresPlaylist represents a playlist that features the tracks added most frequently.
 	HighScoresPlaylist
-	// ThrowbackPlaylist represents a playlist curated from the single release year with the most archived tracks.
+	// ThrowbackPlaylist represents a sliding window high score playlist from a randomly selected historical period.
 	ThrowbackPlaylist
 	// VarietyPlaylist represents a playlist of 100 randomly selected tracks from the archive.
 	VarietyPlaylist

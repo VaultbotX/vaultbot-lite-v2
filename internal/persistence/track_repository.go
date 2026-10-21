@@ -88,8 +88,8 @@ func (r *PostgresTrackRepository) GetTop50Tracks() (songs []psongs.Song, err err
 	return psongs.GetOverallTopSongs(r.db, 50)
 }
 
-func (r *PostgresTrackRepository) GetTopYearTracks(minCount int) (songs []psongs.Song, year int, err error) {
-	return psongs.GetTopSongsByYear(r.db, minCount)
+func (r *PostgresTrackRepository) GetTopWindowTracks(windowDuration, bufferDuration time.Duration, minCount, limit, maxAttempts int) (songs []psongs.Song, start, end time.Time, err error) {
+	return psongs.GetTopSongsByWindow(r.db, windowDuration, bufferDuration, minCount, limit, maxAttempts)
 }
 
 func (r *PostgresTrackRepository) GetRandomTracks(limit int) (songs []psongs.Song, err error) {
