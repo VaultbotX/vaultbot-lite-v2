@@ -3,7 +3,7 @@ module github.com/vaultbotx/vaultbot-lite
 go 1.26.0
 
 require (
-	github.com/agnivade/levenshtein v1.2.1
+	github.com/agnivade/levenshtein v1.2.2
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jmoiron/sqlx v1.4.0
