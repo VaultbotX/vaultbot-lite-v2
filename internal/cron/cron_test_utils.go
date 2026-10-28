@@ -13,6 +13,8 @@ type mockPlaylistRepo struct {
 	getPlaylistTracksResponse []zspotify.PlaylistItem
 	removed                   []zspotify.ID
 	added                     []zspotify.ID
+	replaced                  []zspotify.ID
+	replaceCalls              int
 	updatedDescription        string
 }
 
@@ -27,6 +29,12 @@ func (m *mockPlaylistRepo) AddTracksToPlaylist(ctx context.Context, trackIds []z
 
 func (m *mockPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trackIds []zspotify.ID) error {
 	m.removed = append(m.removed, trackIds...)
+	return nil
+}
+
+func (m *mockPlaylistRepo) ReplacePlaylistTracks(ctx context.Context, trackIds []zspotify.ID) error {
+	m.replaceCalls++
+	m.replaced = append([]zspotify.ID(nil), trackIds...)
 	return nil
 }
 

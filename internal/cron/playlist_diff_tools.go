@@ -39,6 +39,18 @@ func playlistItemsToSet(items []zspotify.PlaylistItem) map[zspotify.ID]struct{} 
 	return set
 }
 
+// playlistItemsToIDs converts a slice of spotify.PlaylistItem into an ordered slice of spotify IDs.
+// It skips items that don't contain a track or have empty IDs.
+func playlistItemsToIDs(items []zspotify.PlaylistItem) []zspotify.ID {
+	ids := make([]zspotify.ID, 0, len(items))
+	for _, item := range items {
+		if item.Track.Track != nil && item.Track.Track.ID != "" {
+			ids = append(ids, item.Track.Track.ID)
+		}
+	}
+	return ids
+}
+
 // songsToIDsAndSet converts a slice of songs (as returned by the repository) into
 // an ordered slice of spotify IDs and a set for quick membership checks.
 func songsToIDsAndSet(rows []psongs.Song) ([]zspotify.ID, map[zspotify.ID]struct{}) {

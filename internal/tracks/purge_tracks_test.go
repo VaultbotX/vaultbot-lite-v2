@@ -25,6 +25,10 @@ func (m *mockPlaylistService) RemoveTracksFromPlaylist(_ context.Context, _ []sp
 	return nil
 }
 
+func (m *mockPlaylistService) ReplacePlaylistTracks(_ context.Context, _ []spotify.ID) error {
+	return nil
+}
+
 func (m *mockPlaylistService) UpdatePlaylistDescription(_ context.Context, _ string) error {
 	return nil
 }
