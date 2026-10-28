@@ -104,3 +104,22 @@ func TestDiffToAdd(t *testing.T) {
 		t.Fatalf("unexpected add order: %+v", add)
 	}
 }
+
+// Test playlistItemsToIDs preserves order and filters empty / nil tracks
+func TestPlaylistItemsToIDs(t *testing.T) {
+	items := []spotify.PlaylistItem{
+		makePlaylistItem("track1"),
+		{Track: spotify.PlaylistItemTrack{Track: nil}},
+		makePlaylistItem(""),
+		makePlaylistItem("track2"),
+		makePlaylistItem("track3"),
+	}
+
+	ids := playlistItemsToIDs(items)
+	if len(ids) != 3 {
+		t.Fatalf("expected 3 IDs, got %d", len(ids))
+	}
+	if ids[0] != spotify.ID("track1") || ids[1] != spotify.ID("track2") || ids[2] != spotify.ID("track3") {
+		t.Fatalf("unexpected ID order: %+v", ids)
+	}
+}
