@@ -4,6 +4,7 @@ import {
 	assignCommunityColorsBySize,
 	buildWindowIndex,
 	COMMUNITY_PALETTE,
+	computeNeighborhoodCameraState,
 	computeTimeBounds,
 	createSeededRng,
 	cullLabelsByGrid,
@@ -793,6 +794,65 @@ describe("placeSatelliteComponents", () => {
 			const normEllipse = Math.hypot(pos.x / 200, pos.y / 100);
 			expect(normEllipse).toBeGreaterThan(1.03);
 			expect(normEllipse).toBeLessThan(1.2);
+		}
+	});
+});
+
+describe("computeNeighborhoodCameraState", () => {
+	const viewport = { width: 1460, height: 810 };
+	const graphDimensions = { width: 2400, height: 1300 };
+
+	it("returns null when given no points", () => {
+		expect(
+			computeNeighborhoodCameraState({
+				points: [],
+				viewport,
+				graphDimensions,
+				stagePadding: 40,
+			}),
+		).toBeNull();
+	});
+
+	it("uses singlePointRatio when focusing an isolated node", () => {
+		const state = computeNeighborhoodCameraState({
+			points: [{ x: 0.3, y: 0.7 }],
+			viewport,
+			graphDimensions,
+			stagePadding: 40,
+			padding: { top: 60, right: 60, bottom: 60, left: 60 },
+		});
+		expect(state).toEqual({ x: 0.3, y: 0.7, ratio: 0.15 });
+	});
+
+	it("fits every connected neighbor inside the padded viewport bounds", () => {
+		const points = [
+			{ x: 0.2, y: 0.3 },
+			{ x: 0.7, y: 0.6 },
+			{ x: 0.42, y: 0.52 },
+		];
+		const padding = { top: 64, right: 116, bottom: 64, left: 64 };
+		const state = computeNeighborhoodCameraState({
+			points,
+			viewport,
+			graphDimensions,
+			stagePadding: 40,
+			padding,
+		});
+		expect(state).not.toBeNull();
+		if (!state) return;
+
+		// Project points through Sigma's exact framedGraph -> viewport equation
+		const smallestDim = Math.min(viewport.width, viewport.height) - 2 * 40;
+		const correction = Math.min(2400 / 1300, 1460 / 810);
+		const scale = (smallestDim * correction) / state.ratio;
+
+		for (const p of points) {
+			const px = viewport.width / 2 + scale * (p.x - state.x);
+			const py = viewport.height / 2 - scale * (p.y - state.y);
+			expect(px).toBeGreaterThanOrEqual(padding.left - 0.01);
+			expect(px).toBeLessThanOrEqual(viewport.width - padding.right + 0.01);
+			expect(py).toBeGreaterThanOrEqual(padding.top - 0.01);
+			expect(py).toBeLessThanOrEqual(viewport.height - padding.bottom + 0.01);
 		}
 	});
 });
