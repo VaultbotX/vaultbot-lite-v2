@@ -78,8 +78,12 @@ onMount(() => {
 		fa2Mod = f;
 	});
 
-	// Keep the overlay's backing store in step with the container.
-	const resizeObserver = new ResizeObserver(() => redrawOverlay?.());
+	// Keep both Sigma's WebGL viewport and the 2D overlay canvas in step with
+	// container size changes (e.g. when the detail drawer opens or closes).
+	const resizeObserver = new ResizeObserver(() => {
+		sigmaInst?.resize();
+		redrawOverlay?.();
+	});
 	if (containerEl) resizeObserver.observe(containerEl);
 
 	return () => {
@@ -295,13 +299,18 @@ $effect(() => {
 			settings: {
 				renderLabels: false,
 				renderEdgeLabels: false,
+				enableEdgeEvents: false,
+				hideEdgesOnMove: true,
+				// Allow hairline edges down to 0.4px instead of Sigma 4's 1.7px floor,
+				// which otherwise inflates thousands of weak edges into an opaque mass.
+				minEdgeThickness: 0.4,
 				// v3 sizes were screen pixels; v4 defaults to graph units.
 				itemSizesReference: "screen",
 				// Fit the camera to the graph once. The default re-fits on every
 				// refresh, so hovering (which hides non-incident edges) zoomed the
 				// view to whatever stayed visible.
 				autoRescale: "once",
-				minCameraRatio: 0.05,
+				minCameraRatio: 0.02,
 				maxCameraRatio: 8,
 				stagePadding: 40,
 			},
@@ -389,17 +398,22 @@ $effect(() => {
 			ctx.clearRect(0, 0, width, height);
 
 			let hoveredDraw: OverlayItem | null = null;
+			const sizeScale = sigma.scaleSize(1);
 
 			const candidates: OverlayItem[] = [];
 			g.forEachNode((node, attrs) => {
 				const display = sigma.getNodeDisplayData(node);
 				if (!display || display.visibility === "hidden") return;
 				if (!display.label) return; // dimmed by the reducer
-				const size = sigma.scaleSize(display.size);
+				const size = display.size * sizeScale;
 				const isHovered = node === hoveredNode;
-				if (!shouldDrawLabel(size, LABEL_RENDERED_SIZE_THRESHOLD, isHovered))
+				const isSelected = node === selectedNode;
+				if (
+					!isSelected &&
+					!shouldDrawLabel(size, LABEL_RENDERED_SIZE_THRESHOLD, isHovered)
+				)
 					return;
-				const { x, y } = sigma.graphToViewport({ x: attrs.x, y: attrs.y });
+				const { x, y } = sigma.framedGraphToViewport(display);
 				if (x < -100 || y < -20 || x > width + 100 || y > height + 20) return;
 				const item: OverlayItem = {
 					node,
@@ -467,9 +481,10 @@ $effect(() => {
 			container.style.cursor = "pointer";
 			if (hoverTimer !== null) clearTimeout(hoverTimer);
 			hoverTimer = setTimeout(() => {
+				hoverTimer = null;
 				hoveredNode = payload.node;
 				hoveredNeighborSet = new Set(g.neighbors(hoveredNode));
-				sigmaInst?.refresh();
+				sigmaInst?.scheduleRefresh({ skipIndexation: true });
 			}, 150);
 		});
 
@@ -478,10 +493,12 @@ $effect(() => {
 				clearTimeout(hoverTimer);
 				hoverTimer = null;
 			}
-			hoveredNode = null;
-			hoveredNeighborSet = new Set();
-			sigmaInst?.refresh();
 			container.style.cursor = "default";
+			if (hoveredNode !== null) {
+				hoveredNode = null;
+				hoveredNeighborSet = new Set();
+				sigmaInst?.scheduleRefresh({ skipIndexation: true });
+			}
 		});
 
 		loading = false;
@@ -499,16 +516,16 @@ $effect(() => {
 	if (!sigmaInst) return;
 	selectedNeighborSet =
 		node && g.hasNode(node) ? new Set(g.neighbors(node)) : new Set();
-	if (!hoveredNode) sigmaInst.refresh();
+	if (!hoveredNode) sigmaInst.scheduleRefresh({ skipIndexation: true });
 });
 
 // Same reasoning as the selection effect above: dragging the time-window
-// slider must only re-run the reducers (which read `activeWindow` directly)
+// slider must only re-run the reducers (which read `windowVisibility` directly)
 // and redraw, never rebuild the graph or re-run FA2/Louvain.
 $effect(() => {
 	void windowVisibility;
 	if (!sigmaInst) return;
-	sigmaInst.refresh();
+	sigmaInst.scheduleRefresh({ skipIndexation: true });
 });
 
 // Same reasoning again: toggling "Show artists" only needs the reducers
@@ -518,7 +535,7 @@ $effect(() => {
 $effect(() => {
 	void showArtists;
 	if (!sigmaInst) return;
-	sigmaInst.refresh();
+	sigmaInst.scheduleRefresh({ skipIndexation: true });
 });
 
 // Pans/zooms the camera to a node, used by the galaxy page's search box to
