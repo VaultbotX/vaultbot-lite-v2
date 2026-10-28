@@ -1,28 +1,33 @@
 <script lang="ts">
-import type Graph from "graphology";
+import Graph from "graphology";
 import type Sigma from "sigma";
 import { onMount } from "svelte";
 import {
+	computeNeighborhoodCameraState,
+	createSeededRng,
 	cullLabelsByGrid,
-	glyphSize,
-	isolatedNodePosition,
+	cullOverlappingLabels,
+	type ExternalPull,
 	kindGlyph,
-	rangesOverlap,
+	layoutConstellationCenters,
+	optimalConstellationRotation,
+	placeSatelliteComponents,
+	separateCircles,
 	shouldDrawLabel,
-	type TimeRange,
+	type WindowVisibility,
 } from "./graph";
 
 let {
 	graph,
 	selectedNode,
-	activeWindow,
+	windowVisibility,
 	showArtists,
 	onNodeTap,
 	onBackgroundClick,
 }: {
 	graph: Graph;
 	selectedNode: string | null;
-	activeWindow: TimeRange | null;
+	windowVisibility: WindowVisibility | null;
 	showArtists: boolean;
 	onNodeTap: (id: number, kind: "genre" | "artist") => void;
 	onBackgroundClick: () => void;
@@ -34,25 +39,31 @@ type SigmaModule = typeof import("sigma");
 type SigmaRenderingModule = typeof import("sigma/rendering");
 type NodeBorderModule = typeof import("@sigma/node-border");
 type FA2Module = typeof import("graphology-layout-forceatlas2");
+type LayoutModule = typeof import("graphology-layout");
 
-// Label rendering. Sigma 4's native labels are monochrome SDF text, so the
-// kind glyph (color emoji) and outlined name labels are drawn on our own
-// overlay canvas — see drawOverlay().
+// Label rendering. Sigma 4's native labels are monochrome SDF text, so
+// outlined name labels and hover pills are drawn on our own overlay canvas.
 const LABEL_FONT = "'IBM Plex Sans', sans-serif";
 const LABEL_SIZE = 12;
 const LABEL_COLOR = "#e2e2f0";
-const LABEL_RENDERED_SIZE_THRESHOLD = 8;
-// Sigma 3 defaults (labelGridCellSize / labelDensity) that kept labels from piling up.
-const LABEL_GRID_CELL_SIZE = 100;
+const LABEL_RENDERED_SIZE_THRESHOLD = 6.2;
+// Spatial label grid cell size & density keeping constellation labels readable.
+const LABEL_GRID_CELL_SIZE = 120;
 const LABEL_DENSITY = 1;
-const DIMMED_COLOR = "#1e1e28";
-const HIGHLIGHTED_EDGE_OPACITY = 0.7;
-const EDGE_CURVATURE = 0.25;
+const DIMMED_COLOR = "#1a1a24";
+const HIGHLIGHTED_EDGE_COLOR = "#9d8df9";
+const EDGE_CURVATURE = 0.2;
+const CORE_COMPONENT_MIN_NODES = 10;
+const CIRCLEPACK_SEED = 1337;
+const LOCAL_FA2_ITERATIONS = 48;
+const GALAXY_ASPECT_X = 1.85;
+const CONSTELLATION_CHANNEL_GAP = 54;
 
 let sigmaMod = $state<SigmaModule | null>(null);
 let renderingMod = $state<SigmaRenderingModule | null>(null);
 let nodeBorderMod = $state<NodeBorderModule | null>(null);
 let fa2Mod = $state<FA2Module | null>(null);
+let layoutMod = $state<LayoutModule | null>(null);
 let sigmaInst: Sigma | null = null;
 let containerEl: HTMLDivElement | undefined;
 let overlayEl: HTMLCanvasElement | undefined;
@@ -72,15 +83,23 @@ onMount(() => {
 		import("sigma/rendering"),
 		import("@sigma/node-border"),
 		import("graphology-layout-forceatlas2"),
-	]).then(([s, r, nb, f]) => {
+		import("graphology-layout"),
+	]).then(([s, r, nb, f, l]) => {
 		sigmaMod = s;
 		renderingMod = r;
 		nodeBorderMod = nb;
 		fa2Mod = f;
+		layoutMod = l;
 	});
 
-	// Keep the overlay's backing store in step with the container.
-	const resizeObserver = new ResizeObserver(() => redrawOverlay?.());
+	// Keep both Sigma's WebGL viewport and the 2D overlay canvas in step with
+	// container size changes (e.g. when the detail drawer opens or closes).
+	const resizeObserver = new ResizeObserver(() => {
+		if (!sigmaInst) return;
+		sigmaInst.resize();
+		sigmaInst.scheduleRefresh({ skipIndexation: true });
+		redrawOverlay?.();
+	});
 	if (containerEl) resizeObserver.observe(containerEl);
 
 	return () => {
@@ -89,54 +108,251 @@ onMount(() => {
 	};
 });
 
+interface ConstellationCluster {
+	commId: number;
+	nodes: { id: string; x: number; y: number; personalR: number }[];
+	radius: number;
+}
+
 /**
- * Place each community's nodes in a small circle around a community center,
- * arranged on a larger ring. FA2 then refines from this warm start rather
- * than having to discover community structure from a random scatter.
+ * Two-level constellation layout:
+ * 1. Lays out each community locally (hub-centered circlepack seed -> local FA2
+ *    with strong gravity -> uniform star-density RMS normalization -> circle
+ *    overlap separation) so major genre hubs anchor the heart of their nebula.
+ * 2. Positions constellation centers across a widescreen galactic plane with
+ *    guaranteed dark space channels (`CONSTELLATION_CHANNEL_GAP`), then rotates
+ *    each constellation via Procrustes alignment so bridge genres face their
+ *    neighboring constellations.
+ * 3. Places disconnected islands along a subtle outer elliptical belt.
  */
-function initCommunityLayout(g: Graph): void {
-	const groups = new Map<number, string[]>();
-	g.forEachNode((node, attrs) => {
-		const c = attrs.community as number;
-		const group = groups.get(c) ?? [];
-		groups.set(c, group);
-		group.push(node);
+function assignGalaxyLayout(
+	g: Graph,
+	circlepack: LayoutModule["circlepack"],
+	fa2: FA2Module["default"],
+): void {
+	const visited = new Set<string>();
+	const coreNodeIds = new Set<string>();
+	const satellites: string[][] = [];
+
+	g.forEachNode((start) => {
+		if (visited.has(start)) return;
+		const queue = [start];
+		visited.add(start);
+		for (let i = 0; i < queue.length; i++) {
+			const u = queue[i];
+			g.forEachNeighbor(u, (v) => {
+				if (!visited.has(v)) {
+					visited.add(v);
+					queue.push(v);
+				}
+			});
+		}
+		if (queue.length >= CORE_COMPONENT_MIN_NODES) {
+			for (const id of queue) coreNodeIds.add(id);
+		} else {
+			satellites.push(queue);
+		}
 	});
 
-	const commList = [...groups.keys()];
-	const centerR = 600;
-	const memberR = 80;
-
-	// Golden-angle spiral: fills a disk evenly with no ring/hollow-center artifact.
-	const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ≈ 137.5°
-	const communityCenters = new Map<number, { x: number; y: number }>();
-	commList.forEach((commId, ci) => {
-		const r = centerR * Math.sqrt(ci / commList.length);
-		communityCenters.set(commId, {
-			x: r * Math.cos(ci * GOLDEN_ANGLE),
-			y: r * Math.sin(ci * GOLDEN_ANGLE),
-		});
-	});
-
-	commList.forEach((commId) => {
-		const members = groups.get(commId) ?? [];
-		const center = communityCenters.get(commId) ?? { x: 0, y: 0 };
-		members.forEach((node, mi) => {
-			// Isolated (degree-0) nodes have no edges to pull them back toward
-			// their community during FA2, so anchor them at the community
-			// center and mark them fixed rather than letting them drift away.
-			if (g.degree(node) === 0) {
-				const pos = isolatedNodePosition(commId, communityCenters);
-				g.setNodeAttribute(node, "x", pos.x);
-				g.setNodeAttribute(node, "y", pos.y);
-				g.setNodeAttribute(node, "fixed", true);
-				return;
+	const coreCoords: { x: number; y: number }[] = [];
+	if (coreNodeIds.size > 0) {
+		const byComm = new Map<number, string[]>();
+		for (const id of coreNodeIds) {
+			const comm = g.getNodeAttribute(id, "community") as number;
+			let list = byComm.get(comm);
+			if (!list) {
+				list = [];
+				byComm.set(comm, list);
 			}
-			const a = (2 * Math.PI * mi) / members.length;
-			g.setNodeAttribute(node, "x", center.x + memberR * Math.cos(a));
-			g.setNodeAttribute(node, "y", center.y + memberR * Math.sin(a));
+			list.push(id);
+		}
+
+		const constellations: ConstellationCluster[] = [];
+		const rng = createSeededRng(CIRCLEPACK_SEED);
+
+		for (const [commId, memberIds] of [...byComm.entries()].sort(
+			(a, b) => b[1].length - a[1].length || a[0] - b[0],
+		)) {
+			const sortedMembers = [...memberIds].sort(
+				(a, b) =>
+					(g.getNodeAttribute(b, "size") as number) -
+					(g.getNodeAttribute(a, "size") as number),
+			);
+			const memberSet = new Set(sortedMembers);
+			const sub = new Graph({ type: "undirected", multi: false });
+			for (const id of sortedMembers) {
+				sub.addNode(id, { size: g.getNodeAttribute(id, "size") as number });
+			}
+
+			for (const id of sortedMembers) {
+				let hasLocalBackbone = false;
+				let bestFallback: string | null = null;
+				let bestFallbackW = -1;
+				g.forEachEdge(id, (_e, eAttrs, src, tgt) => {
+					const other = src === id ? tgt : src;
+					if (!memberSet.has(other)) return;
+					const nw = (eAttrs.normWeight as number | undefined) ?? 0.5;
+					if (eAttrs.backbone) {
+						hasLocalBackbone = true;
+						if (!sub.hasEdge(id, other)) {
+							sub.addEdge(id, other, { weight: nw });
+						}
+					} else if (nw > bestFallbackW) {
+						bestFallbackW = nw;
+						bestFallback = other;
+					}
+				});
+				if (
+					!hasLocalBackbone &&
+					bestFallback !== null &&
+					!sub.hasEdge(id, bestFallback)
+				) {
+					sub.addEdge(id, bestFallback, { weight: bestFallbackW });
+				}
+			}
+
+			circlepack.assign(sub, { scale: 2.0, rng });
+
+			if (sub.order > 1) {
+				fa2.assign(sub, {
+					iterations: LOCAL_FA2_ITERATIONS,
+					settings: {
+						barnesHutOptimize: false,
+						linLogMode: false,
+						outboundAttractionDistribution: false,
+						strongGravityMode: true,
+						gravity: 1.6,
+						scalingRatio: 10,
+						slowDown: 2.0,
+						adjustSizes: false,
+					},
+					getEdgeWeight: "weight",
+				});
+			}
+
+			const localNodes: {
+				id: string;
+				x: number;
+				y: number;
+				personalR: number;
+			}[] = [];
+			let cx = 0;
+			let cy = 0;
+			let areaSum = 0;
+			sub.forEachNode((id, attrs) => {
+				const size = attrs.size as number;
+				const personalR = size * 1.45 + 2.4;
+				areaSum += personalR * personalR;
+				cx += attrs.x as number;
+				cy += attrs.y as number;
+				localNodes.push({
+					id,
+					x: attrs.x as number,
+					y: attrs.y as number,
+					personalR,
+				});
+			});
+			cx /= localNodes.length;
+			cy /= localNodes.length;
+
+			let sumSq = 0;
+			for (const n of localNodes) {
+				n.x -= cx;
+				n.y -= cy;
+				sumSq += n.x * n.x + n.y * n.y;
+			}
+			const rms = Math.sqrt(sumSq / localNodes.length) || 1;
+			const targetRms = 1.05 * Math.sqrt(areaSum);
+			const scale = targetRms / rms;
+			for (const n of localNodes) {
+				n.x *= scale;
+				n.y *= scale;
+			}
+
+			separateCircles(
+				localNodes,
+				localNodes.map((n) => n.personalR),
+				16,
+			);
+
+			let fcx = 0;
+			let fcy = 0;
+			for (const n of localNodes) {
+				fcx += n.x;
+				fcy += n.y;
+			}
+			fcx /= localNodes.length;
+			fcy /= localNodes.length;
+
+			let maxR = 12;
+			for (const n of localNodes) {
+				n.x -= fcx;
+				n.y -= fcy;
+				const r = Math.hypot(n.x, n.y) + n.personalR;
+				if (r > maxR) maxR = r;
+			}
+
+			constellations.push({ commId, nodes: localNodes, radius: maxR });
+		}
+
+		const commIndex = new Map<number, number>(
+			constellations.map((c, idx) => [c.commId, idx]),
+		);
+		const numC = constellations.length;
+		const affinities = Array.from({ length: numC }, () =>
+			new Array<number>(numC).fill(0),
+		);
+
+		g.forEachEdge((_e, eAttrs, src, tgt) => {
+			if (!coreNodeIds.has(src) || !coreNodeIds.has(tgt)) return;
+			const cs = commIndex.get(g.getNodeAttribute(src, "community") as number);
+			const ct = commIndex.get(g.getNodeAttribute(tgt, "community") as number);
+			if (cs === undefined || ct === undefined || cs === ct) return;
+			const w = (eAttrs.normWeight as number | undefined) ?? 0.5;
+			affinities[cs][ct] += w;
+			affinities[ct][cs] += w;
 		});
-	});
+
+		const centers = layoutConstellationCenters(
+			constellations.map((c) => c.radius),
+			affinities,
+			{ aspectX: GALAXY_ASPECT_X, channelGap: CONSTELLATION_CHANNEL_GAP },
+		);
+
+		const pullsByComm = Array.from({ length: numC }, (): ExternalPull[] => []);
+		g.forEachEdge((_e, eAttrs, src, tgt) => {
+			if (!coreNodeIds.has(src) || !coreNodeIds.has(tgt)) return;
+			const cs = commIndex.get(g.getNodeAttribute(src, "community") as number);
+			const ct = commIndex.get(g.getNodeAttribute(tgt, "community") as number);
+			if (cs === undefined || ct === undefined || cs === ct) return;
+			const w = (eAttrs.normWeight as number | undefined) ?? 0.5;
+			const dx = centers[ct].x - centers[cs].x;
+			const dy = centers[ct].y - centers[cs].y;
+			pullsByComm[cs].push({ nodeId: src, dirX: dx, dirY: dy, weight: w });
+			pullsByComm[ct].push({ nodeId: tgt, dirX: -dx, dirY: -dy, weight: w });
+		});
+
+		for (let i = 0; i < numC; i++) {
+			const c = constellations[i];
+			const center = centers[i];
+			const theta = optimalConstellationRotation(c.nodes, pullsByComm[i]);
+			const cos = Math.cos(theta);
+			const sin = Math.sin(theta);
+			for (const n of c.nodes) {
+				const worldX = center.x + n.x * cos - n.y * sin;
+				const worldY = center.y + n.x * sin + n.y * cos;
+				g.setNodeAttribute(n.id, "x", worldX);
+				g.setNodeAttribute(n.id, "y", worldY);
+				coreCoords.push({ x: worldX, y: worldY });
+			}
+		}
+	}
+
+	const satelliteCoords = placeSatelliteComponents(coreCoords, satellites);
+	for (const [id, pos] of satelliteCoords) {
+		g.setNodeAttribute(id, "x", pos.x);
+		g.setNodeAttribute(id, "y", pos.y);
+	}
 }
 
 interface OverlayItem {
@@ -144,61 +360,73 @@ interface OverlayItem {
 	x: number;
 	y: number;
 	size: number;
+	color: string;
 	label: string;
+	rank: number | undefined;
 	kind: "genre" | "artist";
 }
 
-function drawGlyph(ctx: CanvasRenderingContext2D, item: OverlayItem): void {
-	ctx.save();
-	ctx.font = `${glyphSize(item.size)}px sans-serif`;
-	ctx.textAlign = "center";
-	ctx.textBaseline = "middle";
-	ctx.fillText(kindGlyph(item.kind), item.x, item.y);
-	ctx.restore();
+function pillText(item: OverlayItem): string {
+	const rankSuffix = item.rank !== undefined ? ` · #${item.rank}` : "";
+	return `${kindGlyph(item.kind)} ${item.label}${rankSuffix}`;
 }
 
 function drawName(
 	ctx: CanvasRenderingContext2D,
 	item: OverlayItem,
 	outlined: boolean,
+	text = item.label,
 ): void {
 	ctx.save();
 	ctx.textAlign = "left";
 	ctx.textBaseline = "alphabetic";
-	ctx.font = `normal ${LABEL_SIZE}px ${LABEL_FONT}`;
-	const labelX = item.x + item.size + 3;
+	const weight = item.kind === "genre" ? "500" : "normal";
+	ctx.font = `${weight} ${LABEL_SIZE}px ${LABEL_FONT}`;
+	const offset = outlined
+		? item.size + 4
+		: Math.max(item.size, LABEL_SIZE / 2) + 6;
+	const labelX = item.x + offset;
 	const labelY = item.y + LABEL_SIZE / 3;
 	if (outlined) {
 		ctx.lineJoin = "round";
 		ctx.lineWidth = 3;
-		ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
-		ctx.fillStyle = "#ffffff";
-		ctx.strokeText(item.label, labelX, labelY);
+		ctx.strokeStyle = "rgba(12, 12, 16, 0.92)";
+		ctx.fillStyle = item.kind === "genre" ? "#f0f0fa" : "#c8c8dc";
+		ctx.strokeText(text, labelX, labelY);
 	} else {
 		ctx.fillStyle = LABEL_COLOR;
 	}
-	ctx.fillText(item.label, labelX, labelY);
+	ctx.fillText(text, labelX, labelY);
 	ctx.restore();
 }
 
-// Same pill shape as Sigma 3's default hover but with a dark background so
-// the label text is readable against `--surface`.
-function drawHoverPill(ctx: CanvasRenderingContext2D, item: OverlayItem): void {
-	const PADDING = 2;
+// Dark pill badge with shadow + border, repainting the node's vivid colored
+// circle and crisp light halo ring inside the left cap so the focused node
+// never gets covered by the pill backdrop.
+function drawHoverPill(
+	ctx: CanvasRenderingContext2D,
+	item: OverlayItem,
+	text: string,
+): void {
+	const PADDING = 4;
 	ctx.save();
-	ctx.font = `normal ${LABEL_SIZE}px ${LABEL_FONT}`;
+	const weight = item.kind === "genre" ? "500" : "normal";
+	ctx.font = `${weight} ${LABEL_SIZE}px ${LABEL_FONT}`;
 	ctx.fillStyle = "#131318";
+	ctx.strokeStyle = "#2d2d44";
+	ctx.lineWidth = 1;
 	ctx.shadowOffsetX = 0;
-	ctx.shadowOffsetY = 0;
-	ctx.shadowBlur = 8;
-	ctx.shadowColor = "#000";
+	ctx.shadowOffsetY = 2;
+	ctx.shadowBlur = 10;
+	ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
 
 	const { x, y, size } = item;
-	const textWidth = ctx.measureText(item.label).width;
-	const boxWidth = Math.round(textWidth + 5);
+	const discRadius = Math.max(size, 4);
+	const textWidth = ctx.measureText(text).width;
+	const boxWidth = Math.round(textWidth + 12);
 	const boxHeight = Math.round(LABEL_SIZE + 2 * PADDING);
-	const radius = Math.max(size, LABEL_SIZE / 2) + PADDING;
-	const angleRadian = Math.asin(boxHeight / 2 / radius);
+	const radius = Math.max(discRadius, LABEL_SIZE / 2) + PADDING;
+	const angleRadian = Math.asin(Math.min(1, boxHeight / 2 / radius));
 	const xDeltaCoord = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
 
 	ctx.beginPath();
@@ -209,7 +437,49 @@ function drawHoverPill(ctx: CanvasRenderingContext2D, item: OverlayItem): void {
 	ctx.arc(x, y, radius, angleRadian, -angleRadian);
 	ctx.closePath();
 	ctx.fill();
+	ctx.stroke();
 	ctx.restore();
+
+	ctx.save();
+	ctx.beginPath();
+	ctx.arc(x, y, discRadius, 0, Math.PI * 2);
+	ctx.fillStyle = item.color;
+	ctx.fill();
+	ctx.lineWidth = 1.6;
+	ctx.strokeStyle = "#f0f0fa";
+	ctx.stroke();
+	ctx.restore();
+}
+
+function isEdgeActiveInFilter(
+	attrs: Record<string, unknown>,
+	artistsVisible: boolean,
+	winVis: WindowVisibility | null,
+): boolean {
+	if (!artistsVisible && attrs.kind !== "genre-genre") return false;
+	if (!winVis) return true;
+	if (attrs.kind === "genre-artist") {
+		return winVis.artistIds.has(attrs.artistId as number);
+	}
+	if (attrs.kind === "genre-genre") {
+		return winVis.genreGenrePairs.has(attrs.pairKey as string);
+	}
+	return winVis.artistArtistPairs.has(attrs.pairKey as string);
+}
+
+function activeNeighborsOf(
+	g: Graph,
+	nodeId: string,
+	artistsVisible: boolean,
+	winVis: WindowVisibility | null,
+): Set<string> {
+	const neighbors = new Set<string>();
+	if (!g.hasNode(nodeId)) return neighbors;
+	g.forEachEdge(nodeId, (_edge, attrs, src, tgt) => {
+		if (!isEdgeActiveInFilter(attrs, artistsVisible, winVis)) return;
+		neighbors.add(src === nodeId ? tgt : src);
+	});
+	return neighbors;
 }
 
 $effect(() => {
@@ -218,47 +488,44 @@ $effect(() => {
 	const rendering = renderingMod;
 	const nodeBorder = nodeBorderMod;
 	const fa2 = fa2Mod;
+	const layout = layoutMod;
 	const container = containerEl;
-	if (!sigmaModule || !rendering || !nodeBorder || !fa2 || !container) return;
+	if (
+		!sigmaModule ||
+		!rendering ||
+		!nodeBorder ||
+		!fa2 ||
+		!layout ||
+		!container
+	)
+		return;
 
 	loading = true;
 
 	const Sigma = sigmaModule.default;
 
 	const id = setTimeout(() => {
-		initCommunityLayout(g);
-		fa2.default.assign(g, {
-			iterations: 500,
-			settings: {
-				...fa2.default.inferSettings(g),
-				gravity: 1,
-				scalingRatio: 10,
-				adjustSizes: true,
-				// Barnes-Hut approximation (O(n log n) per iteration) instead of the
-				// exact O(n²) pairwise repulsion — with ~1,300 mixed genre/artist
-				// nodes, the exact computation was blocking the main thread for
-				// several seconds before the graph could even paint.
-				barnesHutOptimize: true,
-			},
-			getEdgeWeight: "weight",
-		});
+		assignGalaxyLayout(g, layout.circlepack, fa2.default);
 
 		let hoverTimer: ReturnType<typeof setTimeout> | null = null;
-		selectedNeighborSet =
-			selectedNode && g.hasNode(selectedNode)
-				? new Set(g.neighbors(selectedNode))
-				: new Set();
+		selectedNeighborSet = selectedNode
+			? activeNeighborsOf(g, selectedNode, showArtists, windowVisibility)
+			: new Set();
 
 		sigmaInst?.kill();
 		const sigma = new Sigma(g, container, {
 			primitives: {
+				// Interleave edges and nodes so highlighted edges (topEdges) draw
+				// above dimmed nodes, while highlighted nodes (topNodes) draw above
+				// those edges.
+				depthLayers: ["edges", "nodes", "topEdges", "topNodes"],
 				nodes: {
 					shapes: [rendering.sdfCircle()],
-					// 3px black outer ring, community color fill.
+					// Crisp 1.2px `--bg` separator ring so small nodes keep vivid fills.
 					layers: [
 						nodeBorder.layerBorder({
 							borders: [
-								{ size: 3, mode: "pixels", color: "#000000" },
+								{ size: 1.2, mode: "pixels", color: "#0c0c10" },
 								{ fill: true, color: { attribute: "color" } },
 							],
 						}),
@@ -296,13 +563,18 @@ $effect(() => {
 			settings: {
 				renderLabels: false,
 				renderEdgeLabels: false,
+				enableEdgeEvents: false,
+				hideEdgesOnMove: true,
+				// Allow hairline edges down to 0.4px instead of Sigma 4's 1.7px floor,
+				// which otherwise inflates thousands of weak edges into an opaque mass.
+				minEdgeThickness: 0.4,
 				// v3 sizes were screen pixels; v4 defaults to graph units.
 				itemSizesReference: "screen",
 				// Fit the camera to the graph once. The default re-fits on every
 				// refresh, so hovering (which hides non-incident edges) zoomed the
 				// view to whatever stayed visible.
 				autoRescale: "once",
-				minCameraRatio: 0.05,
+				minCameraRatio: 0.02,
 				maxCameraRatio: 8,
 				stagePadding: 40,
 			},
@@ -315,9 +587,12 @@ $effect(() => {
 				if (!showArtists && attrs.kind === "artist") {
 					return { visibility: "hidden" };
 				}
-				if (activeWindow) {
-					const ranges: TimeRange[] = attrs.ranges ?? [];
-					if (!rangesOverlap(ranges, activeWindow[0], activeWindow[1])) {
+				if (windowVisibility) {
+					const inWindow =
+						attrs.kind === "genre"
+							? windowVisibility.genreIds.has(attrs.genreId as number)
+							: windowVisibility.artistIds.has(attrs.artistId as number);
+					if (!inWindow) {
 						return { visibility: "hidden" };
 					}
 				}
@@ -325,38 +600,39 @@ $effect(() => {
 				const activeNeighbors = hoveredNode
 					? hoveredNeighborSet
 					: selectedNeighborSet;
-				if (!activeNode || node === activeNode || activeNeighbors.has(node)) {
-					return {};
+				if (!activeNode) return {};
+				if (node === activeNode || activeNeighbors.has(node)) {
+					return { depth: "topNodes", zIndex: node === activeNode ? 2 : 1 };
 				}
-				return { color: DIMMED_COLOR, label: "" };
+				return { color: DIMMED_COLOR, label: "", depth: "nodes", zIndex: 0 };
 			},
 			edgeReducer: (edge, _display, attrs) => {
-				if (!showArtists && attrs.kind !== "genre-genre") {
+				if (!isEdgeActiveInFilter(attrs, showArtists, windowVisibility)) {
 					return { visibility: "hidden" };
 				}
-				if (activeWindow) {
-					const ranges: TimeRange[] = attrs.ranges ?? [];
-					if (!rangesOverlap(ranges, activeWindow[0], activeWindow[1])) {
-						return { visibility: "hidden" };
-					}
-				}
 				const activeNode = hoveredNode ?? selectedNode;
-				if (!activeNode) return {};
-				// A focused node's own edges are emphasized: at their resting opacity
-				// they read as faint, which is right for the whole web but not for
-				// the handful the user is actually looking at.
+				if (!activeNode) {
+					return attrs.backbone ? {} : { visibility: "hidden" };
+				}
+				// Emphasize every incident edge (including non-backbone links) when a
+				// node is hovered or selected, scaling opacity by weight so a hub's
+				// strongest ties stand out without 400 weak links forming a solid fan.
 				if (g.hasExtremity(edge, activeNode)) {
-					return { opacity: HIGHLIGHTED_EDGE_OPACITY };
+					const nw = (attrs.normWeight as number | undefined) ?? 0.5;
+					return {
+						opacity: 0.14 + 0.58 * nw,
+						color: HIGHLIGHTED_EDGE_COLOR,
+						size: 0.45 + 1.55 * nw,
+						depth: "topEdges",
+					};
 				}
 				return { visibility: "hidden" };
 			},
 		});
 		sigmaInst = sigma;
 
-		// Overlay canvas: kind glyph centered on each labelled node, plus the
-		// name as solid text over a near-opaque black stroke (maximum contrast
-		// against the dense web of edges). The hovered node gets a dark pill
-		// so its label stays readable. Redrawn after every sigma render.
+		// Overlay canvas: outlined hub labels culled by a spatial grid, plus a
+		// dark badge pill with kind glyph + rank for the hovered/selected node.
 		let labelledNodes: Set<string> | null = null;
 
 		function drawOverlay(): void {
@@ -376,28 +652,40 @@ $effect(() => {
 			ctx.clearRect(0, 0, width, height);
 
 			let hoveredDraw: OverlayItem | null = null;
+			let selectedDraw: OverlayItem | null = null;
+			const sizeScale = sigma.scaleSize(1);
 
 			const candidates: OverlayItem[] = [];
 			g.forEachNode((node, attrs) => {
 				const display = sigma.getNodeDisplayData(node);
 				if (!display || display.visibility === "hidden") return;
 				if (!display.label) return; // dimmed by the reducer
-				const size = sigma.scaleSize(display.size);
+				const size = display.size * sizeScale;
 				const isHovered = node === hoveredNode;
-				if (!shouldDrawLabel(size, LABEL_RENDERED_SIZE_THRESHOLD, isHovered))
+				const isSelected = node === selectedNode;
+				if (
+					!isSelected &&
+					!shouldDrawLabel(size, LABEL_RENDERED_SIZE_THRESHOLD, isHovered)
+				)
 					return;
-				const { x, y } = sigma.graphToViewport({ x: attrs.x, y: attrs.y });
+				const { x, y } = sigma.framedGraphToViewport(display);
 				if (x < -100 || y < -20 || x > width + 100 || y > height + 20) return;
 				const item: OverlayItem = {
 					node,
 					x,
 					y,
 					size,
+					color: g.getNodeAttribute(node, "color") as string,
 					label: display.label,
+					rank: attrs.rank as number | undefined,
 					kind: attrs.kind as "genre" | "artist",
 				};
 				if (isHovered) {
 					hoveredDraw = item;
+					return;
+				}
+				if (isSelected) {
+					selectedDraw = item;
 					return;
 				}
 				candidates.push(item);
@@ -415,28 +703,38 @@ $effect(() => {
 					.filter((item) => frozen.has(item.node))
 					.sort((a, b) => a.size - b.size);
 			} else {
-				const kept = cullLabelsByGrid(
+				const gridKept = cullLabelsByGrid(
 					candidates,
 					LABEL_GRID_CELL_SIZE,
 					LABEL_DENSITY,
 				);
+				const kept = cullOverlappingLabels(gridKept, LABEL_SIZE);
 				labelledNodes = new Set(kept.map((item) => item.node));
 				visible = kept.reverse();
 			}
 			for (const item of visible) {
-				drawGlyph(ctx, item);
 				drawName(ctx, item, true);
 			}
 
+			if (selectedDraw) {
+				const text = pillText(selectedDraw);
+				drawHoverPill(ctx, selectedDraw, text);
+				drawName(ctx, selectedDraw, false, text);
+			}
+
 			if (hoveredDraw) {
-				drawHoverPill(ctx, hoveredDraw);
-				drawGlyph(ctx, hoveredDraw);
-				drawName(ctx, hoveredDraw, false);
+				const text = pillText(hoveredDraw);
+				drawHoverPill(ctx, hoveredDraw, text);
+				drawName(ctx, hoveredDraw, false, text);
 			}
 		}
 
 		redrawOverlay = drawOverlay;
 		sigma.on("afterRender", drawOverlay);
+		drawOverlay();
+		if (selectedNode && g.hasNode(selectedNode)) {
+			focusNode(selectedNode, 0);
+		}
 
 		sigma.on("clickNode", (payload) => {
 			const node = payload.node;
@@ -454,9 +752,15 @@ $effect(() => {
 			container.style.cursor = "pointer";
 			if (hoverTimer !== null) clearTimeout(hoverTimer);
 			hoverTimer = setTimeout(() => {
+				hoverTimer = null;
 				hoveredNode = payload.node;
-				hoveredNeighborSet = new Set(g.neighbors(hoveredNode));
-				sigmaInst?.refresh();
+				hoveredNeighborSet = activeNeighborsOf(
+					g,
+					hoveredNode,
+					showArtists,
+					windowVisibility,
+				);
+				sigmaInst?.scheduleRefresh({ skipIndexation: true });
 			}, 150);
 		});
 
@@ -465,10 +769,12 @@ $effect(() => {
 				clearTimeout(hoverTimer);
 				hoverTimer = null;
 			}
-			hoveredNode = null;
-			hoveredNeighborSet = new Set();
-			sigmaInst?.refresh();
 			container.style.cursor = "default";
+			if (hoveredNode !== null) {
+				hoveredNode = null;
+				hoveredNeighborSet = new Set();
+				sigmaInst?.scheduleRefresh({ skipIndexation: true });
+			}
 		});
 
 		loading = false;
@@ -477,52 +783,67 @@ $effect(() => {
 	return () => clearTimeout(id);
 });
 
-// Selection changes must not rebuild the graph or rerun FA2 — that would
-// visibly jank the layout on every click. This effect only recomputes the
-// selected node's neighbor set and asks Sigma to redraw with it.
+// Selection, time-window, and artist-toggle changes must never rebuild the
+// graph or rerun ForceAtlas2 — only recompute the active neighbor set for the
+// current filter and schedule a fast Sigma state refresh.
 $effect(() => {
 	const node = selectedNode;
 	const g = graph;
+	const artistsVisible = showArtists;
+	const winVis = windowVisibility;
 	if (!sigmaInst) return;
-	selectedNeighborSet =
-		node && g.hasNode(node) ? new Set(g.neighbors(node)) : new Set();
-	if (!hoveredNode) sigmaInst.refresh();
+	selectedNeighborSet = node
+		? activeNeighborsOf(g, node, artistsVisible, winVis)
+		: new Set();
+	sigmaInst.scheduleRefresh({ skipIndexation: true });
 });
 
-// Same reasoning as the selection effect above: dragging the time-window
-// slider must only re-run the reducers (which read `activeWindow` directly)
-// and redraw, never rebuild the graph or re-run FA2/Louvain.
-$effect(() => {
-	void activeWindow;
-	if (!sigmaInst) return;
-	sigmaInst.refresh();
-});
-
-// Same reasoning again: toggling "Show artists" only needs the reducers
-// (which read `showArtists` directly) to re-run and redraw. The graph
-// still contains every artist node/edge underneath — only their visibility
-// changes — so there's nothing here to rebuild or re-layout.
-$effect(() => {
-	void showArtists;
-	if (!sigmaInst) return;
-	sigmaInst.refresh();
-});
-
-// Pans/zooms the camera to a node, used by the galaxy page's search box to
-// jump straight to a match rather than requiring the user to hunt visually.
-// Camera x/y must be in Sigma's normalized "framed graph" space ([0,1] range
-// after Sigma fits the graph's bounding box), NOT the raw graphology x/y
-// attributes FA2 assigns (which are in arbitrary graph-layout units) —
-// animating the camera to raw coordinates points it at empty space and
-// leaves the canvas blank. getNodeDisplayData() returns the node's position
-// already converted to that normalized space.
-export function focusNode(nodeId: string): void {
-	if (!sigmaInst) return;
+// Pans and zooms the camera to frame `nodeId` together with all of its
+// currently visible connected neighbors so the user can see the full web of
+// connections for the selected node at once. Camera coordinates live in
+// Sigma's normalized "framed graph" space (`getNodeDisplayData()`), and
+// viewport width accounts for the 380px detail drawer settling open alongside
+// the canvas.
+export function focusNode(nodeId: string, duration = 500): void {
+	if (!sigmaInst || !containerEl) return;
 	const data = sigmaInst.getNodeDisplayData(nodeId);
 	if (!data) return;
-	sigmaInst
-		.getCamera()
-		.animate({ x: data.x, y: data.y, ratio: 0.15 }, { duration: 500 });
+
+	const points: { x: number; y: number }[] = [{ x: data.x, y: data.y }];
+	for (const neighborId of activeNeighborsOf(
+		graph,
+		nodeId,
+		showArtists,
+		windowVisibility,
+	)) {
+		const nData = sigmaInst.getNodeDisplayData(neighborId);
+		if (nData) points.push({ x: nData.x, y: nData.y });
+	}
+
+	const rect = containerEl.getBoundingClientRect();
+	const drawerEl = containerEl
+		.closest(".graph-row")
+		?.querySelector<HTMLElement>(".drawer");
+	const currentDrawerWidth = drawerEl?.getBoundingClientRect().width ?? 0;
+	const pendingDrawerDelta =
+		window.innerWidth > 900 ? Math.max(0, 380 - currentDrawerWidth) : 0;
+
+	const targetState = computeNeighborhoodCameraState({
+		points,
+		viewport: {
+			width: Math.max(200, rect.width - pendingDrawerDelta),
+			height: Math.max(200, rect.height),
+		},
+		graphDimensions: sigmaInst.getGraphDimensions(),
+		stagePadding: sigmaInst.getStagePadding(),
+	});
+	if (!targetState) return;
+
+	if (duration <= 0) {
+		sigmaInst.getCamera().setState(targetState);
+	} else {
+		sigmaInst.getCamera().animate(targetState, { duration });
+	}
 }
 </script>
 

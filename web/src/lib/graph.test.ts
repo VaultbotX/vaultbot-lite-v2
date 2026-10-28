@@ -1,23 +1,37 @@
 import { describe, expect, it } from "vitest";
 import {
 	assignCommunityColors,
+	assignCommunityColorsBySize,
+	buildWindowIndex,
 	COMMUNITY_PALETTE,
+	computeNeighborhoodCameraState,
+	computeTimeBounds,
+	createSeededRng,
 	cullLabelsByGrid,
+	cullOverlappingLabels,
 	desaturateColor,
 	detailFetchUrl,
 	edgeOpacity,
+	edgePairKey,
 	edgeWidth,
+	evaluateWindow,
 	formatRank,
 	formatWindowRange,
 	glyphSize,
 	isolatedNodePosition,
 	kindGlyph,
+	layoutConstellationCenters,
+	logNormalizedWeight,
 	nodeSize,
+	optimalConstellationRotation,
 	parseNodeParam,
 	parseTimeRangeParams,
+	placeSatelliteComponents,
 	rangesOverlap,
 	type SearchableNode,
 	searchNodes,
+	selectBackboneEdges,
+	separateCircles,
 	shouldDrawLabel,
 	sqlBounds,
 	type TimeRange,
@@ -543,5 +557,302 @@ describe("cullLabelsByGrid", () => {
 			{ x: 10, y: 10, size: 1 },
 		];
 		expect(cullLabelsByGrid(items, 100, 1)).toHaveLength(2);
+	});
+});
+
+describe("cullOverlappingLabels", () => {
+	it("drops smaller labels whose text bounding boxes collide across grid boundaries", () => {
+		const items = [
+			{ x: 100, y: 118, size: 12, label: "vapor twitch" },
+			{ x: 104, y: 123, size: 10, label: "vapor soul" },
+			{ x: 320, y: 120, size: 8, label: "indie rock" },
+		];
+		const kept = cullOverlappingLabels(items, 12);
+		expect(kept.map((i) => i.label)).toEqual(["vapor twitch", "indie rock"]);
+	});
+});
+
+describe("computeTimeBounds", () => {
+	it("returns null for empty range collections", () => {
+		expect(computeTimeBounds([])).toBeNull();
+		expect(computeTimeBounds([[], []])).toBeNull();
+	});
+
+	it("computes overall min start and max end across nested range arrays", () => {
+		expect(
+			computeTimeBounds([
+				[
+					[100, 200],
+					[500, 800],
+				],
+				[[50, 120]],
+				[[300, 950]],
+			]),
+		).toEqual([50, 950]);
+	});
+});
+
+describe("edgePairKey", () => {
+	it("normalizes pair order so (a, b) and (b, a) share a key", () => {
+		expect(edgePairKey(10, 3)).toBe("3:10");
+		expect(edgePairKey(3, 10)).toBe("3:10");
+	});
+});
+
+describe("buildWindowIndex & evaluateWindow", () => {
+	const index = buildWindowIndex(
+		[
+			{ artist_id: 1, ranges: [[100, 200]] },
+			{ artist_id: 2, ranges: [[500, 600]] },
+			{ artist_id: 3, ranges: [[150, 550]] },
+		],
+		[
+			{ genre_id: 10, artist_id: 1 },
+			{ genre_id: 20, artist_id: 1 },
+			{ genre_id: 20, artist_id: 2 },
+			{ genre_id: 30, artist_id: 3 },
+		],
+		[
+			{ source_genre_id: 10, target_genre_id: 20 }, // shared artist 1
+			{ source_genre_id: 20, target_genre_id: 30 }, // no shared artist
+		],
+		[
+			{
+				source_artist_id: 1,
+				target_artist_id: 3,
+				ranges: [[160, 180]],
+			},
+		],
+	);
+
+	it("activates artists, their genres, shared genre edges, and overlapping collab edges", () => {
+		const vis = evaluateWindow(index, 140, 190);
+		expect([...vis.artistIds].sort()).toEqual([1, 3]);
+		expect([...vis.genreIds].sort()).toEqual([10, 20, 30]);
+		expect(vis.genreArtistEdgeCount).toBe(3);
+		expect([...vis.genreGenrePairs]).toEqual(["10:20"]);
+		expect([...vis.artistArtistPairs]).toEqual(["1:3"]);
+	});
+
+	it("omits collab edges whose song range falls outside the window even if both artists are active", () => {
+		const vis = evaluateWindow(index, 190, 200);
+		expect(vis.artistIds.has(1)).toBe(true);
+		expect(vis.artistIds.has(3)).toBe(true);
+		expect(vis.artistArtistPairs.size).toBe(0);
+	});
+
+	it("omits genre-genre edges when their shared artist is inactive even if both genres are active via other artists", () => {
+		// In [520, 540], artists 2 and 3 are active -> genre 20 is active (via 2),
+		// genre 10 is inactive (artist 1 inactive), so 10:20 is inactive.
+		const vis = evaluateWindow(index, 520, 540);
+		expect([...vis.artistIds].sort()).toEqual([2, 3]);
+		expect([...vis.genreIds].sort()).toEqual([20, 30]);
+		expect(vis.genreGenrePairs.size).toBe(0);
+	});
+});
+
+describe("createSeededRng", () => {
+	it("produces identical sequences in [0, 1) for the same seed", () => {
+		const a = createSeededRng(42);
+		const b = createSeededRng(42);
+		for (let i = 0; i < 10; i++) {
+			const val = a();
+			expect(val).toBeGreaterThanOrEqual(0);
+			expect(val).toBeLessThan(1);
+			expect(val).toBe(b());
+		}
+	});
+});
+
+describe("logNormalizedWeight", () => {
+	it("returns 0 for non-positive weights or maxWeight", () => {
+		expect(logNormalizedWeight(0, 100)).toBe(0);
+		expect(logNormalizedWeight(10, 0)).toBe(0);
+	});
+
+	it("returns 1 when weight equals maxWeight and stays monotonically increasing", () => {
+		expect(logNormalizedWeight(100, 100)).toBeCloseTo(1);
+		expect(logNormalizedWeight(1, 100)).toBeGreaterThan(0.15);
+		expect(logNormalizedWeight(1, 100)).toBeLessThan(
+			logNormalizedWeight(10, 100),
+		);
+	});
+});
+
+describe("selectBackboneEdges", () => {
+	it("keeps top-K heaviest incident edges for every endpoint", () => {
+		const edges = [
+			{ s: "a", t: "b", w: 100 },
+			{ s: "a", t: "c", w: 50 },
+			{ s: "a", t: "d", w: 1 }, // still 'd's only edge!
+			{ s: "b", t: "c", w: 2 }, // neither b's nor c's top-1
+		];
+		const kept = selectBackboneEdges(
+			edges,
+			(e) => e.s,
+			(e) => e.t,
+			(e) => e.w,
+			1,
+		);
+		expect([...kept].sort()).toEqual([0, 1, 2]);
+	});
+});
+
+describe("assignCommunityColorsBySize", () => {
+	it("assigns vivid palette colors to largest communities first and fallback to tiny ones", () => {
+		const sizes = new Map([
+			[0, 1],
+			[1, 50],
+			[2, 200],
+		]);
+		const colors = assignCommunityColorsBySize(
+			sizes,
+			["#111111", "#222222"],
+			3,
+			"#999999",
+		);
+		expect(colors.get(2)).toBe("#111111");
+		expect(colors.get(1)).toBe("#222222");
+		expect(colors.get(0)).toBe("#999999");
+	});
+});
+
+describe("separateCircles", () => {
+	it("separates coincident nodes and moves smaller nodes farther than hubs", () => {
+		const nodes = [
+			{ x: 0, y: 0 },
+			{ x: 0, y: 0 },
+			{ x: 500, y: 500 },
+		];
+		separateCircles(nodes, [24, 4, 4], 14);
+		const dist = Math.hypot(nodes[1].x - nodes[0].x, nodes[1].y - nodes[0].y);
+		expect(dist).toBeGreaterThanOrEqual(27.5);
+		expect(Math.hypot(nodes[1].x, nodes[1].y)).toBeGreaterThan(
+			Math.hypot(nodes[0].x, nodes[0].y),
+		);
+	});
+});
+
+describe("layoutConstellationCenters", () => {
+	it("enforces cosmic channel separation and pulls strongly linked clusters closer", () => {
+		const radii = [60, 50, 50, 45];
+		const affinities = [
+			[0, 100, 0, 1],
+			[100, 0, 1, 0],
+			[0, 1, 0, 90],
+			[1, 0, 90, 0],
+		];
+		const centers = layoutConstellationCenters(radii, affinities, {
+			aspectX: 1.65,
+			channelGap: 40,
+		});
+		expect(centers).toHaveLength(4);
+		for (let i = 0; i < 4; i++) {
+			for (let j = i + 1; j < 4; j++) {
+				const d = Math.hypot(
+					centers[j].x - centers[i].x,
+					centers[j].y - centers[i].y,
+				);
+				expect(d).toBeGreaterThanOrEqual(radii[i] + radii[j] + 39.5);
+			}
+		}
+		const linkedDist = Math.hypot(
+			centers[1].x - centers[0].x,
+			centers[1].y - centers[0].y,
+		);
+		const unlinkedDist = Math.hypot(
+			centers[2].x - centers[0].x,
+			centers[2].y - centers[0].y,
+		);
+		expect(linkedDist).toBeLessThan(unlinkedDist);
+	});
+});
+
+describe("optimalConstellationRotation", () => {
+	it("rotates a bridge node on +X by +90 degrees toward a neighbor at +Y", () => {
+		const angle = optimalConstellationRotation(
+			[{ id: "bridge", x: 10, y: 0 }],
+			[{ nodeId: "bridge", dirX: 0, dirY: 1, weight: 5 }],
+		);
+		expect(angle).toBeCloseTo(Math.PI / 2);
+	});
+});
+
+describe("placeSatelliteComponents", () => {
+	it("places satellite singletons and micro-clusters on an elliptical belt outside the core", () => {
+		const core = [
+			{ x: -200, y: -100 },
+			{ x: 200, y: 100 },
+		];
+		const placed = placeSatelliteComponents(core, [
+			["s1"],
+			["s2"],
+			["c1", "c2"],
+		]);
+		expect(placed.size).toBe(4);
+		for (const pos of placed.values()) {
+			const normEllipse = Math.hypot(pos.x / 200, pos.y / 100);
+			expect(normEllipse).toBeGreaterThan(1.03);
+			expect(normEllipse).toBeLessThan(1.2);
+		}
+	});
+});
+
+describe("computeNeighborhoodCameraState", () => {
+	const viewport = { width: 1460, height: 810 };
+	const graphDimensions = { width: 2400, height: 1300 };
+
+	it("returns null when given no points", () => {
+		expect(
+			computeNeighborhoodCameraState({
+				points: [],
+				viewport,
+				graphDimensions,
+				stagePadding: 40,
+			}),
+		).toBeNull();
+	});
+
+	it("uses singlePointRatio when focusing an isolated node", () => {
+		const state = computeNeighborhoodCameraState({
+			points: [{ x: 0.3, y: 0.7 }],
+			viewport,
+			graphDimensions,
+			stagePadding: 40,
+			padding: { top: 60, right: 60, bottom: 60, left: 60 },
+		});
+		expect(state).toEqual({ x: 0.3, y: 0.7, ratio: 0.15 });
+	});
+
+	it("fits every connected neighbor inside the padded viewport bounds", () => {
+		const points = [
+			{ x: 0.2, y: 0.3 },
+			{ x: 0.7, y: 0.6 },
+			{ x: 0.42, y: 0.52 },
+		];
+		const padding = { top: 64, right: 116, bottom: 64, left: 64 };
+		const state = computeNeighborhoodCameraState({
+			points,
+			viewport,
+			graphDimensions,
+			stagePadding: 40,
+			padding,
+		});
+		expect(state).not.toBeNull();
+		if (!state) return;
+
+		// Project points through Sigma's exact framedGraph -> viewport equation
+		const smallestDim = Math.min(viewport.width, viewport.height) - 2 * 40;
+		const correction = Math.min(2400 / 1300, 1460 / 810);
+		const scale = (smallestDim * correction) / state.ratio;
+
+		for (const p of points) {
+			const px = viewport.width / 2 + scale * (p.x - state.x);
+			const py = viewport.height / 2 - scale * (p.y - state.y);
+			expect(px).toBeGreaterThanOrEqual(padding.left - 0.01);
+			expect(px).toBeLessThanOrEqual(viewport.width - padding.right + 0.01);
+			expect(py).toBeGreaterThanOrEqual(padding.top - 0.01);
+			expect(py).toBeLessThanOrEqual(viewport.height - padding.bottom + 0.01);
+		}
 	});
 });

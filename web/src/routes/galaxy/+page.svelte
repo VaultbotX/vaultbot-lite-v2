@@ -3,12 +3,17 @@ import { untrack } from "svelte";
 import GenreGraph from "#lib/GenreGraph.svelte";
 import GraphDetailDrawer from "#lib/GraphDetailDrawer.svelte";
 import type { SearchableNode, SelectedNode, TimeRange } from "#lib/graph.ts";
-import { formatWindowRange, rangesOverlap, searchNodes } from "#lib/graph.ts";
+import {
+	buildWindowIndex,
+	computeTimeBounds,
+	evaluateWindow,
+	formatWindowRange,
+	searchNodes,
+} from "#lib/graph.ts";
 import { buildMixedGraph } from "#lib/mixed-graph.ts";
 import { browser } from "$app/env";
 import { pushState } from "$app/navigation";
 import { page } from "$app/state";
-import type { GraphData } from "../api/graph/+server";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -16,13 +21,6 @@ let { data }: { data: PageData } = $props();
 const ARTISTS_KEY = "graph:showArtists";
 const ALL_TIME_KEY = "graph:allTime";
 const FOURTEEN_DAYS_SECONDS = 14 * 24 * 60 * 60;
-
-function collectRanges(gd: GraphData): TimeRange[] {
-	return [
-		...gd.genreVertices.flatMap((v) => v.ranges),
-		...gd.artistVertices.flatMap((v) => v.ranges),
-	];
-}
 
 let showArtists = $state(
 	browser ? localStorage.getItem(ARTISTS_KEY) !== "false" : true,
@@ -38,9 +36,8 @@ let allTime = $state(
 // there's no refetch to re-seed from, the graph never changes underneath.
 let windowStart = $state(
 	untrack(() => {
-		const ranges = collectRanges(data);
-		const max =
-			ranges.length > 0 ? Math.max(...ranges.map(([, end]) => end)) : 0;
+		const bounds = computeTimeBounds(data.artistVertices.map((v) => v.ranges));
+		const max = bounds ? bounds[1] : 0;
 		return Math.max(0, max - FOURTEEN_DAYS_SECONDS);
 	}),
 );
@@ -75,40 +72,35 @@ $effect(() => {
 });
 
 // The full graph structure never changes with the window — only reducer
-// visibility does (see GenreGraph's `activeWindow` prop) — so this is the
+// visibility does (see GenreGraph's `windowVisibility` prop) — so this is the
 // only place the window is turned into a concrete [start, end] pair.
 const activeWindow = $derived<TimeRange | null>(
 	allTime ? null : [windowStart, windowStart + FOURTEEN_DAYS_SECONDS],
 );
 
-function isInWindow(ranges: TimeRange[]): boolean {
-	const w = activeWindow;
-	return !w || rangesOverlap(ranges, w[0], w[1]);
-}
-
-const allRanges = $derived(collectRanges(data));
-const minTimestamp = $derived(
-	allRanges.length > 0 ? Math.min(...allRanges.map(([start]) => start)) : 0,
+const timeBounds = $derived(
+	computeTimeBounds(data.artistVertices.map((v) => v.ranges)),
 );
-const maxTimestamp = $derived(
-	allRanges.length > 0 ? Math.max(...allRanges.map(([, end]) => end)) : 0,
-);
+const minTimestamp = $derived(timeBounds ? timeBounds[0] : 0);
+const maxTimestamp = $derived(timeBounds ? timeBounds[1] : 0);
 // The window's start can't push its end past the latest known activity.
 const windowStartMax = $derived(
 	Math.max(minTimestamp, maxTimestamp - FOURTEEN_DAYS_SECONDS),
 );
 
-// The graph structure always contains every artist node/edge, regardless
-// of `showArtists` — hiding them is GenreGraph's reducer's job (a redraw),
-// not something that should rebuild the graph or rerun FA2/Louvain. These
-// `showArtists`-filtered lists exist only for the stat line and search
-// below, which should reflect what's actually visible.
-const visibleArtistVertices = $derived(showArtists ? data.artistVertices : []);
-const visibleGenreArtistEdges = $derived(
-	showArtists ? data.genreArtistEdges : [],
+const windowIndex = $derived(
+	buildWindowIndex(
+		data.artistVertices,
+		data.genreArtistEdges,
+		data.genreGenreEdges,
+		data.artistArtistEdges,
+	),
 );
-const visibleArtistArtistEdges = $derived(
-	showArtists ? data.artistArtistEdges : [],
+
+const windowVisibility = $derived(
+	activeWindow
+		? evaluateWindow(windowIndex, activeWindow[0], activeWindow[1])
+		: null,
 );
 
 const graph = $derived(
@@ -121,29 +113,27 @@ const graph = $derived(
 	),
 );
 
-// Distinct from the vertex/edge lists above: those feed the (always-full)
-// graph structure, these are only for the stat line and search, which
-// should reflect what's actually visible under the current window.
-const genresInWindow = $derived(
-	data.genreVertices.filter((v) => isInWindow(v.ranges)),
+const genreCount = $derived(
+	windowVisibility ? windowVisibility.genreIds.size : data.genreVertices.length,
 );
-const artistsInWindow = $derived(
-	visibleArtistVertices.filter((v) => isInWindow(v.ranges)),
+const artistCount = $derived(
+	!showArtists
+		? 0
+		: windowVisibility
+			? windowVisibility.artistIds.size
+			: data.artistVertices.length,
 );
-const genreGenreEdgesInWindow = $derived(
-	data.genreGenreEdges.filter((e) => isInWindow(e.ranges)),
-);
-const genreArtistEdgesInWindow = $derived(
-	visibleGenreArtistEdges.filter((e) => isInWindow(e.ranges)),
-);
-const artistArtistEdgesInWindow = $derived(
-	visibleArtistArtistEdges.filter((e) => isInWindow(e.ranges)),
-);
-
 const connectionCount = $derived(
-	genreGenreEdgesInWindow.length +
-		genreArtistEdgesInWindow.length +
-		artistArtistEdgesInWindow.length,
+	windowVisibility
+		? windowVisibility.genreGenrePairs.size +
+				(showArtists
+					? windowVisibility.genreArtistEdgeCount +
+						windowVisibility.artistArtistPairs.size
+					: 0)
+		: data.genreGenreEdges.length +
+				(showArtists
+					? data.genreArtistEdges.length + data.artistArtistEdges.length
+					: 0),
 );
 
 const selectedGraphNodeId = $derived(
@@ -152,18 +142,31 @@ const selectedGraphNodeId = $derived(
 		: null,
 );
 
-const searchableNodes = $derived<SearchableNode[]>([
-	...genresInWindow.map((v) => ({
+const allGenreSearchNodes = $derived<SearchableNode[]>(
+	data.genreVertices.map((v) => ({
 		id: v.genre_id,
 		kind: "genre" as const,
 		name: v.name,
 	})),
-	...artistsInWindow.map((v) => ({
+);
+const allArtistSearchNodes = $derived<SearchableNode[]>(
+	data.artistVertices.map((v) => ({
 		id: v.artist_id,
 		kind: "artist" as const,
 		name: v.name,
 	})),
-]);
+);
+
+const searchableNodes = $derived.by<SearchableNode[]>(() => {
+	const genres = windowVisibility
+		? allGenreSearchNodes.filter((n) => windowVisibility.genreIds.has(n.id))
+		: allGenreSearchNodes;
+	if (!showArtists) return genres;
+	const artists = windowVisibility
+		? allArtistSearchNodes.filter((n) => windowVisibility.artistIds.has(n.id))
+		: allArtistSearchNodes;
+	return [...genres, ...artists];
+});
 
 const searchResults = $derived(searchNodes(searchQuery, searchableNodes));
 const searchOpen = $derived(searchQuery.trim().length > 0);
@@ -300,7 +303,7 @@ function clearSelection(): void {
 		{/if}
 	</div>
 	<span class="stat mono muted"
-		>{genresInWindow.length} genres · {artistsInWindow.length} artists · {connectionCount} connections</span
+		>{genreCount} genres · {artistCount} artists · {connectionCount} connections</span
 	>
 </div>
 
@@ -309,7 +312,7 @@ function clearSelection(): void {
 		bind:this={genreGraphInst}
 		{graph}
 		selectedNode={selectedGraphNodeId}
-		{activeWindow}
+		{windowVisibility}
 		{showArtists}
 		onNodeTap={selectNode}
 		onBackgroundClick={clearSelection}
