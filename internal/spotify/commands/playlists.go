@@ -84,6 +84,17 @@ func (r *SpotifyPlaylistRepo) RemoveTracksFromPlaylist(ctx context.Context, trac
 	return nil
 }
 
+func (r *SpotifyPlaylistRepo) ReplacePlaylistTracks(ctx context.Context, trackIds []spotify.ID) error {
+	r.Client.Mu.Lock()
+	defer r.Client.Mu.Unlock()
+
+	playlistId := r.getPlaylistId()
+	if playlistId == "" {
+		return errors.New("invalid playlist type")
+	}
+	return r.Client.Client.ReplacePlaylistTracks(ctx, playlistId, trackIds...)
+}
+
 func (r *SpotifyPlaylistRepo) UpdatePlaylistDescription(ctx context.Context, description string) error {
 	r.Client.Mu.Lock()
 	defer r.Client.Mu.Unlock()

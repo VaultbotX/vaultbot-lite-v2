@@ -2,6 +2,7 @@ package cron
 
 import (
 	"context"
+	"slices"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
@@ -41,27 +42,20 @@ func populateHighScoresPlaylist(ctx context.Context, playlistService *domain.Spo
 		return err
 	}
 
-	currentSet := playlistItemsToSet(playlistItems)
-	desiredOrder, desiredSet := songsToIDsAndSet(tracksToAdd)
+	currentOrder := playlistItemsToIDs(playlistItems)
+	desiredOrder, _ := songsToIDsAndSet(tracksToAdd)
 
-	toRemove := diffToRemove(currentSet, desiredSet)
-	toAdd := diffToAdd(currentSet, desiredOrder)
-
-	if len(toRemove) > 0 {
-		log.Infof("Removing %d obsolete tracks from high scores playlist", len(toRemove))
-		if err := playlistService.Repo.RemoveTracksFromPlaylist(ctx, toRemove); err != nil {
-			log.Errorf("Failed to remove tracks from playlist: %v", err)
-		}
+	if slices.Equal(currentOrder, desiredOrder) {
+		log.Info("High scores playlist is already in exact score order; no update needed")
+		return nil
 	}
 
-	if len(toAdd) > 0 {
-		log.Infof("Adding %d new tracks to high scores playlist", len(toAdd))
-		if err := playlistService.Repo.AddTracksToPlaylist(ctx, toAdd); err != nil {
-			log.Errorf("Failed to add tracks to playlist: %v", err)
-			return err
-		}
+	log.Infof("Updating high scores playlist with %d tracks in score order", len(desiredOrder))
+	if err := playlistService.Repo.ReplacePlaylistTracks(ctx, desiredOrder); err != nil {
+		log.Errorf("Failed to replace tracks in high scores playlist: %v", err)
+		return err
 	}
 
-	log.Infof("Finished populating high scores playlist. Added: %d, Removed: %d, Total desired: %d", len(toAdd), len(toRemove), len(desiredOrder))
+	log.Infof("Finished populating high scores playlist. Total tracks: %d", len(desiredOrder))
 	return nil
 }
