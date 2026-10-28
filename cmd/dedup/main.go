@@ -76,7 +76,7 @@ func main() {
 		SELECT
 			s.spotify_id,
 			s.name,
-			s.duration,
+			COALESCE(s.duration, 0) AS duration,
 			COALESCE(COUNT(sa.id), 0)::int AS archive_count,
 			EXTRACT(EPOCH FROM s.created_at)::bigint AS created_at_unix
 		FROM songs s
