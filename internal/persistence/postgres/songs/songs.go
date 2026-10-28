@@ -11,15 +11,15 @@ import (
 )
 
 type Song struct {
-	Id             int       `db:"id"`
-	SpotifyId      string    `db:"spotify_id"`
-	Name           string    `db:"name"`
-	ReleaseDate    time.Time `db:"release_date"`
-	SpotifyAlbumId string    `db:"spotify_album_id"`
-	CreatedAt      time.Time `db:"created_at"`
-	Duration       int       `db:"duration"`
-	Popularity     int       `db:"popularity"`
-	AlbumName      string    `db:"album_name"`
+	Id             int        `db:"id"`
+	SpotifyId      string     `db:"spotify_id"`
+	Name           string     `db:"name"`
+	ReleaseDate    *time.Time `db:"release_date"`
+	SpotifyAlbumId string     `db:"spotify_album_id"`
+	CreatedAt      time.Time  `db:"created_at"`
+	Duration       *int       `db:"duration"`
+	Popularity     *int       `db:"popularity"`
+	AlbumName      *string    `db:"album_name"`
 }
 
 // AddSong adds a song to the database
@@ -72,7 +72,8 @@ func AddSong(tx *sqlx.Tx, track *spotify.FullTrack, genreIds []int, artistIds []
 
 		addSong.SpotifyId = track.ID.String()
 		addSong.Name = track.Name
-		addSong.ReleaseDate = track.Album.ReleaseDateTime()
+		releaseDate := track.Album.ReleaseDateTime()
+		addSong.ReleaseDate = &releaseDate
 		addSong.SpotifyAlbumId = track.Album.ID.String()
 
 		_, err = tx.Exec(`
