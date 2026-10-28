@@ -216,6 +216,56 @@ export function buildMixedGraph(
 			resolution: LOUVAIN_RESOLUTION,
 			rng: createSeededRng(LOUVAIN_SEED),
 		});
+
+		// Merge tiny splinter communities (< 25 nodes) inside connected components
+		// into whichever neighboring community shares the strongest edge weight so
+		// the galaxy renders clean macro-constellations rather than 3-node fragments.
+		const MIN_CONSTELLATION_SIZE = 25;
+		const counts = new Map<number, number>();
+		backboneGraph.forEachNode((_, attrs) => {
+			const c = attrs.community as number;
+			counts.set(c, (counts.get(c) ?? 0) + 1);
+		});
+
+		for (const [smallComm, size] of [...counts.entries()].sort(
+			(a, b) => a[1] - b[1],
+		)) {
+			if (size >= MIN_CONSTELLATION_SIZE) continue;
+			const neighborWeights = new Map<number, number>();
+			backboneGraph.forEachNode((node, attrs) => {
+				if ((attrs.community as number) !== smallComm) return;
+				backboneGraph.forEachEdge(node, (_e, eAttrs, src, tgt) => {
+					const other = src === node ? tgt : src;
+					const otherComm = backboneGraph.getNodeAttribute(
+						other,
+						"community",
+					) as number;
+					if (otherComm === smallComm) return;
+					const w = (eAttrs.weight as number) ?? 1;
+					neighborWeights.set(
+						otherComm,
+						(neighborWeights.get(otherComm) ?? 0) + w,
+					);
+				});
+			});
+			let bestComm: number | null = null;
+			let bestWeight = -1;
+			for (const [cand, w] of neighborWeights) {
+				if (w > bestWeight) {
+					bestWeight = w;
+					bestComm = cand;
+				}
+			}
+			if (bestComm !== null) {
+				backboneGraph.forEachNode((node, attrs) => {
+					if ((attrs.community as number) === smallComm) {
+						backboneGraph.setNodeAttribute(node, "community", bestComm);
+					}
+				});
+				counts.set(bestComm, (counts.get(bestComm) ?? 0) + size);
+				counts.delete(smallComm);
+			}
+		}
 	}
 
 	const communitySizes = new Map<number, number>();
@@ -228,6 +278,7 @@ export function buildMixedGraph(
 	const colorMap = assignCommunityColorsBySize(
 		communitySizes,
 		COMMUNITY_PALETTE,
+		10,
 	);
 
 	// Artist fills are desaturated relative to their genre counterparts within
@@ -292,9 +343,9 @@ export function buildMixedGraph(
 			graph.setEdgeAttribute(
 				edge,
 				"opacity",
-				0.015 + 0.075 * normWeight * normWeight,
+				0.012 + 0.055 * normWeight * normWeight,
 			);
-			graph.setEdgeAttribute(edge, "size", 0.4 + 1.1 * normWeight);
+			graph.setEdgeAttribute(edge, "size", 0.4 + 0.9 * normWeight);
 			graph.setEdgeAttribute(edge, "layoutWeight", normWeight * 0.12);
 		}
 	});
