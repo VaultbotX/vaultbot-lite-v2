@@ -315,6 +315,95 @@ export const COMMUNITY_PALETTE: readonly string[] = [
 	"#4E7DDA", // hsl(220, 65%, 58%) cornflower
 ];
 
+// Deterministic Mulberry32 PRNG returning values in [0, 1). Keeps community
+// detection and initial circle-packing layouts reproducible across reloads.
+export function createSeededRng(seed: number): () => number {
+	let state = seed >>> 0;
+	return () => {
+		state = (state + 0x6d2b79f5) >>> 0;
+		let t = Math.imul(state ^ (state >>> 15), 1 | state);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+// Log-compresses positive edge weights onto [0.15, 1.0] against the strongest
+// edge of the same kind so genre-genre, genre-artist, and artist-artist links
+// participate on a commensurate scale during clustering and force layout.
+export function logNormalizedWeight(weight: number, maxWeight: number): number {
+	if (weight <= 0 || maxWeight <= 0) return 0;
+	const ratio = Math.min(1, Math.log1p(weight) / Math.log1p(maxWeight));
+	return 0.15 + 0.85 * ratio;
+}
+
+// Retains the union of each endpoint's top-K heaviest incident edges (by index
+// into `edges`). Every node with degree > 0 keeps at least one edge while
+// filtering dense cross-cluster hairball noise out of the resting backbone.
+export function selectBackboneEdges<T>(
+	edges: readonly T[],
+	getSource: (edge: T) => string,
+	getTarget: (edge: T) => string,
+	getWeight: (edge: T) => number,
+	topKPerEndpoint: number,
+): Set<number> {
+	if (topKPerEndpoint <= 0 || edges.length === 0) return new Set();
+
+	const incidentByNode = new Map<string, { index: number; weight: number }[]>();
+	const pushIncident = (node: string, index: number, weight: number): void => {
+		let list = incidentByNode.get(node);
+		if (!list) {
+			list = [];
+			incidentByNode.set(node, list);
+		}
+		list.push({ index, weight });
+	};
+
+	for (let i = 0; i < edges.length; i++) {
+		const edge = edges[i];
+		const w = getWeight(edge);
+		pushIncident(getSource(edge), i, w);
+		pushIncident(getTarget(edge), i, w);
+	}
+
+	const kept = new Set<number>();
+	for (const list of incidentByNode.values()) {
+		list.sort((a, b) => b.weight - a.weight || a.index - b.index);
+		const limit = Math.min(topKPerEndpoint, list.length);
+		for (let i = 0; i < limit; i++) {
+			kept.add(list[i].index);
+		}
+	}
+	return kept;
+}
+
+/**
+ * Assigns palette colors to communities ordered from largest to smallest
+ * member count (ties broken by community ID ascending), reserving vivid
+ * palette hues for substantive clusters (`size >= minMembersForPalette`) and
+ * assigning tiny islands a muted neutral color.
+ */
+export function assignCommunityColorsBySize(
+	communitySizes: ReadonlyMap<number, number>,
+	palette: readonly string[],
+	minMembersForPalette = 3,
+	smallCommunityColor = "#5a5a78",
+): Map<number, string> {
+	const entries = [...communitySizes.entries()].sort(
+		(a, b) => b[1] - a[1] || a[0] - b[0],
+	);
+	const result = new Map<number, string>();
+	let paletteIdx = 0;
+	for (const [commId, count] of entries) {
+		if (count < minMembersForPalette || palette.length === 0) {
+			result.set(commId, smallCommunityColor);
+		} else {
+			result.set(commId, palette[paletteIdx % palette.length]);
+			paletteIdx++;
+		}
+	}
+	return result;
+}
+
 /**
  * Assigns each Louvain community a palette color so that same color always
  * means same community. Community IDs are sorted numerically and mapped to

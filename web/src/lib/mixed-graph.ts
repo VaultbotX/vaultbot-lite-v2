@@ -8,18 +8,24 @@ import type {
 	GenreVertex,
 } from "../routes/api/graph/+server";
 import {
-	assignCommunityColors,
+	assignCommunityColorsBySize,
 	COMMUNITY_PALETTE,
+	createSeededRng,
 	desaturateColor,
-	edgeOpacity,
 	edgePairKey,
-	edgeWidth,
+	logNormalizedWeight,
+	selectBackboneEdges,
 } from "./graph";
 
 export type NodeKind = "genre" | "artist";
 
-// Edges share one color; their per-edge fade is the native `opacity` style.
-const EDGE_COLOR = "#6060a0";
+const INTER_COMMUNITY_EDGE_COLOR = "#505078";
+const ISOLATED_NODE_COLOR = "#52526e";
+const LOUVAIN_SEED = 42;
+const LOUVAIN_RESOLUTION = 1.25;
+const GENRE_GENRE_TOP_K = 4;
+const GENRE_ARTIST_TOP_K = 3;
+const ARTIST_ARTIST_TOP_K = 3;
 
 function genreNodeId(genreId: number): string {
 	return `g:${genreId}`;
@@ -29,24 +35,22 @@ function artistNodeId(artistId: number): string {
 	return `a:${artistId}`;
 }
 
-// Quadratic scale on the log-ratio: small nodes collapse toward ~1.5,
-// large nodes grow toward 20. The squaring amplifies the size gap
-// compared to a plain linear mapping.
-function scaledNodeSize(count: number, maxCount: number): number {
+// Genres serve as larger constellation hubs; artists orbit them as smaller stars.
+function scaledNodeSize(
+	count: number,
+	maxCount: number,
+	kind: NodeKind,
+): number {
 	const t = Math.log(count + 1) / Math.log(maxCount + 1);
-	return 1.5 + 18.5 * t * t;
+	return kind === "genre" ? 2.2 + 13.8 * t * t : 1.4 + 8.6 * t * t;
 }
 
 /**
  * Builds a fully-decorated graphology Graph mixing genre and artist nodes,
  * with genre-genre, genre-artist, and artist-artist edges.
  *
- * Node attributes set: label, kind, genreId | artistId, size, color, community
- * Edge attributes set: kind, weight, size (width), color, opacity
- *
- * Each node/edge kind is size-normalized against its own kind's max, not a
- * global max, since genre archive counts (summed across many artists) live
- * on a much larger scale than a single artist's archive count.
+ * Node attributes set: label, rank, kind, genreId | artistId, size, color, community
+ * Edge attributes set: kind, weight, normWeight, layoutWeight, backbone, size, color, opacity
  *
  * Positions (x, y) are NOT set here — the layout algorithm in the
  * rendering component assigns those before handing off to sigma.
@@ -90,7 +94,8 @@ export function buildMixedGraph(
 
 	for (const v of genreVertices) {
 		graph.addNode(genreNodeId(v.genre_id), {
-			label: `${v.name} (#${v.rank})`,
+			label: v.name,
+			rank: v.rank,
 			kind: "genre" satisfies NodeKind,
 			genreId: v.genre_id,
 			archiveCount: v.archive_count,
@@ -99,12 +104,43 @@ export function buildMixedGraph(
 
 	for (const v of artistVertices) {
 		graph.addNode(artistNodeId(v.artist_id), {
-			label: `${v.name} (#${v.rank})`,
+			label: v.name,
+			rank: v.rank,
 			kind: "artist" satisfies NodeKind,
 			artistId: v.artist_id,
 			archiveCount: v.archive_count,
 		});
 	}
+
+	const validGenreArtistEdges = genreArtistEdges.filter(
+		(e) => (artistArchiveById.get(e.artist_id) ?? 0) > 0,
+	);
+
+	const ggBackbone = selectBackboneEdges(
+		genreGenreEdges,
+		(e) => genreNodeId(e.source_genre_id),
+		(e) => genreNodeId(e.target_genre_id),
+		(e) => e.shared_archive_count,
+		GENRE_GENRE_TOP_K,
+	);
+	const gaBackbone = selectBackboneEdges(
+		validGenreArtistEdges,
+		(e) => genreNodeId(e.genre_id),
+		(e) => artistNodeId(e.artist_id),
+		(e) => artistArchiveById.get(e.artist_id) ?? 0,
+		GENRE_ARTIST_TOP_K,
+	);
+	const aaBackbone = selectBackboneEdges(
+		artistArtistEdges,
+		(e) => artistNodeId(e.source_artist_id),
+		(e) => artistNodeId(e.target_artist_id),
+		(e) => e.shared_song_count,
+		ARTIST_ARTIST_TOP_K,
+	);
+
+	// Subgraph containing only connected nodes and backbone edges so Louvain
+	// clusters cleanly without hairball cross-links or degree-0 singletons.
+	const backboneGraph = new Graph({ type: "undirected", multi: false });
 
 	const addWeightedEdge = (
 		src: string,
@@ -112,77 +148,107 @@ export function buildMixedGraph(
 		kind: "genre-genre" | "genre-artist" | "artist-artist",
 		weight: number,
 		maxWeight: number,
+		backbone: boolean,
 		extraAttrs: { pairKey?: string; artistId?: number },
 	): void => {
 		if (!graph.hasNode(src) || !graph.hasNode(tgt) || graph.hasEdge(src, tgt))
 			return;
-		const opacity = edgeOpacity(weight, maxWeight);
+		const normWeight = logNormalizedWeight(weight, maxWeight);
 		graph.addEdge(src, tgt, {
 			kind,
 			weight,
-			size: edgeWidth(weight, maxWeight),
-			color: EDGE_COLOR,
-			opacity,
+			normWeight,
+			backbone,
 			...extraAttrs,
 		});
+		if (backbone) {
+			if (!backboneGraph.hasNode(src)) backboneGraph.addNode(src);
+			if (!backboneGraph.hasNode(tgt)) backboneGraph.addNode(tgt);
+			if (!backboneGraph.hasEdge(src, tgt)) {
+				backboneGraph.addEdge(src, tgt, { weight: normWeight });
+			}
+		}
 	};
 
-	for (const e of genreGenreEdges) {
+	for (let i = 0; i < genreGenreEdges.length; i++) {
+		const e = genreGenreEdges[i];
 		addWeightedEdge(
 			genreNodeId(e.source_genre_id),
 			genreNodeId(e.target_genre_id),
 			"genre-genre",
 			e.shared_archive_count,
 			maxGenreGenreWeight,
+			ggBackbone.has(i),
 			{ pairKey: edgePairKey(e.source_genre_id, e.target_genre_id) },
 		);
 	}
 
-	for (const e of genreArtistEdges) {
+	for (let i = 0; i < validGenreArtistEdges.length; i++) {
+		const e = validGenreArtistEdges[i];
 		const weight = artistArchiveById.get(e.artist_id) ?? 0;
-		if (weight <= 0) continue;
 		addWeightedEdge(
 			genreNodeId(e.genre_id),
 			artistNodeId(e.artist_id),
 			"genre-artist",
 			weight,
 			maxGenreArtistWeight,
+			gaBackbone.has(i),
 			{ artistId: e.artist_id },
 		);
 	}
 
-	for (const e of artistArtistEdges) {
+	for (let i = 0; i < artistArtistEdges.length; i++) {
+		const e = artistArtistEdges[i];
 		addWeightedEdge(
 			artistNodeId(e.source_artist_id),
 			artistNodeId(e.target_artist_id),
 			"artist-artist",
 			e.shared_song_count,
 			maxArtistArtistWeight,
+			aaBackbone.has(i),
 			{ pairKey: edgePairKey(e.source_artist_id, e.target_artist_id) },
 		);
 	}
 
-	// Detect communities over the full mixed graph, weighted by raw edge weight.
-	louvain.assign(graph, { getEdgeWeight: "weight" });
+	if (backboneGraph.order > 0) {
+		louvain.assign(backboneGraph, {
+			getEdgeWeight: "weight",
+			resolution: LOUVAIN_RESOLUTION,
+			rng: createSeededRng(LOUVAIN_SEED),
+		});
+	}
 
-	// Assign palette colors by community ID
-	const communityIds = new Set<number>();
-	graph.forEachNode((_, attrs) => communityIds.add(attrs.community as number));
-	const colorMap = assignCommunityColors(communityIds, COMMUNITY_PALETTE);
+	const communitySizes = new Map<number, number>();
+	backboneGraph.forEachNode((node, attrs) => {
+		const comm = attrs.community as number;
+		graph.setNodeAttribute(node, "community", comm);
+		communitySizes.set(comm, (communitySizes.get(comm) ?? 0) + 1);
+	});
+
+	const colorMap = assignCommunityColorsBySize(
+		communitySizes,
+		COMMUNITY_PALETTE,
+	);
 
 	// Artist fills are desaturated relative to their genre counterparts within
 	// the same community — same hue, muted intensity — so the two node kinds
 	// stay visually distinguishable even in a dense, same-colored cluster.
-	const ARTIST_DESATURATION = 0.35;
+	const ARTIST_DESATURATION = 0.32;
 
 	graph.forEachNode((node, attrs) => {
 		const kind = attrs.kind as NodeKind;
 		const archiveCount = attrs.archiveCount as number;
 		const maxForKind = kind === "genre" ? maxGenreArchive : maxArtistArchive;
-		const size = scaledNodeSize(archiveCount, maxForKind);
-		const baseColor = colorMap.get(attrs.community as number) ?? "#888888";
+		const size = scaledNodeSize(archiveCount, maxForKind, kind);
+		const comm = attrs.community as number | undefined;
 
 		graph.setNodeAttribute(node, "size", size);
+		if (comm === undefined) {
+			graph.setNodeAttribute(node, "community", -1);
+			graph.setNodeAttribute(node, "color", ISOLATED_NODE_COLOR);
+			return;
+		}
+		const baseColor = colorMap.get(comm) ?? ISOLATED_NODE_COLOR;
 		graph.setNodeAttribute(
 			node,
 			"color",
@@ -190,6 +256,47 @@ export function buildMixedGraph(
 				? desaturateColor(baseColor, ARTIST_DESATURATION)
 				: baseColor,
 		);
+	});
+
+	// Decorate edges now that community membership and colors are known:
+	// intra-community backbone filaments inherit a muted community tint and full
+	// layout cohesion, whereas cross-community bridges stay faint and exert
+	// weaker spring attraction so distinct constellations separate cleanly.
+	graph.forEachEdge((edge, attrs, src, tgt) => {
+		const normWeight = attrs.normWeight as number;
+		const backbone = attrs.backbone as boolean;
+		const srcComm = graph.getNodeAttribute(src, "community") as number;
+		const tgtComm = graph.getNodeAttribute(tgt, "community") as number;
+		const sameCommunity = srcComm >= 0 && srcComm === tgtComm;
+
+		if (!backbone) {
+			graph.setEdgeAttribute(edge, "color", INTER_COMMUNITY_EDGE_COLOR);
+			graph.setEdgeAttribute(edge, "opacity", 0.02);
+			graph.setEdgeAttribute(edge, "size", 0.4 + 1.2 * normWeight);
+			graph.setEdgeAttribute(edge, "layoutWeight", 0);
+			return;
+		}
+
+		if (sameCommunity) {
+			const baseColor = colorMap.get(srcComm) ?? INTER_COMMUNITY_EDGE_COLOR;
+			graph.setEdgeAttribute(edge, "color", desaturateColor(baseColor, 0.45));
+			graph.setEdgeAttribute(
+				edge,
+				"opacity",
+				0.04 + 0.24 * normWeight * normWeight,
+			);
+			graph.setEdgeAttribute(edge, "size", 0.45 + 2.0 * normWeight);
+			graph.setEdgeAttribute(edge, "layoutWeight", normWeight);
+		} else {
+			graph.setEdgeAttribute(edge, "color", INTER_COMMUNITY_EDGE_COLOR);
+			graph.setEdgeAttribute(
+				edge,
+				"opacity",
+				0.015 + 0.075 * normWeight * normWeight,
+			);
+			graph.setEdgeAttribute(edge, "size", 0.4 + 1.1 * normWeight);
+			graph.setEdgeAttribute(edge, "layoutWeight", normWeight * 0.12);
+		}
 	});
 
 	return graph;
