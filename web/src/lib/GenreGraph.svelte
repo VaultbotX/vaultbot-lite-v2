@@ -515,6 +515,10 @@ $effect(() => {
 		sigmaInst?.kill();
 		const sigma = new Sigma(g, container, {
 			primitives: {
+				// Interleave edges and nodes so highlighted edges (topEdges) draw
+				// above dimmed nodes, while highlighted nodes (topNodes) draw above
+				// those edges.
+				depthLayers: ["edges", "nodes", "topEdges", "topNodes"],
 				nodes: {
 					shapes: [rendering.sdfCircle()],
 					// Crisp 1.2px `--bg` separator ring so small nodes keep vivid fills.
@@ -596,10 +600,11 @@ $effect(() => {
 				const activeNeighbors = hoveredNode
 					? hoveredNeighborSet
 					: selectedNeighborSet;
-				if (!activeNode || node === activeNode || activeNeighbors.has(node)) {
-					return {};
+				if (!activeNode) return {};
+				if (node === activeNode || activeNeighbors.has(node)) {
+					return { depth: "topNodes", zIndex: node === activeNode ? 2 : 1 };
 				}
-				return { color: DIMMED_COLOR, label: "" };
+				return { color: DIMMED_COLOR, label: "", depth: "nodes", zIndex: 0 };
 			},
 			edgeReducer: (edge, _display, attrs) => {
 				if (!isEdgeActiveInFilter(attrs, showArtists, windowVisibility)) {
@@ -618,6 +623,7 @@ $effect(() => {
 						opacity: 0.14 + 0.58 * nw,
 						color: HIGHLIGHTED_EDGE_COLOR,
 						size: 0.45 + 1.55 * nw,
+						depth: "topEdges",
 					};
 				}
 				return { visibility: "hidden" };
