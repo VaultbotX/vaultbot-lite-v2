@@ -3,6 +3,7 @@ import Graph from "graphology";
 import type Sigma from "sigma";
 import { onMount } from "svelte";
 import {
+	computeNeighborhoodCameraState,
 	createSeededRng,
 	cullLabelsByGrid,
 	cullOverlappingLabels,
@@ -450,6 +451,37 @@ function drawHoverPill(
 	ctx.restore();
 }
 
+function isEdgeActiveInFilter(
+	attrs: Record<string, unknown>,
+	artistsVisible: boolean,
+	winVis: WindowVisibility | null,
+): boolean {
+	if (!artistsVisible && attrs.kind !== "genre-genre") return false;
+	if (!winVis) return true;
+	if (attrs.kind === "genre-artist") {
+		return winVis.artistIds.has(attrs.artistId as number);
+	}
+	if (attrs.kind === "genre-genre") {
+		return winVis.genreGenrePairs.has(attrs.pairKey as string);
+	}
+	return winVis.artistArtistPairs.has(attrs.pairKey as string);
+}
+
+function activeNeighborsOf(
+	g: Graph,
+	nodeId: string,
+	artistsVisible: boolean,
+	winVis: WindowVisibility | null,
+): Set<string> {
+	const neighbors = new Set<string>();
+	if (!g.hasNode(nodeId)) return neighbors;
+	g.forEachEdge(nodeId, (_edge, attrs, src, tgt) => {
+		if (!isEdgeActiveInFilter(attrs, artistsVisible, winVis)) return;
+		neighbors.add(src === nodeId ? tgt : src);
+	});
+	return neighbors;
+}
+
 $effect(() => {
 	const g = graph;
 	const sigmaModule = sigmaMod;
@@ -476,10 +508,9 @@ $effect(() => {
 		assignGalaxyLayout(g, layout.circlepack, fa2.default);
 
 		let hoverTimer: ReturnType<typeof setTimeout> | null = null;
-		selectedNeighborSet =
-			selectedNode && g.hasNode(selectedNode)
-				? new Set(g.neighbors(selectedNode))
-				: new Set();
+		selectedNeighborSet = selectedNode
+			? activeNeighborsOf(g, selectedNode, showArtists, windowVisibility)
+			: new Set();
 
 		sigmaInst?.kill();
 		const sigma = new Sigma(g, container, {
@@ -571,25 +602,8 @@ $effect(() => {
 				return { color: DIMMED_COLOR, label: "" };
 			},
 			edgeReducer: (edge, _display, attrs) => {
-				if (!showArtists && attrs.kind !== "genre-genre") {
+				if (!isEdgeActiveInFilter(attrs, showArtists, windowVisibility)) {
 					return { visibility: "hidden" };
-				}
-				if (windowVisibility) {
-					let inWindow = false;
-					if (attrs.kind === "genre-artist") {
-						inWindow = windowVisibility.artistIds.has(attrs.artistId as number);
-					} else if (attrs.kind === "genre-genre") {
-						inWindow = windowVisibility.genreGenrePairs.has(
-							attrs.pairKey as string,
-						);
-					} else {
-						inWindow = windowVisibility.artistArtistPairs.has(
-							attrs.pairKey as string,
-						);
-					}
-					if (!inWindow) {
-						return { visibility: "hidden" };
-					}
 				}
 				const activeNode = hoveredNode ?? selectedNode;
 				if (!activeNode) {
@@ -712,6 +726,9 @@ $effect(() => {
 		redrawOverlay = drawOverlay;
 		sigma.on("afterRender", drawOverlay);
 		drawOverlay();
+		if (selectedNode && g.hasNode(selectedNode)) {
+			focusNode(selectedNode, 0);
+		}
 
 		sigma.on("clickNode", (payload) => {
 			const node = payload.node;
@@ -731,7 +748,12 @@ $effect(() => {
 			hoverTimer = setTimeout(() => {
 				hoverTimer = null;
 				hoveredNode = payload.node;
-				hoveredNeighborSet = new Set(g.neighbors(hoveredNode));
+				hoveredNeighborSet = activeNeighborsOf(
+					g,
+					hoveredNode,
+					showArtists,
+					windowVisibility,
+				);
 				sigmaInst?.scheduleRefresh({ skipIndexation: true });
 			}, 150);
 		});
@@ -755,52 +777,67 @@ $effect(() => {
 	return () => clearTimeout(id);
 });
 
-// Selection changes must not rebuild the graph or rerun FA2 — that would
-// visibly jank the layout on every click. This effect only recomputes the
-// selected node's neighbor set and asks Sigma to redraw with it.
+// Selection, time-window, and artist-toggle changes must never rebuild the
+// graph or rerun ForceAtlas2 — only recompute the active neighbor set for the
+// current filter and schedule a fast Sigma state refresh.
 $effect(() => {
 	const node = selectedNode;
 	const g = graph;
+	const artistsVisible = showArtists;
+	const winVis = windowVisibility;
 	if (!sigmaInst) return;
-	selectedNeighborSet =
-		node && g.hasNode(node) ? new Set(g.neighbors(node)) : new Set();
-	if (!hoveredNode) sigmaInst.scheduleRefresh({ skipIndexation: true });
-});
-
-// Same reasoning as the selection effect above: dragging the time-window
-// slider must only re-run the reducers (which read `windowVisibility` directly)
-// and redraw, never rebuild the graph or re-run FA2/Louvain.
-$effect(() => {
-	void windowVisibility;
-	if (!sigmaInst) return;
+	selectedNeighborSet = node
+		? activeNeighborsOf(g, node, artistsVisible, winVis)
+		: new Set();
 	sigmaInst.scheduleRefresh({ skipIndexation: true });
 });
 
-// Same reasoning again: toggling "Show artists" only needs the reducers
-// (which read `showArtists` directly) to re-run and redraw. The graph
-// still contains every artist node/edge underneath — only their visibility
-// changes — so there's nothing here to rebuild or re-layout.
-$effect(() => {
-	void showArtists;
-	if (!sigmaInst) return;
-	sigmaInst.scheduleRefresh({ skipIndexation: true });
-});
-
-// Pans/zooms the camera to a node, used by the galaxy page's search box to
-// jump straight to a match rather than requiring the user to hunt visually.
-// Camera x/y must be in Sigma's normalized "framed graph" space ([0,1] range
-// after Sigma fits the graph's bounding box), NOT the raw graphology x/y
-// attributes FA2 assigns (which are in arbitrary graph-layout units) —
-// animating the camera to raw coordinates points it at empty space and
-// leaves the canvas blank. getNodeDisplayData() returns the node's position
-// already converted to that normalized space.
-export function focusNode(nodeId: string): void {
-	if (!sigmaInst) return;
+// Pans and zooms the camera to frame `nodeId` together with all of its
+// currently visible connected neighbors so the user can see the full web of
+// connections for the selected node at once. Camera coordinates live in
+// Sigma's normalized "framed graph" space (`getNodeDisplayData()`), and
+// viewport width accounts for the 380px detail drawer settling open alongside
+// the canvas.
+export function focusNode(nodeId: string, duration = 500): void {
+	if (!sigmaInst || !containerEl) return;
 	const data = sigmaInst.getNodeDisplayData(nodeId);
 	if (!data) return;
-	sigmaInst
-		.getCamera()
-		.animate({ x: data.x, y: data.y, ratio: 0.15 }, { duration: 500 });
+
+	const points: { x: number; y: number }[] = [{ x: data.x, y: data.y }];
+	for (const neighborId of activeNeighborsOf(
+		graph,
+		nodeId,
+		showArtists,
+		windowVisibility,
+	)) {
+		const nData = sigmaInst.getNodeDisplayData(neighborId);
+		if (nData) points.push({ x: nData.x, y: nData.y });
+	}
+
+	const rect = containerEl.getBoundingClientRect();
+	const drawerEl = containerEl
+		.closest(".graph-row")
+		?.querySelector<HTMLElement>(".drawer");
+	const currentDrawerWidth = drawerEl?.getBoundingClientRect().width ?? 0;
+	const pendingDrawerDelta =
+		window.innerWidth > 900 ? Math.max(0, 380 - currentDrawerWidth) : 0;
+
+	const targetState = computeNeighborhoodCameraState({
+		points,
+		viewport: {
+			width: Math.max(200, rect.width - pendingDrawerDelta),
+			height: Math.max(200, rect.height),
+		},
+		graphDimensions: sigmaInst.getGraphDimensions(),
+		stagePadding: sigmaInst.getStagePadding(),
+	});
+	if (!targetState) return;
+
+	if (duration <= 0) {
+		sigmaInst.getCamera().setState(targetState);
+	} else {
+		sigmaInst.getCamera().animate(targetState, { duration });
+	}
 }
 </script>
 

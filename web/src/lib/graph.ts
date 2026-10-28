@@ -710,6 +710,103 @@ export function placeSatelliteComponents(
 	return result;
 }
 
+export interface NeighborhoodCameraInput {
+	points: readonly { x: number; y: number }[];
+	viewport: { width: number; height: number };
+	graphDimensions: { width: number; height: number };
+	stagePadding: number;
+	padding?: { top: number; right: number; bottom: number; left: number };
+	singlePointRatio?: number;
+	minRatio?: number;
+	maxRatio?: number;
+}
+
+// Mirrors Sigma 4's internal `getCorrectionRatio` so camera bounding-box fits
+// match Sigma's `matrixFromCamera` projection across any stage/graph aspect.
+export function sigmaCorrectionRatio(
+	viewport: { width: number; height: number },
+	graphDimensions: { width: number; height: number },
+): number {
+	const viewportRatio = viewport.height / viewport.width;
+	const graphRatio = graphDimensions.height / graphDimensions.width;
+	if (
+		(viewportRatio < 1 && graphRatio > 1) ||
+		(viewportRatio > 1 && graphRatio < 1)
+	) {
+		return 1;
+	}
+	return Math.min(
+		Math.max(graphRatio, 1 / graphRatio),
+		Math.max(1 / viewportRatio, viewportRatio),
+	);
+}
+
+/**
+ * Computes the Sigma camera `{ x, y, ratio }` state (in framedGraph coordinates)
+ * that centers and fits a selected node together with all of its connected
+ * neighbors inside `viewport`, reserving extra right-hand padding so rightward
+ * node labels and focus pills aren't clipped by the detail drawer.
+ */
+export function computeNeighborhoodCameraState(
+	input: NeighborhoodCameraInput,
+): { x: number; y: number; ratio: number } | null {
+	const { points } = input;
+	if (points.length === 0) return null;
+
+	const pad = input.padding ?? { top: 68, right: 120, bottom: 68, left: 68 };
+	const singlePointRatio = input.singlePointRatio ?? 0.15;
+	const minRatio = input.minRatio ?? 0.14;
+	const maxRatio = input.maxRatio ?? 1.6;
+
+	const width = Math.max(1, input.viewport.width);
+	const height = Math.max(1, input.viewport.height);
+	const gw = Math.max(1e-6, input.graphDimensions.width);
+	const gh = Math.max(1e-6, input.graphDimensions.height);
+
+	const smallestDimension = Math.max(
+		1,
+		Math.min(width, height) - 2 * input.stagePadding,
+	);
+	const correction = sigmaCorrectionRatio(
+		{ width, height },
+		{ width: gw, height: gh },
+	);
+	const baseScale = smallestDimension * correction;
+
+	let minX = Number.POSITIVE_INFINITY;
+	let maxX = Number.NEGATIVE_INFINITY;
+	let minY = Number.POSITIVE_INFINITY;
+	let maxY = Number.NEGATIVE_INFINITY;
+	for (const p of points) {
+		if (p.x < minX) minX = p.x;
+		if (p.x > maxX) maxX = p.x;
+		if (p.y < minY) minY = p.y;
+		if (p.y > maxY) maxY = p.y;
+	}
+
+	const midX = (minX + maxX) / 2;
+	const midY = (minY + maxY) / 2;
+	const spanX = maxX - minX;
+	const spanY = maxY - minY;
+
+	let ratio: number;
+	if (points.length === 1 || (spanX < 1e-6 && spanY < 1e-6)) {
+		ratio = Math.min(maxRatio, Math.max(minRatio, singlePointRatio));
+	} else {
+		const availWidth = Math.max(80, width - pad.left - pad.right);
+		const availHeight = Math.max(80, height - pad.top - pad.bottom);
+		const ratioX = (baseScale * spanX) / availWidth;
+		const ratioY = (baseScale * spanY) / availHeight;
+		ratio = Math.min(maxRatio, Math.max(minRatio, Math.max(ratioX, ratioY)));
+	}
+
+	return {
+		x: midX + ((pad.right - pad.left) / 2) * (ratio / baseScale),
+		y: midY + ((pad.top - pad.bottom) / 2) * (ratio / baseScale),
+		ratio,
+	};
+}
+
 /**
  * Position for a degree-0 (isolated) node: its own community's cluster
  * center, or the graph centroid if it has no community. Keeping isolated
