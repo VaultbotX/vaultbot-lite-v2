@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
 	assignCommunityColors,
+	assignCommunityColorsBySize,
 	buildWindowIndex,
 	COMMUNITY_PALETTE,
 	computeTimeBounds,
+	createSeededRng,
 	cullLabelsByGrid,
 	desaturateColor,
 	detailFetchUrl,
@@ -16,12 +18,14 @@ import {
 	glyphSize,
 	isolatedNodePosition,
 	kindGlyph,
+	logNormalizedWeight,
 	nodeSize,
 	parseNodeParam,
 	parseTimeRangeParams,
 	rangesOverlap,
 	type SearchableNode,
 	searchNodes,
+	selectBackboneEdges,
 	shouldDrawLabel,
 	sqlBounds,
 	type TimeRange,
@@ -626,5 +630,71 @@ describe("buildWindowIndex & evaluateWindow", () => {
 		expect([...vis.artistIds].sort()).toEqual([2, 3]);
 		expect([...vis.genreIds].sort()).toEqual([20, 30]);
 		expect(vis.genreGenrePairs.size).toBe(0);
+	});
+});
+
+describe("createSeededRng", () => {
+	it("produces identical sequences in [0, 1) for the same seed", () => {
+		const a = createSeededRng(42);
+		const b = createSeededRng(42);
+		for (let i = 0; i < 10; i++) {
+			const val = a();
+			expect(val).toBeGreaterThanOrEqual(0);
+			expect(val).toBeLessThan(1);
+			expect(val).toBe(b());
+		}
+	});
+});
+
+describe("logNormalizedWeight", () => {
+	it("returns 0 for non-positive weights or maxWeight", () => {
+		expect(logNormalizedWeight(0, 100)).toBe(0);
+		expect(logNormalizedWeight(10, 0)).toBe(0);
+	});
+
+	it("returns 1 when weight equals maxWeight and stays monotonically increasing", () => {
+		expect(logNormalizedWeight(100, 100)).toBeCloseTo(1);
+		expect(logNormalizedWeight(1, 100)).toBeGreaterThan(0.15);
+		expect(logNormalizedWeight(1, 100)).toBeLessThan(
+			logNormalizedWeight(10, 100),
+		);
+	});
+});
+
+describe("selectBackboneEdges", () => {
+	it("keeps top-K heaviest incident edges for every endpoint", () => {
+		const edges = [
+			{ s: "a", t: "b", w: 100 },
+			{ s: "a", t: "c", w: 50 },
+			{ s: "a", t: "d", w: 1 }, // still 'd's only edge!
+			{ s: "b", t: "c", w: 2 }, // neither b's nor c's top-1
+		];
+		const kept = selectBackboneEdges(
+			edges,
+			(e) => e.s,
+			(e) => e.t,
+			(e) => e.w,
+			1,
+		);
+		expect([...kept].sort()).toEqual([0, 1, 2]);
+	});
+});
+
+describe("assignCommunityColorsBySize", () => {
+	it("assigns vivid palette colors to largest communities first and fallback to tiny ones", () => {
+		const sizes = new Map([
+			[0, 1],
+			[1, 50],
+			[2, 200],
+		]);
+		const colors = assignCommunityColorsBySize(
+			sizes,
+			["#111111", "#222222"],
+			3,
+			"#999999",
+		);
+		expect(colors.get(2)).toBe("#111111");
+		expect(colors.get(1)).toBe("#222222");
+		expect(colors.get(0)).toBe("#999999");
 	});
 });
