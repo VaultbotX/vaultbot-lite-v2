@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
 	assignCommunityColors,
+	buildWindowIndex,
 	COMMUNITY_PALETTE,
+	computeTimeBounds,
 	cullLabelsByGrid,
 	desaturateColor,
 	detailFetchUrl,
 	edgeOpacity,
+	edgePairKey,
 	edgeWidth,
+	evaluateWindow,
 	formatRank,
 	formatWindowRange,
 	glyphSize,
@@ -543,5 +547,84 @@ describe("cullLabelsByGrid", () => {
 			{ x: 10, y: 10, size: 1 },
 		];
 		expect(cullLabelsByGrid(items, 100, 1)).toHaveLength(2);
+	});
+});
+
+describe("computeTimeBounds", () => {
+	it("returns null for empty range collections", () => {
+		expect(computeTimeBounds([])).toBeNull();
+		expect(computeTimeBounds([[], []])).toBeNull();
+	});
+
+	it("computes overall min start and max end across nested range arrays", () => {
+		expect(
+			computeTimeBounds([
+				[
+					[100, 200],
+					[500, 800],
+				],
+				[[50, 120]],
+				[[300, 950]],
+			]),
+		).toEqual([50, 950]);
+	});
+});
+
+describe("edgePairKey", () => {
+	it("normalizes pair order so (a, b) and (b, a) share a key", () => {
+		expect(edgePairKey(10, 3)).toBe("3:10");
+		expect(edgePairKey(3, 10)).toBe("3:10");
+	});
+});
+
+describe("buildWindowIndex & evaluateWindow", () => {
+	const index = buildWindowIndex(
+		[
+			{ artist_id: 1, ranges: [[100, 200]] },
+			{ artist_id: 2, ranges: [[500, 600]] },
+			{ artist_id: 3, ranges: [[150, 550]] },
+		],
+		[
+			{ genre_id: 10, artist_id: 1 },
+			{ genre_id: 20, artist_id: 1 },
+			{ genre_id: 20, artist_id: 2 },
+			{ genre_id: 30, artist_id: 3 },
+		],
+		[
+			{ source_genre_id: 10, target_genre_id: 20 }, // shared artist 1
+			{ source_genre_id: 20, target_genre_id: 30 }, // no shared artist
+		],
+		[
+			{
+				source_artist_id: 1,
+				target_artist_id: 3,
+				ranges: [[160, 180]],
+			},
+		],
+	);
+
+	it("activates artists, their genres, shared genre edges, and overlapping collab edges", () => {
+		const vis = evaluateWindow(index, 140, 190);
+		expect([...vis.artistIds].sort()).toEqual([1, 3]);
+		expect([...vis.genreIds].sort()).toEqual([10, 20, 30]);
+		expect(vis.genreArtistEdgeCount).toBe(3);
+		expect([...vis.genreGenrePairs]).toEqual(["10:20"]);
+		expect([...vis.artistArtistPairs]).toEqual(["1:3"]);
+	});
+
+	it("omits collab edges whose song range falls outside the window even if both artists are active", () => {
+		const vis = evaluateWindow(index, 190, 200);
+		expect(vis.artistIds.has(1)).toBe(true);
+		expect(vis.artistIds.has(3)).toBe(true);
+		expect(vis.artistArtistPairs.size).toBe(0);
+	});
+
+	it("omits genre-genre edges when their shared artist is inactive even if both genres are active via other artists", () => {
+		// In [520, 540], artists 2 and 3 are active -> genre 20 is active (via 2),
+		// genre 10 is inactive (artist 1 inactive), so 10:20 is inactive.
+		const vis = evaluateWindow(index, 520, 540);
+		expect([...vis.artistIds].sort()).toEqual([2, 3]);
+		expect([...vis.genreIds].sort()).toEqual([20, 30]);
+		expect(vis.genreGenrePairs.size).toBe(0);
 	});
 });
