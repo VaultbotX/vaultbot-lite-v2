@@ -7,6 +7,7 @@ import {
 	computeTimeBounds,
 	createSeededRng,
 	cullLabelsByGrid,
+	cullOverlappingLabels,
 	desaturateColor,
 	detailFetchUrl,
 	edgeOpacity,
@@ -18,14 +19,18 @@ import {
 	glyphSize,
 	isolatedNodePosition,
 	kindGlyph,
+	layoutConstellationCenters,
 	logNormalizedWeight,
 	nodeSize,
+	optimalConstellationRotation,
 	parseNodeParam,
 	parseTimeRangeParams,
+	placeSatelliteComponents,
 	rangesOverlap,
 	type SearchableNode,
 	searchNodes,
 	selectBackboneEdges,
+	separateCircles,
 	shouldDrawLabel,
 	sqlBounds,
 	type TimeRange,
@@ -554,6 +559,18 @@ describe("cullLabelsByGrid", () => {
 	});
 });
 
+describe("cullOverlappingLabels", () => {
+	it("drops smaller labels whose text bounding boxes collide across grid boundaries", () => {
+		const items = [
+			{ x: 100, y: 118, size: 12, label: "vapor twitch" },
+			{ x: 104, y: 123, size: 10, label: "vapor soul" },
+			{ x: 320, y: 120, size: 8, label: "indie rock" },
+		];
+		const kept = cullOverlappingLabels(items, 12);
+		expect(kept.map((i) => i.label)).toEqual(["vapor twitch", "indie rock"]);
+	});
+});
+
 describe("computeTimeBounds", () => {
 	it("returns null for empty range collections", () => {
 		expect(computeTimeBounds([])).toBeNull();
@@ -696,5 +713,86 @@ describe("assignCommunityColorsBySize", () => {
 		expect(colors.get(2)).toBe("#111111");
 		expect(colors.get(1)).toBe("#222222");
 		expect(colors.get(0)).toBe("#999999");
+	});
+});
+
+describe("separateCircles", () => {
+	it("separates coincident nodes and moves smaller nodes farther than hubs", () => {
+		const nodes = [
+			{ x: 0, y: 0 },
+			{ x: 0, y: 0 },
+			{ x: 500, y: 500 },
+		];
+		separateCircles(nodes, [24, 4, 4], 14);
+		const dist = Math.hypot(nodes[1].x - nodes[0].x, nodes[1].y - nodes[0].y);
+		expect(dist).toBeGreaterThanOrEqual(27.5);
+		expect(Math.hypot(nodes[1].x, nodes[1].y)).toBeGreaterThan(
+			Math.hypot(nodes[0].x, nodes[0].y),
+		);
+	});
+});
+
+describe("layoutConstellationCenters", () => {
+	it("enforces cosmic channel separation and pulls strongly linked clusters closer", () => {
+		const radii = [60, 50, 50, 45];
+		const affinities = [
+			[0, 100, 0, 1],
+			[100, 0, 1, 0],
+			[0, 1, 0, 90],
+			[1, 0, 90, 0],
+		];
+		const centers = layoutConstellationCenters(radii, affinities, {
+			aspectX: 1.65,
+			channelGap: 40,
+		});
+		expect(centers).toHaveLength(4);
+		for (let i = 0; i < 4; i++) {
+			for (let j = i + 1; j < 4; j++) {
+				const d = Math.hypot(
+					centers[j].x - centers[i].x,
+					centers[j].y - centers[i].y,
+				);
+				expect(d).toBeGreaterThanOrEqual(radii[i] + radii[j] + 39.5);
+			}
+		}
+		const linkedDist = Math.hypot(
+			centers[1].x - centers[0].x,
+			centers[1].y - centers[0].y,
+		);
+		const unlinkedDist = Math.hypot(
+			centers[2].x - centers[0].x,
+			centers[2].y - centers[0].y,
+		);
+		expect(linkedDist).toBeLessThan(unlinkedDist);
+	});
+});
+
+describe("optimalConstellationRotation", () => {
+	it("rotates a bridge node on +X by +90 degrees toward a neighbor at +Y", () => {
+		const angle = optimalConstellationRotation(
+			[{ id: "bridge", x: 10, y: 0 }],
+			[{ nodeId: "bridge", dirX: 0, dirY: 1, weight: 5 }],
+		);
+		expect(angle).toBeCloseTo(Math.PI / 2);
+	});
+});
+
+describe("placeSatelliteComponents", () => {
+	it("places satellite singletons and micro-clusters on an elliptical belt outside the core", () => {
+		const core = [
+			{ x: -200, y: -100 },
+			{ x: 200, y: 100 },
+		];
+		const placed = placeSatelliteComponents(core, [
+			["s1"],
+			["s2"],
+			["c1", "c2"],
+		]);
+		expect(placed.size).toBe(4);
+		for (const pos of placed.values()) {
+			const normEllipse = Math.hypot(pos.x / 200, pos.y / 100);
+			expect(normEllipse).toBeGreaterThan(1.03);
+			expect(normEllipse).toBeLessThan(1.2);
+		}
 	});
 });
