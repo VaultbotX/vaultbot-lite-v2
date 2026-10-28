@@ -12,8 +12,8 @@ import {
 	COMMUNITY_PALETTE,
 	desaturateColor,
 	edgeOpacity,
+	edgePairKey,
 	edgeWidth,
-	type TimeRange,
 } from "./graph";
 
 export type NodeKind = "genre" | "artist";
@@ -62,26 +62,31 @@ export function buildMixedGraph(
 
 	if (genreVertices.length === 0 && artistVertices.length === 0) return graph;
 
-	const maxGenreArchive = Math.max(
-		...genreVertices.map((v) => v.archive_count),
-		1,
-	);
-	const maxArtistArchive = Math.max(
-		...artistVertices.map((v) => v.archive_count),
-		1,
-	);
-	const maxGenreGenreWeight = Math.max(
-		...genreGenreEdges.map((e) => e.shared_archive_count),
-		1,
-	);
-	const maxGenreArtistWeight = Math.max(
-		...genreArtistEdges.map((e) => e.archive_count),
-		1,
-	);
-	const maxArtistArtistWeight = Math.max(
-		...artistArtistEdges.map((e) => e.shared_song_count),
-		1,
-	);
+	const artistArchiveById = new Map<number, number>();
+	let maxGenreArchive = 1;
+	for (const v of genreVertices) {
+		if (v.archive_count > maxGenreArchive) maxGenreArchive = v.archive_count;
+	}
+	let maxArtistArchive = 1;
+	for (const v of artistVertices) {
+		artistArchiveById.set(v.artist_id, v.archive_count);
+		if (v.archive_count > maxArtistArchive) maxArtistArchive = v.archive_count;
+	}
+	let maxGenreGenreWeight = 1;
+	for (const e of genreGenreEdges) {
+		if (e.shared_archive_count > maxGenreGenreWeight)
+			maxGenreGenreWeight = e.shared_archive_count;
+	}
+	let maxGenreArtistWeight = 1;
+	for (const e of genreArtistEdges) {
+		const count = artistArchiveById.get(e.artist_id) ?? 0;
+		if (count > maxGenreArtistWeight) maxGenreArtistWeight = count;
+	}
+	let maxArtistArtistWeight = 1;
+	for (const e of artistArtistEdges) {
+		if (e.shared_song_count > maxArtistArtistWeight)
+			maxArtistArtistWeight = e.shared_song_count;
+	}
 
 	for (const v of genreVertices) {
 		graph.addNode(genreNodeId(v.genre_id), {
@@ -89,7 +94,6 @@ export function buildMixedGraph(
 			kind: "genre" satisfies NodeKind,
 			genreId: v.genre_id,
 			archiveCount: v.archive_count,
-			ranges: v.ranges,
 		});
 	}
 
@@ -99,7 +103,6 @@ export function buildMixedGraph(
 			kind: "artist" satisfies NodeKind,
 			artistId: v.artist_id,
 			archiveCount: v.archive_count,
-			ranges: v.ranges,
 		});
 	}
 
@@ -109,7 +112,7 @@ export function buildMixedGraph(
 		kind: "genre-genre" | "genre-artist" | "artist-artist",
 		weight: number,
 		maxWeight: number,
-		ranges: TimeRange[],
+		extraAttrs: { pairKey?: string; artistId?: number },
 	): void => {
 		if (!graph.hasNode(src) || !graph.hasNode(tgt) || graph.hasEdge(src, tgt))
 			return;
@@ -120,7 +123,7 @@ export function buildMixedGraph(
 			size: edgeWidth(weight, maxWeight),
 			color: EDGE_COLOR,
 			opacity,
-			ranges,
+			...extraAttrs,
 		});
 	};
 
@@ -131,18 +134,20 @@ export function buildMixedGraph(
 			"genre-genre",
 			e.shared_archive_count,
 			maxGenreGenreWeight,
-			e.ranges,
+			{ pairKey: edgePairKey(e.source_genre_id, e.target_genre_id) },
 		);
 	}
 
 	for (const e of genreArtistEdges) {
+		const weight = artistArchiveById.get(e.artist_id) ?? 0;
+		if (weight <= 0) continue;
 		addWeightedEdge(
 			genreNodeId(e.genre_id),
 			artistNodeId(e.artist_id),
 			"genre-artist",
-			e.archive_count,
+			weight,
 			maxGenreArtistWeight,
-			e.ranges,
+			{ artistId: e.artist_id },
 		);
 	}
 
@@ -153,7 +158,7 @@ export function buildMixedGraph(
 			"artist-artist",
 			e.shared_song_count,
 			maxArtistArtistWeight,
-			e.ranges,
+			{ pairKey: edgePairKey(e.source_artist_id, e.target_artist_id) },
 		);
 	}
 

@@ -6,8 +6,8 @@ export type TimeRange = [number, number];
 
 // True if any of `ranges` overlaps the closed window [windowStart, windowEnd].
 // Used to filter the mixed graph to a sliding time window entirely
-// client-side — the server ships the full all-time graph plus these ranges
-// and does no date filtering itself.
+// client-side — the server ships the full all-time graph plus artist/collab
+// ranges and does no date filtering itself.
 export function rangesOverlap(
 	ranges: TimeRange[],
 	windowStart: number,
@@ -16,6 +16,167 @@ export function rangesOverlap(
 	return ranges.some(
 		([start, end]) => start <= windowEnd && end >= windowStart,
 	);
+}
+
+// Computes the overall [minStart, maxEnd] bounds across many range arrays
+// iteratively (avoiding `.flatMap()` + `Math.max(...spread)`, which overflows
+// the JS call stack on large archives). Returns null if no intervals exist.
+export function computeTimeBounds(
+	rangeLists: Iterable<TimeRange[]>,
+): TimeRange | null {
+	let min = Number.POSITIVE_INFINITY;
+	let max = Number.NEGATIVE_INFINITY;
+	for (const ranges of rangeLists) {
+		for (const [start, end] of ranges) {
+			if (start < min) min = start;
+			if (end > max) max = end;
+		}
+	}
+	if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+	return [min, max];
+}
+
+export function edgePairKey(idA: number, idB: number): string {
+	return idA < idB ? `${idA}:${idB}` : `${idB}:${idA}`;
+}
+
+export interface WindowIndex {
+	artists: { artist_id: number; ranges: TimeRange[] }[];
+	genreArtists: Map<number, number[]>;
+	genreGenreSharedArtists: {
+		pairKey: string;
+		sourceGenreId: number;
+		targetGenreId: number;
+		sharedArtistIds: number[];
+	}[];
+	artistArtistEdges: {
+		pairKey: string;
+		sourceArtistId: number;
+		targetArtistId: number;
+		ranges: TimeRange[];
+	}[];
+}
+
+export interface WindowVisibility {
+	genreIds: Set<number>;
+	artistIds: Set<number>;
+	genreGenrePairs: Set<string>;
+	artistArtistPairs: Set<string>;
+	genreArtistEdgeCount: number;
+}
+
+// Pre-indexes artist-to-genre relationships once so sliding the 14-day window
+// only checks `rangesOverlap` on artists + artist-artist edges, deriving genre
+// and genre-genre visibility in O(1) lookups without shipping redundant ranges.
+export function buildWindowIndex(
+	artists: { artist_id: number; ranges: TimeRange[] }[],
+	genreArtistLinks: { genre_id: number; artist_id: number }[],
+	genreGenreEdges: { source_genre_id: number; target_genre_id: number }[],
+	artistArtistEdges: {
+		source_artist_id: number;
+		target_artist_id: number;
+		ranges: TimeRange[];
+	}[],
+): WindowIndex {
+	const genreArtists = new Map<number, number[]>();
+	const genreArtistSets = new Map<number, Set<number>>();
+	for (const link of genreArtistLinks) {
+		let list = genreArtists.get(link.genre_id);
+		if (!list) {
+			list = [];
+			genreArtists.set(link.genre_id, list);
+		}
+		list.push(link.artist_id);
+
+		let set = genreArtistSets.get(link.genre_id);
+		if (!set) {
+			set = new Set<number>();
+			genreArtistSets.set(link.genre_id, set);
+		}
+		set.add(link.artist_id);
+	}
+
+	const genreGenreSharedArtists = genreGenreEdges.map((e) => {
+		const srcArtists = genreArtists.get(e.source_genre_id) ?? [];
+		const tgtSet = genreArtistSets.get(e.target_genre_id);
+		const sharedArtistIds = tgtSet
+			? srcArtists.filter((aid) => tgtSet.has(aid))
+			: [];
+		return {
+			pairKey: edgePairKey(e.source_genre_id, e.target_genre_id),
+			sourceGenreId: e.source_genre_id,
+			targetGenreId: e.target_genre_id,
+			sharedArtistIds,
+		};
+	});
+
+	return {
+		artists,
+		genreArtists,
+		genreGenreSharedArtists,
+		artistArtistEdges: artistArtistEdges.map((e) => ({
+			pairKey: edgePairKey(e.source_artist_id, e.target_artist_id),
+			sourceArtistId: e.source_artist_id,
+			targetArtistId: e.target_artist_id,
+			ranges: e.ranges,
+		})),
+	};
+}
+
+export function evaluateWindow(
+	index: WindowIndex,
+	windowStart: number,
+	windowEnd: number,
+): WindowVisibility {
+	const artistIds = new Set<number>();
+	for (const a of index.artists) {
+		if (rangesOverlap(a.ranges, windowStart, windowEnd)) {
+			artistIds.add(a.artist_id);
+		}
+	}
+
+	const genreIds = new Set<number>();
+	let genreArtistEdgeCount = 0;
+	for (const [genreId, linkedArtists] of index.genreArtists) {
+		let activeForGenre = 0;
+		for (const aid of linkedArtists) {
+			if (artistIds.has(aid)) activeForGenre++;
+		}
+		if (activeForGenre > 0) {
+			genreIds.add(genreId);
+			genreArtistEdgeCount += activeForGenre;
+		}
+	}
+
+	const genreGenrePairs = new Set<string>();
+	for (const e of index.genreGenreSharedArtists) {
+		if (
+			genreIds.has(e.sourceGenreId) &&
+			genreIds.has(e.targetGenreId) &&
+			e.sharedArtistIds.some((aid) => artistIds.has(aid))
+		) {
+			genreGenrePairs.add(e.pairKey);
+		}
+	}
+
+	const artistArtistPairs = new Set<string>();
+	for (const e of index.artistArtistEdges) {
+		if (
+			artistIds.has(e.sourceArtistId) &&
+			artistIds.has(e.targetArtistId) &&
+			rangesOverlap(e.ranges, windowStart, windowEnd)
+		) {
+			artistArtistPairs.add(e.pairKey);
+		}
+	}
+
+	return {
+		genreIds,
+		artistIds,
+		genreGenrePairs,
+		artistArtistPairs,
+		genreArtistEdgeCount,
+	};
 }
 
 // Formats a window's [start, end) epoch-second bounds as a short display

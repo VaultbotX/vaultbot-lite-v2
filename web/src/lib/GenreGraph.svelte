@@ -7,22 +7,21 @@ import {
 	glyphSize,
 	isolatedNodePosition,
 	kindGlyph,
-	rangesOverlap,
 	shouldDrawLabel,
-	type TimeRange,
+	type WindowVisibility,
 } from "./graph";
 
 let {
 	graph,
 	selectedNode,
-	activeWindow,
+	windowVisibility,
 	showArtists,
 	onNodeTap,
 	onBackgroundClick,
 }: {
 	graph: Graph;
 	selectedNode: string | null;
-	activeWindow: TimeRange | null;
+	windowVisibility: WindowVisibility | null;
 	showArtists: boolean;
 	onNodeTap: (id: number, kind: "genre" | "artist") => void;
 	onBackgroundClick: () => void;
@@ -315,9 +314,12 @@ $effect(() => {
 				if (!showArtists && attrs.kind === "artist") {
 					return { visibility: "hidden" };
 				}
-				if (activeWindow) {
-					const ranges: TimeRange[] = attrs.ranges ?? [];
-					if (!rangesOverlap(ranges, activeWindow[0], activeWindow[1])) {
+				if (windowVisibility) {
+					const inWindow =
+						attrs.kind === "genre"
+							? windowVisibility.genreIds.has(attrs.genreId as number)
+							: windowVisibility.artistIds.has(attrs.artistId as number);
+					if (!inWindow) {
 						return { visibility: "hidden" };
 					}
 				}
@@ -334,9 +336,20 @@ $effect(() => {
 				if (!showArtists && attrs.kind !== "genre-genre") {
 					return { visibility: "hidden" };
 				}
-				if (activeWindow) {
-					const ranges: TimeRange[] = attrs.ranges ?? [];
-					if (!rangesOverlap(ranges, activeWindow[0], activeWindow[1])) {
+				if (windowVisibility) {
+					let inWindow = false;
+					if (attrs.kind === "genre-artist") {
+						inWindow = windowVisibility.artistIds.has(attrs.artistId as number);
+					} else if (attrs.kind === "genre-genre") {
+						inWindow = windowVisibility.genreGenrePairs.has(
+							attrs.pairKey as string,
+						);
+					} else {
+						inWindow = windowVisibility.artistArtistPairs.has(
+							attrs.pairKey as string,
+						);
+					}
+					if (!inWindow) {
 						return { visibility: "hidden" };
 					}
 				}
@@ -493,7 +506,7 @@ $effect(() => {
 // slider must only re-run the reducers (which read `activeWindow` directly)
 // and redraw, never rebuild the graph or re-run FA2/Louvain.
 $effect(() => {
-	void activeWindow;
+	void windowVisibility;
 	if (!sigmaInst) return;
 	sigmaInst.refresh();
 });
