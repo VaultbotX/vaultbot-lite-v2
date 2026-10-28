@@ -3,6 +3,7 @@ package cron
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -56,25 +57,17 @@ func populateThrowbackPlaylist(ctx context.Context, playlistService *domain.Spot
 		return err
 	}
 
-	currentSet := playlistItemsToSet(playlistItems)
-	desiredOrder, desiredSet := songsToIDsAndSet(tracksToAdd)
+	currentOrder := playlistItemsToIDs(playlistItems)
+	desiredOrder, _ := songsToIDsAndSet(tracksToAdd)
 
-	toRemove := diffToRemove(currentSet, desiredSet)
-	toAdd := diffToAdd(currentSet, desiredOrder)
-
-	if len(toRemove) > 0 {
-		log.Infof("Removing %d obsolete tracks from throwback playlist", len(toRemove))
-		if err := playlistService.Repo.RemoveTracksFromPlaylist(ctx, toRemove); err != nil {
-			log.Errorf("Failed to remove tracks from throwback playlist: %v", err)
-		}
-	}
-
-	if len(toAdd) > 0 {
-		log.Infof("Adding %d new tracks to throwback playlist", len(toAdd))
-		if err := playlistService.Repo.AddTracksToPlaylist(ctx, toAdd); err != nil {
-			log.Errorf("Failed to add tracks to throwback playlist: %v", err)
+	if !slices.Equal(currentOrder, desiredOrder) {
+		log.Infof("Updating throwback playlist with %d tracks in score order", len(desiredOrder))
+		if err := playlistService.Repo.ReplacePlaylistTracks(ctx, desiredOrder); err != nil {
+			log.Errorf("Failed to replace tracks in throwback playlist: %v", err)
 			return err
 		}
+	} else {
+		log.Info("Throwback playlist tracks are already in exact score order")
 	}
 
 	newDescription := fmt.Sprintf("The top tracks added to the dynamic playlist from %s to %s!",
@@ -86,7 +79,7 @@ func populateThrowbackPlaylist(ctx context.Context, playlistService *domain.Spot
 		log.Errorf("Failed to update throwback playlist description: %v", err)
 	}
 
-	log.Infof("Finished populating throwback playlist. Added: %d, Removed: %d, Total desired: %d. Window: %s to %s",
-		len(toAdd), len(toRemove), len(desiredOrder), start.Format("Jan 02, 2006"), end.Format("Jan 02, 2006"))
+	log.Infof("Finished populating throwback playlist. Total tracks: %d. Window: %s to %s",
+		len(desiredOrder), start.Format("Jan 02, 2006"), end.Format("Jan 02, 2006"))
 	return nil
 }
