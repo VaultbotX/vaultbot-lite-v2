@@ -41,6 +41,24 @@ type NodeBorderModule = typeof import("@sigma/node-border");
 type FA2Module = typeof import("graphology-layout-forceatlas2");
 type LayoutModule = typeof import("graphology-layout");
 
+interface CustomNodeState {
+	isDimmed: boolean;
+	isFilterHidden: boolean;
+}
+
+interface CustomEdgeState {
+	isDimmed: boolean;
+	isFilterHidden: boolean;
+}
+
+type GalaxySigma = Sigma<
+	Record<string, unknown>,
+	Record<string, unknown>,
+	Record<string, unknown>,
+	CustomNodeState,
+	CustomEdgeState
+>;
+
 // Label rendering. Sigma 4's native labels are monochrome SDF text, so
 // outlined name labels and hover pills are drawn on our own overlay canvas.
 const LABEL_FONT = "'IBM Plex Sans', sans-serif";
@@ -64,18 +82,23 @@ let renderingMod = $state<SigmaRenderingModule | null>(null);
 let nodeBorderMod = $state<NodeBorderModule | null>(null);
 let fa2Mod = $state<FA2Module | null>(null);
 let layoutMod = $state<LayoutModule | null>(null);
-let sigmaInst: Sigma | null = null;
+let sigmaInst: GalaxySigma | null = null;
 let containerEl: HTMLDivElement | undefined;
 let overlayEl: HTMLCanvasElement | undefined;
 let loading = $state(true);
 let redrawOverlay: (() => void) | null = null;
 
-// Hover and selection state — closed over by the Sigma reducers/event
-// handlers below. Hover always takes visual priority over selection; when
-// hover ends, the selection's highlight (if any) reappears.
-let hoveredNode: string | null = null;
-let hoveredNeighborSet = new Set<string>();
-let selectedNeighborSet = new Set<string>();
+// Hover and selection state.
+let hoveredNode = $state<string | null>(null);
+let activeHighlightNode: string | null = null;
+let currentHighlightedNodes: string[] = [];
+let currentHighlightedEdges: string[] = [];
+let currentDimmedNodes: string[] = [];
+let currentDimmedEdges: string[] = [];
+let applyFilters: (() => void) | null = null;
+let updateActiveHighlight: ((target: string | null) => void) | null = null;
+let containerWidth = 0;
+let containerHeight = 0;
 
 onMount(() => {
 	Promise.all([
@@ -94,13 +117,20 @@ onMount(() => {
 
 	// Keep both Sigma's WebGL viewport and the 2D overlay canvas in step with
 	// container size changes (e.g. when the detail drawer opens or closes).
-	const resizeObserver = new ResizeObserver(() => {
+	const resizeObserver = new ResizeObserver((entries) => {
 		if (!sigmaInst) return;
+		for (const entry of entries) {
+			containerWidth = entry.contentRect.width;
+			containerHeight = entry.contentRect.height;
+		}
 		sigmaInst.resize();
-		sigmaInst.scheduleRefresh({ skipIndexation: true });
 		redrawOverlay?.();
 	});
-	if (containerEl) resizeObserver.observe(containerEl);
+	if (containerEl) {
+		containerWidth = containerEl.clientWidth;
+		containerHeight = containerEl.clientHeight;
+		resizeObserver.observe(containerEl);
+	}
 
 	return () => {
 		resizeObserver.disconnect();
@@ -482,6 +512,21 @@ function activeNeighborsOf(
 	return neighbors;
 }
 
+function activeIncidentEdgesOf(
+	g: Graph,
+	nodeId: string,
+	artistsVisible: boolean,
+	winVis: WindowVisibility | null,
+): string[] {
+	const edges: string[] = [];
+	if (!g.hasNode(nodeId)) return edges;
+	g.forEachEdge(nodeId, (edge, attrs) => {
+		if (!isEdgeActiveInFilter(attrs, artistsVisible, winVis)) return;
+		edges.push(edge);
+	});
+	return edges;
+}
+
 $effect(() => {
 	const g = graph;
 	const sigmaModule = sigmaMod;
@@ -508,12 +553,16 @@ $effect(() => {
 		assignGalaxyLayout(g, layout.circlepack, fa2.default);
 
 		let hoverTimer: ReturnType<typeof setTimeout> | null = null;
-		selectedNeighborSet = selectedNode
-			? activeNeighborsOf(g, selectedNode, showArtists, windowVisibility)
-			: new Set();
-
 		sigmaInst?.kill();
 		const sigma = new Sigma(g, container, {
+			customNodeState: {
+				isDimmed: false,
+				isFilterHidden: false,
+			},
+			customEdgeState: {
+				isDimmed: false,
+				isFilterHidden: false,
+			},
 			primitives: {
 				// Interleave edges and nodes so highlighted edges (topEdges) draw
 				// above dimmed nodes, while highlighted nodes (topNodes) draw above
@@ -544,11 +593,42 @@ $effect(() => {
 			styles: {
 				nodes: [
 					sigmaModule.DEFAULT_STYLES.nodes,
-					// No grow-on-hover and no backdrop: the hover pill is ours.
 					{
 						size: { attribute: "size" },
 						color: { attribute: "color", defaultValue: "#7c6af7" },
+						label: { attribute: "label" },
+						labelColor: LABEL_COLOR,
+						labelSize: LABEL_SIZE,
+						labelFont: LABEL_FONT,
 						backdropVisibility: "hidden",
+						depth: "nodes",
+						visibility: {
+							whenState: "isFilterHidden",
+							then: "hidden",
+							else: "visible",
+						},
+					},
+					{
+						whenState: "isDimmed",
+						then: {
+							color: DIMMED_COLOR,
+							label: "",
+							depth: "nodes",
+						},
+					},
+					{
+						whenState: "isHighlighted",
+						then: {
+							color: { attribute: "color" },
+							depth: "topNodes",
+						},
+					},
+					{
+						whenState: "isHovered",
+						then: {
+							color: { attribute: "color" },
+							depth: "topNodes",
+						},
 					},
 				],
 				edges: [
@@ -557,14 +637,44 @@ $effect(() => {
 						path: "curved",
 						color: { attribute: "color", defaultValue: "#6060a0" },
 						opacity: { attribute: "opacity", defaultValue: 1 },
+						size: { attribute: "size", defaultValue: 0.5 },
+						depth: "edges",
+						visibility: {
+							whenState: "isFilterHidden",
+							then: "hidden",
+							else: {
+								whenData: "backbone",
+								then: "visible",
+								else: "hidden",
+							},
+						},
+					},
+					{
+						whenState: "isDimmed",
+						then: {
+							visibility: "hidden",
+						},
+					},
+					{
+						whenState: "isHighlighted",
+						then: {
+							color: HIGHLIGHTED_EDGE_COLOR,
+							opacity: { attribute: "highlightedOpacity", defaultValue: 0.7 },
+							size: { attribute: "highlightedSize", defaultValue: 1.5 },
+							depth: "topEdges",
+							visibility: "visible",
+						},
 					},
 				],
 			},
 			settings: {
-				renderLabels: false,
+				renderLabels: true,
 				renderEdgeLabels: false,
 				enableEdgeEvents: false,
-				hideEdgesOnMove: true,
+				hideEdgesOnMove: false,
+				labelGridCellSize: LABEL_GRID_CELL_SIZE,
+				labelRenderedSizeThreshold: LABEL_RENDERED_SIZE_THRESHOLD,
+				labelDensity: LABEL_DENSITY,
 				// Allow hairline edges down to 0.4px instead of Sigma 4's 1.7px floor,
 				// which otherwise inflates thousands of weak edges into an opaque mass.
 				minEdgeThickness: 0.4,
@@ -578,68 +688,16 @@ $effect(() => {
 				maxCameraRatio: 8,
 				stagePadding: 40,
 			},
-			// Dim nodes/edges outside the active (hovered, or else selected) node's
-			// neighborhood. Hover takes priority over selection while it's active.
-			// A node/edge outside the active time window, or an artist node/edge
-			// while artists are toggled off, is hidden outright, ahead of and
-			// regardless of hover/selection dimming.
-			nodeReducer: (node, _display, attrs) => {
-				if (!showArtists && attrs.kind === "artist") {
-					return { visibility: "hidden" };
-				}
-				if (windowVisibility) {
-					const inWindow =
-						attrs.kind === "genre"
-							? windowVisibility.genreIds.has(attrs.genreId as number)
-							: windowVisibility.artistIds.has(attrs.artistId as number);
-					if (!inWindow) {
-						return { visibility: "hidden" };
-					}
-				}
-				const activeNode = hoveredNode ?? selectedNode;
-				const activeNeighbors = hoveredNode
-					? hoveredNeighborSet
-					: selectedNeighborSet;
-				if (!activeNode) return {};
-				if (node === activeNode || activeNeighbors.has(node)) {
-					return { depth: "topNodes", zIndex: node === activeNode ? 2 : 1 };
-				}
-				return { color: DIMMED_COLOR, label: "", depth: "nodes", zIndex: 0 };
-			},
-			edgeReducer: (edge, _display, attrs) => {
-				if (!isEdgeActiveInFilter(attrs, showArtists, windowVisibility)) {
-					return { visibility: "hidden" };
-				}
-				const activeNode = hoveredNode ?? selectedNode;
-				if (!activeNode) {
-					return attrs.backbone ? {} : { visibility: "hidden" };
-				}
-				// Emphasize every incident edge (including non-backbone links) when a
-				// node is hovered or selected, scaling opacity by weight so a hub's
-				// strongest ties stand out without 400 weak links forming a solid fan.
-				if (g.hasExtremity(edge, activeNode)) {
-					const nw = (attrs.normWeight as number | undefined) ?? 0.5;
-					return {
-						opacity: 0.14 + 0.58 * nw,
-						color: HIGHLIGHTED_EDGE_COLOR,
-						size: 0.45 + 1.55 * nw,
-						depth: "topEdges",
-					};
-				}
-				return { visibility: "hidden" };
-			},
 		});
 		sigmaInst = sigma;
-
-		// Overlay canvas: outlined hub labels culled by a spatial grid, plus a
-		// dark badge pill with kind glyph + rank for the hovered/selected node.
-		let labelledNodes: Set<string> | null = null;
 
 		function drawOverlay(): void {
 			const canvas = overlayEl;
 			const ctx = canvas?.getContext("2d");
 			if (!canvas || !ctx || !container) return;
-			const { width, height } = container.getBoundingClientRect();
+			const width = containerWidth || container.clientWidth;
+			const height = containerHeight || container.clientHeight;
+			if (width === 0 || height === 0) return;
 			const dpr = window.devicePixelRatio || 1;
 			if (
 				canvas.width !== Math.round(width * dpr) ||
@@ -651,81 +709,40 @@ $effect(() => {
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			ctx.clearRect(0, 0, width, height);
 
-			let hoveredDraw: OverlayItem | null = null;
-			let selectedDraw: OverlayItem | null = null;
 			const sizeScale = sigma.scaleSize(1);
 
-			const candidates: OverlayItem[] = [];
-			g.forEachNode((node, attrs) => {
-				const display = sigma.getNodeDisplayData(node);
+			const drawNodePill = (nodeId: string) => {
+				const display = sigma.getNodeDisplayData(nodeId);
 				if (!display || display.visibility === "hidden") return;
-				if (!display.label) return; // dimmed by the reducer
-				const size = display.size * sizeScale;
-				const isHovered = node === hoveredNode;
-				const isSelected = node === selectedNode;
-				if (
-					!isSelected &&
-					!shouldDrawLabel(size, LABEL_RENDERED_SIZE_THRESHOLD, isHovered)
-				)
-					return;
 				const { x, y } = sigma.framedGraphToViewport(display);
 				if (x < -100 || y < -20 || x > width + 100 || y > height + 20) return;
 				const item: OverlayItem = {
-					node,
+					node: nodeId,
 					x,
 					y,
-					size,
-					color: g.getNodeAttribute(node, "color") as string,
-					label: display.label,
-					rank: attrs.rank as number | undefined,
-					kind: attrs.kind as "genre" | "artist",
+					size: display.size * sizeScale,
+					color:
+						(g.getNodeAttribute(nodeId, "color") as string | undefined) ??
+						"#7c6af7",
+					label: display.label ?? "",
+					rank: g.getNodeAttribute(nodeId, "rank") as number | undefined,
+					kind: g.getNodeAttribute(nodeId, "kind") as "genre" | "artist",
 				};
-				if (isHovered) {
-					hoveredDraw = item;
-					return;
-				}
-				if (isSelected) {
-					selectedDraw = item;
-					return;
-				}
-				candidates.push(item);
-			});
+				const text = pillText(item);
+				drawHoverPill(ctx, item, text);
+				drawName(ctx, item, false, text);
+			};
 
-			// The density cull buckets by screen position, so re-running it while
-			// the camera moves makes nodes trade cells and their labels blink in and
-			// out. Decide which nodes are labelled only while idle; during a drag or
-			// zoom, reuse that set (positions still update every frame) and re-cull
-			// once the camera settles. Smallest first so big nodes paint on top.
-			let visible: OverlayItem[];
-			const frozen = labelledNodes;
-			if (!sigma.getGraphState().isIdle && frozen) {
-				visible = candidates
-					.filter((item) => frozen.has(item.node))
-					.sort((a, b) => a.size - b.size);
-			} else {
-				const gridKept = cullLabelsByGrid(
-					candidates,
-					LABEL_GRID_CELL_SIZE,
-					LABEL_DENSITY,
-				);
-				const kept = cullOverlappingLabels(gridKept, LABEL_SIZE);
-				labelledNodes = new Set(kept.map((item) => item.node));
-				visible = kept.reverse();
-			}
-			for (const item of visible) {
-				drawName(ctx, item, true);
+			if (
+				selectedNode &&
+				selectedNode !== hoveredNode &&
+				g.hasNode(selectedNode)
+			) {
+				drawNodePill(selectedNode);
 			}
 
-			if (selectedDraw) {
-				const text = pillText(selectedDraw);
-				drawHoverPill(ctx, selectedDraw, text);
-				drawName(ctx, selectedDraw, false, text);
-			}
-
-			if (hoveredDraw) {
-				const text = pillText(hoveredDraw);
-				drawHoverPill(ctx, hoveredDraw, text);
-				drawName(ctx, hoveredDraw, false, text);
+			if (hoveredNode && g.hasNode(hoveredNode)) {
+				drawNodePill(hoveredNode);
 			}
 		}
 
@@ -735,6 +752,141 @@ $effect(() => {
 		if (selectedNode && g.hasNode(selectedNode)) {
 			focusNode(selectedNode, 0);
 		}
+
+		applyFilters = () => {
+			if (!sigmaInst) return;
+			const nodesToHide: string[] = [];
+			const nodesToShow: string[] = [];
+
+			g.forEachNode((node, attrs) => {
+				const isArtist = attrs.kind === "artist";
+				if (!showArtists && isArtist) {
+					nodesToHide.push(node);
+					return;
+				}
+				if (windowVisibility) {
+					const inWindow =
+						attrs.kind === "genre"
+							? windowVisibility.genreIds.has(attrs.genreId as number)
+							: windowVisibility.artistIds.has(attrs.artistId as number);
+					if (!inWindow) {
+						nodesToHide.push(node);
+						return;
+					}
+				}
+				nodesToShow.push(node);
+			});
+
+			sigmaInst.setNodesState(nodesToHide, { isFilterHidden: true });
+			sigmaInst.setNodesState(nodesToShow, { isFilterHidden: false });
+
+			const edgesToHide: string[] = [];
+			const edgesToShow: string[] = [];
+			g.forEachEdge((edge, attrs) => {
+				if (!isEdgeActiveInFilter(attrs, showArtists, windowVisibility)) {
+					edgesToHide.push(edge);
+				} else {
+					edgesToShow.push(edge);
+				}
+			});
+			sigmaInst.setEdgesState(edgesToHide, { isFilterHidden: true });
+			sigmaInst.setEdgesState(edgesToShow, { isFilterHidden: false });
+		};
+
+		updateActiveHighlight = (targetNode: string | null) => {
+			if (!sigmaInst) return;
+			if (targetNode === activeHighlightNode) return;
+
+			// Clear previous states
+			if (activeHighlightNode && g.hasNode(activeHighlightNode)) {
+				sigmaInst.setNodeState(activeHighlightNode, {
+					isHovered: false,
+					isHighlighted: false,
+					isDimmed: false,
+				});
+			}
+			if (currentHighlightedNodes.length > 0) {
+				sigmaInst.setNodesState(currentHighlightedNodes, {
+					isHighlighted: false,
+					isDimmed: false,
+				});
+				currentHighlightedNodes = [];
+			}
+			if (currentHighlightedEdges.length > 0) {
+				sigmaInst.setEdgesState(currentHighlightedEdges, {
+					isHighlighted: false,
+					isDimmed: false,
+				});
+				currentHighlightedEdges = [];
+			}
+			if (currentDimmedNodes.length > 0) {
+				sigmaInst.setNodesState(currentDimmedNodes, { isDimmed: false });
+				currentDimmedNodes = [];
+			}
+			if (currentDimmedEdges.length > 0) {
+				sigmaInst.setEdgesState(currentDimmedEdges, { isDimmed: false });
+				currentDimmedEdges = [];
+			}
+
+			activeHighlightNode = targetNode;
+			if (!targetNode || !g.hasNode(targetNode)) {
+				redrawOverlay?.();
+				return;
+			}
+
+			const neighbors = activeNeighborsOf(
+				g,
+				targetNode,
+				showArtists,
+				windowVisibility,
+			);
+			const incidentEdges = activeIncidentEdgesOf(
+				g,
+				targetNode,
+				showArtists,
+				windowVisibility,
+			);
+
+			currentHighlightedNodes = Array.from(neighbors);
+			currentHighlightedEdges = incidentEdges;
+
+			const nodesToDim: string[] = [];
+			g.forEachNode((node) => {
+				if (node !== targetNode && !neighbors.has(node)) {
+					nodesToDim.push(node);
+				}
+			});
+			currentDimmedNodes = nodesToDim;
+
+			const edgesToDim: string[] = [];
+			const incidentSet = new Set(incidentEdges);
+			g.forEachEdge((edge, attrs) => {
+				if (attrs.backbone && !incidentSet.has(edge)) {
+					edgesToDim.push(edge);
+				}
+			});
+			currentDimmedEdges = edgesToDim;
+
+			sigmaInst.setNodesState(nodesToDim, { isDimmed: true });
+			sigmaInst.setEdgesState(edgesToDim, { isDimmed: true });
+			sigmaInst.setNodeState(targetNode, {
+				isHovered: true,
+				isDimmed: false,
+			});
+			sigmaInst.setNodesState(currentHighlightedNodes, {
+				isHighlighted: true,
+				isDimmed: false,
+			});
+			sigmaInst.setEdgesState(currentHighlightedEdges, {
+				isHighlighted: true,
+				isDimmed: false,
+			});
+
+			redrawOverlay?.();
+		};
+
+		applyFilters();
+		updateActiveHighlight(selectedNode);
 
 		sigma.on("clickNode", (payload) => {
 			const node = payload.node;
@@ -750,30 +902,15 @@ $effect(() => {
 
 		sigma.on("enterNode", (payload) => {
 			container.style.cursor = "pointer";
-			if (hoverTimer !== null) clearTimeout(hoverTimer);
-			hoverTimer = setTimeout(() => {
-				hoverTimer = null;
-				hoveredNode = payload.node;
-				hoveredNeighborSet = activeNeighborsOf(
-					g,
-					hoveredNode,
-					showArtists,
-					windowVisibility,
-				);
-				sigmaInst?.scheduleRefresh({ skipIndexation: true });
-			}, 150);
+			hoveredNode = payload.node;
+			updateActiveHighlight?.(payload.node);
 		});
 
 		sigma.on("leaveNode", () => {
-			if (hoverTimer !== null) {
-				clearTimeout(hoverTimer);
-				hoverTimer = null;
-			}
 			container.style.cursor = "default";
 			if (hoveredNode !== null) {
 				hoveredNode = null;
-				hoveredNeighborSet = new Set();
-				sigmaInst?.scheduleRefresh({ skipIndexation: true });
+				updateActiveHighlight?.(selectedNode);
 			}
 		});
 
@@ -783,19 +920,20 @@ $effect(() => {
 	return () => clearTimeout(id);
 });
 
-// Selection, time-window, and artist-toggle changes must never rebuild the
-// graph or rerun ForceAtlas2 — only recompute the active neighbor set for the
-// current filter and schedule a fast Sigma state refresh.
+// Filter changes: artist toggle and time window
+$effect(() => {
+	const _show = showArtists;
+	const _win = windowVisibility;
+	if (!sigmaInst) return;
+	applyFilters?.();
+	updateActiveHighlight?.(hoveredNode ?? selectedNode);
+});
+
+// Selection changes
 $effect(() => {
 	const node = selectedNode;
-	const g = graph;
-	const artistsVisible = showArtists;
-	const winVis = windowVisibility;
 	if (!sigmaInst) return;
-	selectedNeighborSet = node
-		? activeNeighborsOf(g, node, artistsVisible, winVis)
-		: new Set();
-	sigmaInst.scheduleRefresh({ skipIndexation: true });
+	updateActiveHighlight?.(hoveredNode ?? node);
 });
 
 // Pans and zooms the camera to frame `nodeId` together with all of its
@@ -820,19 +958,15 @@ export function focusNode(nodeId: string, duration = 500): void {
 		if (nData) points.push({ x: nData.x, y: nData.y });
 	}
 
-	const rect = containerEl.getBoundingClientRect();
-	const drawerEl = containerEl
-		.closest(".graph-row")
-		?.querySelector<HTMLElement>(".drawer");
-	const currentDrawerWidth = drawerEl?.getBoundingClientRect().width ?? 0;
-	const pendingDrawerDelta =
-		window.innerWidth > 900 ? Math.max(0, 380 - currentDrawerWidth) : 0;
+	const width = containerWidth || containerEl.clientWidth;
+	const height = containerHeight || containerEl.clientHeight;
+	const drawerWidth = window.innerWidth > 900 ? 380 : 0;
 
 	const targetState = computeNeighborhoodCameraState({
 		points,
 		viewport: {
-			width: Math.max(200, rect.width - pendingDrawerDelta),
-			height: Math.max(200, rect.height),
+			width: Math.max(200, width - drawerWidth),
+			height: Math.max(200, height),
 		},
 		graphDimensions: sigmaInst.getGraphDimensions(),
 		stagePadding: sigmaInst.getStagePadding(),

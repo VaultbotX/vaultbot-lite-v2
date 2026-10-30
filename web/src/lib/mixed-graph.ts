@@ -320,6 +320,13 @@ export function buildMixedGraph(
 		const tgtComm = graph.getNodeAttribute(tgt, "community") as number;
 		const sameCommunity = srcComm >= 0 && srcComm === tgtComm;
 
+		graph.setEdgeAttribute(edge, "highlightedSize", 0.45 + 1.55 * normWeight);
+		graph.setEdgeAttribute(
+			edge,
+			"highlightedOpacity",
+			0.14 + 0.58 * normWeight,
+		);
+
 		if (!backbone) {
 			graph.setEdgeAttribute(edge, "color", INTER_COMMUNITY_EDGE_COLOR);
 			graph.setEdgeAttribute(edge, "opacity", 0.02);
