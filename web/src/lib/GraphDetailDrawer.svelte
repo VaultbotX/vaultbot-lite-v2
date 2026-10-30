@@ -126,14 +126,16 @@ $effect(() => {
 		z-index: 5;
 		pointer-events: none;
 		opacity: 0;
+		visibility: hidden;
 		transform: translateX(100%);
-		transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+		transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease, visibility 0.2s;
 		box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
 	}
 
 	.drawer.open {
 		pointer-events: auto;
 		opacity: 1;
+		visibility: visible;
 		transform: translateX(0);
 	}
 
