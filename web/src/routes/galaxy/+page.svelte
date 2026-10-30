@@ -448,10 +448,11 @@ function clearSelection(): void {
 	}
 
 	.graph-row {
+		position: relative;
 		display: flex;
 		align-items: stretch;
-		gap: 1rem;
 		height: 75vh;
 		min-height: 500px;
+		overflow: hidden;
 	}
 </style>

@@ -43,6 +43,9 @@
 					},
 					"style": {
 						"useConst": "off"
+					},
+					"suspicious": {
+						"noThenProperty": "off"
 					}
 				}
 			}
