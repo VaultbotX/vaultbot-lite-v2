@@ -97,6 +97,8 @@ let currentDimmedNodes: string[] = [];
 let currentDimmedEdges: string[] = [];
 let applyFilters: (() => void) | null = null;
 let updateActiveHighlight: ((target: string | null) => void) | null = null;
+let containerWidth = 0;
+let containerHeight = 0;
 
 onMount(() => {
 	Promise.all([
@@ -115,13 +117,20 @@ onMount(() => {
 
 	// Keep both Sigma's WebGL viewport and the 2D overlay canvas in step with
 	// container size changes (e.g. when the detail drawer opens or closes).
-	const resizeObserver = new ResizeObserver(() => {
+	const resizeObserver = new ResizeObserver((entries) => {
 		if (!sigmaInst) return;
+		for (const entry of entries) {
+			containerWidth = entry.contentRect.width;
+			containerHeight = entry.contentRect.height;
+		}
 		sigmaInst.resize();
-		sigmaInst.scheduleRefresh({ skipIndexation: true });
 		redrawOverlay?.();
 	});
-	if (containerEl) resizeObserver.observe(containerEl);
+	if (containerEl) {
+		containerWidth = containerEl.clientWidth;
+		containerHeight = containerEl.clientHeight;
+		resizeObserver.observe(containerEl);
+	}
 
 	return () => {
 		resizeObserver.disconnect();
@@ -662,7 +671,7 @@ $effect(() => {
 				renderLabels: true,
 				renderEdgeLabels: false,
 				enableEdgeEvents: false,
-				hideEdgesOnMove: true,
+				hideEdgesOnMove: false,
 				labelGridCellSize: LABEL_GRID_CELL_SIZE,
 				labelRenderedSizeThreshold: LABEL_RENDERED_SIZE_THRESHOLD,
 				labelDensity: LABEL_DENSITY,
@@ -686,7 +695,9 @@ $effect(() => {
 			const canvas = overlayEl;
 			const ctx = canvas?.getContext("2d");
 			if (!canvas || !ctx || !container) return;
-			const { width, height } = container.getBoundingClientRect();
+			const width = containerWidth || container.clientWidth;
+			const height = containerHeight || container.clientHeight;
+			if (width === 0 || height === 0) return;
 			const dpr = window.devicePixelRatio || 1;
 			if (
 				canvas.width !== Math.round(width * dpr) ||
@@ -909,13 +920,19 @@ $effect(() => {
 	return () => clearTimeout(id);
 });
 
-// Selection, time-window, and artist-toggle changes
+// Filter changes: artist toggle and time window
 $effect(() => {
-	const node = selectedNode;
 	const _show = showArtists;
 	const _win = windowVisibility;
 	if (!sigmaInst) return;
 	applyFilters?.();
+	updateActiveHighlight?.(hoveredNode ?? selectedNode);
+});
+
+// Selection changes
+$effect(() => {
+	const node = selectedNode;
+	if (!sigmaInst) return;
 	updateActiveHighlight?.(hoveredNode ?? node);
 });
 
@@ -941,19 +958,15 @@ export function focusNode(nodeId: string, duration = 500): void {
 		if (nData) points.push({ x: nData.x, y: nData.y });
 	}
 
-	const rect = containerEl.getBoundingClientRect();
-	const drawerEl = containerEl
-		.closest(".graph-row")
-		?.querySelector<HTMLElement>(".drawer");
-	const currentDrawerWidth = drawerEl?.getBoundingClientRect().width ?? 0;
-	const pendingDrawerDelta =
-		window.innerWidth > 900 ? Math.max(0, 380 - currentDrawerWidth) : 0;
+	const width = containerWidth || containerEl.clientWidth;
+	const height = containerHeight || containerEl.clientHeight;
+	const drawerWidth = window.innerWidth > 900 ? 380 : 0;
 
 	const targetState = computeNeighborhoodCameraState({
 		points,
 		viewport: {
-			width: Math.max(200, rect.width - pendingDrawerDelta),
-			height: Math.max(200, rect.height),
+			width: Math.max(200, width - drawerWidth),
+			height: Math.max(200, height),
 		},
 		graphDimensions: sigmaInst.getGraphDimensions(),
 		stagePadding: sigmaInst.getStagePadding(),
