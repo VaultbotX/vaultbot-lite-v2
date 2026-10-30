@@ -453,5 +453,6 @@ function clearSelection(): void {
 		align-items: stretch;
 		height: 75vh;
 		min-height: 500px;
+		overflow: hidden;
 	}
 </style>
