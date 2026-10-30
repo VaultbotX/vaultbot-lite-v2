@@ -115,19 +115,26 @@ $effect(() => {
 
 <style>
 	.drawer {
-		width: 0;
-		padding: 0;
-		border-width: 0;
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 380px;
+		max-width: 100%;
 		overflow-y: auto;
 		overflow-x: hidden;
-		flex-shrink: 0;
-		transition: width 0.2s ease, padding 0.2s ease;
+		z-index: 5;
+		pointer-events: none;
+		opacity: 0;
+		transform: translateX(100%);
+		transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+		box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
 	}
 
 	.drawer.open {
-		width: 380px;
-		padding: 1.5rem;
-		border-width: 1px;
+		pointer-events: auto;
+		opacity: 1;
+		transform: translateX(0);
 	}
 
 	.close {
