@@ -25,9 +25,11 @@ import {
 	nodeSize,
 	optimalConstellationRotation,
 	parseNodeParam,
+	parseRankingsParam,
 	parseTimeRangeParams,
 	placeSatelliteComponents,
 	rangesOverlap,
+	rankingsFetchUrl,
 	type SearchableNode,
 	searchNodes,
 	selectBackboneEdges,
@@ -496,6 +498,44 @@ describe("parseNodeParam", () => {
 	});
 });
 
+describe("parseRankingsParam", () => {
+	it("parses genres", () => {
+		expect(parseRankingsParam("genres")).toBe("genres");
+	});
+
+	it("parses artists", () => {
+		expect(parseRankingsParam("artists")).toBe("artists");
+	});
+
+	it("returns null for null or empty", () => {
+		expect(parseRankingsParam(null)).toBeNull();
+		expect(parseRankingsParam("")).toBeNull();
+	});
+
+	it("returns null for unknown values", () => {
+		expect(parseRankingsParam("tracks")).toBeNull();
+		expect(parseRankingsParam("genre")).toBeNull();
+	});
+});
+
+describe("rankingsFetchUrl", () => {
+	it("builds a bare URL when there is no active window", () => {
+		expect(rankingsFetchUrl("genres", null)).toBe("/api/rankings?kind=genres");
+		expect(rankingsFetchUrl("artists", null)).toBe(
+			"/api/rankings?kind=artists",
+		);
+	});
+
+	it("appends start/end params when a window is active", () => {
+		expect(rankingsFetchUrl("genres", [100, 200])).toBe(
+			"/api/rankings?kind=genres&start=100&end=200",
+		);
+		expect(rankingsFetchUrl("artists", [100, 200])).toBe(
+			"/api/rankings?kind=artists&start=100&end=200",
+		);
+	});
+});
+
 describe("kindGlyph", () => {
 	it("returns a distinct glyph per node kind", () => {
 		expect(kindGlyph("genre")).toBe("🎵");
@@ -851,6 +891,43 @@ describe("computeNeighborhoodCameraState", () => {
 			const py = viewport.height / 2 - scale * (p.y - state.y);
 			expect(px).toBeGreaterThanOrEqual(padding.left - 0.01);
 			expect(px).toBeLessThanOrEqual(viewport.width - padding.right + 0.01);
+			expect(py).toBeGreaterThanOrEqual(padding.top - 0.01);
+			expect(py).toBeLessThanOrEqual(viewport.height - padding.bottom + 0.01);
+		}
+	});
+
+	it("shifts camera center and fits points inside visible area when drawer is open", () => {
+		const points = [
+			{ x: 0.2, y: 0.3 },
+			{ x: 0.7, y: 0.6 },
+			{ x: 0.42, y: 0.52 },
+		];
+		const padding = { top: 64, right: 116, bottom: 64, left: 64 };
+		const drawerWidth = 380;
+		const state = computeNeighborhoodCameraState({
+			points,
+			viewport,
+			graphDimensions,
+			stagePadding: 40,
+			padding,
+			drawerWidth,
+		});
+		expect(state).not.toBeNull();
+		if (!state) return;
+
+		// Project points through Sigma's exact framedGraph -> viewport equation
+		const smallestDim = Math.min(viewport.width, viewport.height) - 2 * 40;
+		const correction = Math.min(2400 / 1300, 1460 / 810);
+		const scale = (smallestDim * correction) / state.ratio;
+
+		for (const p of points) {
+			const px = viewport.width / 2 + scale * (p.x - state.x);
+			const py = viewport.height / 2 - scale * (p.y - state.y);
+			expect(px).toBeGreaterThanOrEqual(padding.left - 0.01);
+			// Must be completely to the left of the drawer (viewport.width - drawerWidth - padding.right)
+			expect(px).toBeLessThanOrEqual(
+				viewport.width - drawerWidth - padding.right + 0.01,
+			);
 			expect(py).toBeGreaterThanOrEqual(padding.top - 0.01);
 			expect(py).toBeLessThanOrEqual(viewport.height - padding.bottom + 0.01);
 		}

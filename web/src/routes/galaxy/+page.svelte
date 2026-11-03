@@ -2,7 +2,13 @@
 import { untrack } from "svelte";
 import GenreGraph from "#lib/GenreGraph.svelte";
 import GraphDetailDrawer from "#lib/GraphDetailDrawer.svelte";
-import type { SearchableNode, SelectedNode, TimeRange } from "#lib/graph.ts";
+import type {
+	RankingItem,
+	RankingsKind,
+	SearchableNode,
+	SelectedNode,
+	TimeRange,
+} from "#lib/graph.ts";
 import {
 	buildWindowIndex,
 	computeTimeBounds,
@@ -58,9 +64,19 @@ let searchWrapperEl: HTMLDivElement | undefined;
 // browser back/forward through shallow-routed history entries (see effect
 // below).
 let selectedNode = $state<SelectedNode | null>(untrack(() => data.initialNode));
+let rankingsKind = $state<RankingsKind | null>(
+	untrack(() => data.initialRankings ?? null),
+);
 
 $effect(() => {
 	if ("node" in page.state) selectedNode = page.state.node ?? null;
+	if ("rankings" in page.state) rankingsKind = page.state.rankings ?? null;
+});
+
+$effect(() => {
+	if (!showArtists && rankingsKind === "artists") {
+		clearSelection();
+	}
 });
 
 $effect(() => {
@@ -142,6 +158,24 @@ const selectedGraphNodeId = $derived(
 		: null,
 );
 
+const allTimeGenres = $derived<RankingItem[]>(
+	data.genreVertices.map((v) => ({
+		id: v.genre_id,
+		name: v.name,
+		rank: v.rank,
+		entries: v.archive_count,
+	})),
+);
+
+const allTimeArtists = $derived<RankingItem[]>(
+	data.artistVertices.map((v) => ({
+		id: v.artist_id,
+		name: v.name,
+		rank: v.rank,
+		entries: v.archive_count,
+	})),
+);
+
 const allGenreSearchNodes = $derived<SearchableNode[]>(
 	data.genreVertices.map((v) => ({
 		id: v.genre_id,
@@ -208,14 +242,26 @@ function handleWindowClick(e: MouseEvent): void {
 	}
 }
 
+function openRankings(kind: RankingsKind): void {
+	if (kind === "artists" && !showArtists) return;
+	if (rankingsKind === kind) {
+		clearSelection();
+		return;
+	}
+	selectedNode = null;
+	rankingsKind = kind;
+	pushState(`?rankings=${kind}`, { node: null, rankings: kind });
+}
+
 function selectNode(id: number, kind: "genre" | "artist"): void {
 	// pushState's second argument must be structured-cloneable by the History
 	// API, so a plain object literal is passed here rather than `selectedNode`
 	// itself — that's a $state reactive Proxy, which history.pushState throws
 	// a DataCloneError on and silently aborts the URL update.
+	rankingsKind = null;
 	selectedNode = { kind, id };
 	const prefix = kind === "genre" ? "g" : "a";
-	pushState(`?node=${prefix}:${id}`, { node: { kind, id } });
+	pushState(`?node=${prefix}:${id}`, { node: { kind, id }, rankings: null });
 	// Single chokepoint for every selection path (canvas click, drawer
 	// cross-link pivot, search result) so the camera always frames whatever
 	// node is currently selected, not just search-originated ones.
@@ -224,7 +270,8 @@ function selectNode(id: number, kind: "genre" | "artist"): void {
 
 function clearSelection(): void {
 	selectedNode = null;
-	pushState(page.url.pathname, { node: null });
+	rankingsKind = null;
+	pushState(page.url.pathname, { node: null, rankings: null });
 }
 </script>
 
@@ -302,9 +349,30 @@ function clearSelection(): void {
 			</div>
 		{/if}
 	</div>
-	<span class="stat mono muted"
-		>{genreCount} genres · {artistCount} artists · {connectionCount} connections</span
-	>
+	<div class="stats-group mono">
+		<button
+			type="button"
+			class="stat-pill"
+			class:active={rankingsKind === "genres"}
+			onclick={() => openRankings("genres")}
+			title="View top genres rankings"
+		>
+			<span class="stat-count">{genreCount.toLocaleString()}</span> genres
+		</button>
+		<button
+			type="button"
+			class="stat-pill"
+			class:active={rankingsKind === "artists"}
+			onclick={() => openRankings("artists")}
+			disabled={!showArtists}
+			title={showArtists
+				? "View top artists rankings"
+				: "Enable 'Show artists' to view rankings"}
+		>
+			<span class="stat-count">{artistCount.toLocaleString()}</span> artists
+		</button>
+		<span class="stat-plain">{connectionCount.toLocaleString()} connections</span>
+	</div>
 </div>
 
 <div class="graph-row">
@@ -319,6 +387,9 @@ function clearSelection(): void {
 	/>
 	<GraphDetailDrawer
 		selected={selectedNode}
+		rankings={rankingsKind}
+		{allTimeGenres}
+		{allTimeArtists}
 		initialDetail={data.initialDetail}
 		{activeWindow}
 		onSelect={selectNode}
@@ -377,9 +448,62 @@ function clearSelection(): void {
 		white-space: nowrap;
 	}
 
-	.stat {
+	.stats-group {
 		margin-left: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 		font-size: 12px;
+	}
+
+	.stat-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: 0.25rem 0.65rem;
+		font: inherit;
+		color: var(--text);
+		cursor: pointer;
+		transition:
+			border-color 0.15s,
+			color 0.15s,
+			background 0.15s;
+		user-select: none;
+	}
+
+	.stat-pill:hover:not(:disabled) {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+
+	.stat-pill.active {
+		background: var(--accent-glow);
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+
+	.stat-pill:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+		border-color: var(--border);
+		color: var(--text-muted);
+	}
+
+	.stat-count {
+		font-weight: 600;
+	}
+
+	.stat-pill:hover:not(:disabled) .stat-count,
+	.stat-pill.active .stat-count {
+		color: var(--accent);
+	}
+
+	.stat-plain {
+		padding: 0.25rem 0.5rem;
+		color: var(--text-muted);
 	}
 
 	.search-wrapper {
