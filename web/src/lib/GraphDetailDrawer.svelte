@@ -2,8 +2,14 @@
 import { untrack } from "svelte";
 import ArtistDetailPanel from "#lib/ArtistDetailPanel.svelte";
 import GenreDetailPanel from "#lib/GenreDetailPanel.svelte";
-import type { SelectedNode, TimeRange } from "#lib/graph.ts";
+import type {
+	RankingItem,
+	RankingsKind,
+	SelectedNode,
+	TimeRange,
+} from "#lib/graph.ts";
 import { detailFetchUrl } from "#lib/graph.ts";
+import RankingsPanel from "#lib/RankingsPanel.svelte";
 import type { ArtistDetail } from "../routes/api/artists/[id]/+server";
 import type { GenreDetail } from "../routes/api/genres/[id]/+server";
 
@@ -13,12 +19,18 @@ type Detail =
 
 let {
 	selected,
+	rankings = null,
+	allTimeGenres = [],
+	allTimeArtists = [],
 	initialDetail,
 	activeWindow,
 	onSelect,
 	onClose,
 }: {
 	selected: SelectedNode | null;
+	rankings?: RankingsKind | null;
+	allTimeGenres?: RankingItem[];
+	allTimeArtists?: RankingItem[];
 	initialDetail: Detail | null;
 	activeWindow: TimeRange | null;
 	onSelect: (id: number, kind: "genre" | "artist") => void;
@@ -88,26 +100,35 @@ $effect(() => {
 });
 </script>
 
-<aside class="drawer card" class:open={selected !== null}>
-	{#if selected}
+<aside class="drawer card" class:open={selected !== null || rankings !== null}>
+	{#if selected !== null || rankings !== null}
 		<button type="button" class="close mono" onclick={onClose} aria-label="Close">✕</button>
-		{#if loading}
-			<div class="status muted mono">Loading…</div>
-		{:else if error}
-			<div class="status muted mono">Failed to load details.</div>
-		{:else if detail?.kind === "genre"}
-			<GenreDetailPanel
-				data={detail.data}
+		{#if selected !== null}
+			{#if loading}
+				<div class="status muted mono">Loading…</div>
+			{:else if error}
+				<div class="status muted mono">Failed to load details.</div>
+			{:else if detail?.kind === "genre"}
+				<GenreDetailPanel
+					data={detail.data}
+					{activeWindow}
+					onSelectGenre={(id) => onSelect(id, "genre")}
+					onSelectArtist={(id) => onSelect(id, "artist")}
+				/>
+			{:else if detail?.kind === "artist"}
+				<ArtistDetailPanel
+					data={detail.data}
+					{activeWindow}
+					onSelectGenre={(id) => onSelect(id, "genre")}
+					onSelectArtist={(id) => onSelect(id, "artist")}
+				/>
+			{/if}
+		{:else if rankings !== null}
+			<RankingsPanel
+				kind={rankings}
 				{activeWindow}
-				onSelectGenre={(id) => onSelect(id, "genre")}
-				onSelectArtist={(id) => onSelect(id, "artist")}
-			/>
-		{:else if detail?.kind === "artist"}
-			<ArtistDetailPanel
-				data={detail.data}
-				{activeWindow}
-				onSelectGenre={(id) => onSelect(id, "genre")}
-				onSelectArtist={(id) => onSelect(id, "artist")}
+				allTimeItems={rankings === "genres" ? allTimeGenres : allTimeArtists}
+				{onSelect}
 			/>
 		{/if}
 	{/if}
