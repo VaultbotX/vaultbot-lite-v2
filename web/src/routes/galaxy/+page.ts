@@ -1,4 +1,4 @@
-import { parseNodeParam } from "#lib/graph.ts";
+import { parseNodeParam, parseRankingsParam } from "#lib/graph.ts";
 import type { ArtistDetail } from "../api/artists/[id]/+server";
 import type { GenreDetail } from "../api/genres/[id]/+server";
 import type { GraphData } from "../api/graph/+server";
@@ -11,6 +11,7 @@ type InitialDetail =
 
 export const load: PageLoad = async ({ fetch, url }) => {
 	const node = parseNodeParam(url.searchParams.get("node"));
+	const rankings = parseRankingsParam(url.searchParams.get("rankings"));
 
 	const graphPromise = fetch("/api/graph").then((res) => {
 		if (!res.ok) throw new Error(`Failed to load graph: ${res.status}`);
@@ -39,5 +40,6 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		...graphData,
 		initialNode: initialDetail ? node : null,
 		initialDetail,
+		initialRankings: initialDetail ? null : rankings,
 	};
 };
