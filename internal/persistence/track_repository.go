@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	log "github.com/sirupsen/logrus"
+	genresvc "github.com/vaultbotx/vaultbot-lite/internal/genres"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/archive"
 	artists2 "github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/artists"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres/genres"
@@ -14,14 +16,33 @@ import (
 	"github.com/zmb3/spotify/v2"
 )
 
-type PostgresTrackRepository struct {
-	db *sqlx.DB
+type GenreHydrator interface {
+	HydrateArtistGenres(ctx context.Context, spotifyID string, artistName string) (genres []string, sourceName string)
 }
 
-func NewPostgresTrackRepository(db *sqlx.DB) *PostgresTrackRepository {
-	return &PostgresTrackRepository{
+type PostgresTrackRepository struct {
+	db       *sqlx.DB
+	hydrator GenreHydrator
+}
+
+type TrackRepoOption func(*PostgresTrackRepository)
+
+func WithGenreHydrator(hydrator GenreHydrator) TrackRepoOption {
+	return func(r *PostgresTrackRepository) {
+		r.hydrator = hydrator
+	}
+}
+
+func NewPostgresTrackRepository(db *sqlx.DB, opts ...TrackRepoOption) *PostgresTrackRepository {
+	r := &PostgresTrackRepository{
 		db: db,
 	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	return r
 }
 
 func (r *PostgresTrackRepository) AddTrackToDatabase(track *spotify.FullTrack, artists []*spotify.FullArtist) error {
@@ -33,8 +54,21 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(track *spotify.FullTrack, a
 	var allGenreIds []int
 	var allArtistIds []int
 	for _, artist := range artists {
+		var genreNames []string
+		genreNames = append(genreNames, artist.Genres...)
+
+		if r.hydrator != nil {
+			extGenres, source := r.hydrator.HydrateArtistGenres(context.Background(), artist.ID.String(), artist.Name)
+			if len(extGenres) > 0 {
+				log.Infof("Hydrated %d external genres for artist %s from %s", len(extGenres), artist.Name, source)
+				genreNames = append(genreNames, extGenres...)
+			}
+		}
+
+		genreNames = genresvc.NormalizeGenres(genreNames)
+
 		var genreIds []int
-		for _, genre := range artist.Genres {
+		for _, genre := range genreNames {
 			addGenre, err := genres.AddGenre(tx, genre)
 			if err != nil {
 				_ = tx.Rollback()

@@ -7,10 +7,13 @@ import (
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaultbotx/vaultbot-lite/internal/domain"
+	"github.com/vaultbotx/vaultbot-lite/internal/genres"
+	"github.com/vaultbotx/vaultbot-lite/internal/musicbrainz"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence"
 	"github.com/vaultbotx/vaultbot-lite/internal/persistence/postgres"
 	"github.com/vaultbotx/vaultbot-lite/internal/spotify"
 	sp "github.com/vaultbotx/vaultbot-lite/internal/spotify/commands"
+	"github.com/vaultbotx/vaultbot-lite/internal/wikidata"
 	zspotify "github.com/zmb3/spotify/v2"
 )
 
@@ -39,7 +42,10 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	dbRepo := persistence.NewPostgresTrackRepository(pgConn)
+	mbClient := musicbrainz.NewClient()
+	wdClient := wikidata.NewClient()
+	genreHydrator := genres.NewHydrator(mbClient, wdClient)
+	dbRepo := persistence.NewPostgresTrackRepository(pgConn, persistence.WithGenreHydrator(genreHydrator))
 
 	items, err := playlistService.Repo.GetPlaylistTracks(ctx)
 	if err != nil {
