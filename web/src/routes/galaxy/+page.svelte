@@ -349,7 +349,7 @@ function clearSelection(): void {
 			</div>
 		{/if}
 	</div>
-	<div class="stats-group mono muted">
+	<div class="stats-group mono">
 		<button
 			type="button"
 			class="stat-pill"
@@ -359,7 +359,6 @@ function clearSelection(): void {
 		>
 			<span class="stat-count">{genreCount.toLocaleString()}</span> genres
 		</button>
-		<span class="stat-divider">·</span>
 		<button
 			type="button"
 			class="stat-pill"
@@ -372,7 +371,6 @@ function clearSelection(): void {
 		>
 			<span class="stat-count">{artistCount.toLocaleString()}</span> artists
 		</button>
-		<span class="stat-divider">·</span>
 		<span class="stat-plain">{connectionCount.toLocaleString()} connections</span>
 	</div>
 </div>
@@ -454,51 +452,58 @@ function clearSelection(): void {
 		margin-left: auto;
 		display: flex;
 		align-items: center;
-		gap: 0.35rem;
+		gap: 0.5rem;
 		font-size: 12px;
 	}
 
 	.stat-pill {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.25rem;
-		background: transparent;
-		border: 1px solid transparent;
-		border-radius: var(--radius);
-		padding: 2px 6px;
+		gap: 0.35rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: 0.25rem 0.65rem;
 		font: inherit;
-		color: var(--text-muted);
+		color: var(--text);
 		cursor: pointer;
-		transition: background 0.15s, border-color 0.15s, color 0.15s;
+		transition:
+			border-color 0.15s,
+			color 0.15s,
+			background 0.15s;
+		user-select: none;
 	}
 
 	.stat-pill:hover:not(:disabled) {
-		background: var(--surface-2);
-		border-color: var(--border);
-		color: var(--text);
+		border-color: var(--accent);
+		color: var(--accent);
 	}
 
 	.stat-pill.active {
-		background: var(--surface-2);
+		background: var(--accent-glow);
 		border-color: var(--accent);
 		color: var(--accent);
 	}
 
 	.stat-pill:disabled {
-		opacity: 0.45;
+		opacity: 0.4;
 		cursor: not-allowed;
+		border-color: var(--border);
+		color: var(--text-muted);
 	}
 
 	.stat-count {
-		font-weight: 500;
+		font-weight: 600;
 	}
 
-	.stat-divider {
-		user-select: none;
+	.stat-pill:hover:not(:disabled) .stat-count,
+	.stat-pill.active .stat-count {
+		color: var(--accent);
 	}
 
 	.stat-plain {
-		padding: 2px 0;
+		padding: 0.25rem 0.5rem;
+		color: var(--text-muted);
 	}
 
 	.search-wrapper {
