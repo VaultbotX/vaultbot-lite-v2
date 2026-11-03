@@ -25,9 +25,11 @@ import {
 	nodeSize,
 	optimalConstellationRotation,
 	parseNodeParam,
+	parseRankingsParam,
 	parseTimeRangeParams,
 	placeSatelliteComponents,
 	rangesOverlap,
+	rankingsFetchUrl,
 	type SearchableNode,
 	searchNodes,
 	selectBackboneEdges,
@@ -493,6 +495,44 @@ describe("parseNodeParam", () => {
 	it("returns null for a zero or negative id", () => {
 		expect(parseNodeParam("g:0")).toBeNull();
 		expect(parseNodeParam("a:-3")).toBeNull();
+	});
+});
+
+describe("parseRankingsParam", () => {
+	it("parses genres", () => {
+		expect(parseRankingsParam("genres")).toBe("genres");
+	});
+
+	it("parses artists", () => {
+		expect(parseRankingsParam("artists")).toBe("artists");
+	});
+
+	it("returns null for null or empty", () => {
+		expect(parseRankingsParam(null)).toBeNull();
+		expect(parseRankingsParam("")).toBeNull();
+	});
+
+	it("returns null for unknown values", () => {
+		expect(parseRankingsParam("tracks")).toBeNull();
+		expect(parseRankingsParam("genre")).toBeNull();
+	});
+});
+
+describe("rankingsFetchUrl", () => {
+	it("builds a bare URL when there is no active window", () => {
+		expect(rankingsFetchUrl("genres", null)).toBe("/api/rankings?kind=genres");
+		expect(rankingsFetchUrl("artists", null)).toBe(
+			"/api/rankings?kind=artists",
+		);
+	});
+
+	it("appends start/end params when a window is active", () => {
+		expect(rankingsFetchUrl("genres", [100, 200])).toBe(
+			"/api/rankings?kind=genres&start=100&end=200",
+		);
+		expect(rankingsFetchUrl("artists", [100, 200])).toBe(
+			"/api/rankings?kind=artists&start=100&end=200",
+		);
 	});
 });
 

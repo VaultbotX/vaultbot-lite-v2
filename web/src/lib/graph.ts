@@ -1030,6 +1030,31 @@ export function parseNodeParam(value: string | null): SelectedNode | null {
 	return { kind: match[1] === "g" ? "genre" : "artist", id };
 }
 
+export type RankingsKind = "genres" | "artists";
+
+export interface RankingItem {
+	id: number;
+	name: string;
+	rank: number;
+	entries: number;
+}
+
+export function parseRankingsParam(value: string | null): RankingsKind | null {
+	if (value === "genres" || value === "artists") return value;
+	return null;
+}
+
+// Builds the rankings fetch URL for a given kind, appending the active
+// time window as `start`/`end` query params when one is active.
+export function rankingsFetchUrl(
+	kind: RankingsKind,
+	activeWindow: TimeRange | null,
+): string {
+	const base = `/api/rankings?kind=${kind}`;
+	if (!activeWindow) return base;
+	return `${base}&start=${activeWindow[0]}&end=${activeWindow[1]}`;
+}
+
 // Parses the `?start=&end=` epoch-second window shared by /api/genres/:id
 // and /api/artists/:id. Both params must be present and form a valid
 // [start, end] pair — anything else (missing, non-numeric, inverted) is
