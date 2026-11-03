@@ -244,6 +244,10 @@ function handleWindowClick(e: MouseEvent): void {
 
 function openRankings(kind: RankingsKind): void {
 	if (kind === "artists" && !showArtists) return;
+	if (rankingsKind === kind) {
+		clearSelection();
+		return;
+	}
 	selectedNode = null;
 	rankingsKind = kind;
 	pushState(`?rankings=${kind}`, { node: null, rankings: kind });

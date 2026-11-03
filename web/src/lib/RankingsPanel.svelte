@@ -32,8 +32,9 @@ $effect(() => {
 	loading = true;
 	error = false;
 
+	const controller = new AbortController();
 	const timeoutId = setTimeout(() => {
-		fetch(rankingsFetchUrl(kind, activeWindow))
+		fetch(rankingsFetchUrl(kind, activeWindow), { signal: controller.signal })
 			.then((r) => {
 				if (!r.ok) throw new Error(`Failed to load: ${r.status}`);
 				return r.json() as Promise<RankingItem[]>;
@@ -42,13 +43,17 @@ $effect(() => {
 				items = data;
 				loading = false;
 			})
-			.catch(() => {
+			.catch((err) => {
+				if (err?.name === "AbortError") return;
 				error = true;
 				loading = false;
 			});
 	}, 250);
 
-	return () => clearTimeout(timeoutId);
+	return () => {
+		clearTimeout(timeoutId);
+		controller.abort();
+	};
 });
 
 const visibleItems = $derived(items.slice(0, visibleLimit));
