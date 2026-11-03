@@ -895,4 +895,41 @@ describe("computeNeighborhoodCameraState", () => {
 			expect(py).toBeLessThanOrEqual(viewport.height - padding.bottom + 0.01);
 		}
 	});
+
+	it("shifts camera center and fits points inside visible area when drawer is open", () => {
+		const points = [
+			{ x: 0.2, y: 0.3 },
+			{ x: 0.7, y: 0.6 },
+			{ x: 0.42, y: 0.52 },
+		];
+		const padding = { top: 64, right: 116, bottom: 64, left: 64 };
+		const drawerWidth = 380;
+		const state = computeNeighborhoodCameraState({
+			points,
+			viewport,
+			graphDimensions,
+			stagePadding: 40,
+			padding,
+			drawerWidth,
+		});
+		expect(state).not.toBeNull();
+		if (!state) return;
+
+		// Project points through Sigma's exact framedGraph -> viewport equation
+		const smallestDim = Math.min(viewport.width, viewport.height) - 2 * 40;
+		const correction = Math.min(2400 / 1300, 1460 / 810);
+		const scale = (smallestDim * correction) / state.ratio;
+
+		for (const p of points) {
+			const px = viewport.width / 2 + scale * (p.x - state.x);
+			const py = viewport.height / 2 - scale * (p.y - state.y);
+			expect(px).toBeGreaterThanOrEqual(padding.left - 0.01);
+			// Must be completely to the left of the drawer (viewport.width - drawerWidth - padding.right)
+			expect(px).toBeLessThanOrEqual(
+				viewport.width - drawerWidth - padding.right + 0.01,
+			);
+			expect(py).toBeGreaterThanOrEqual(padding.top - 0.01);
+			expect(py).toBeLessThanOrEqual(viewport.height - padding.bottom + 0.01);
+		}
+	});
 });

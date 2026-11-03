@@ -716,6 +716,7 @@ export interface NeighborhoodCameraInput {
 	graphDimensions: { width: number; height: number };
 	stagePadding: number;
 	padding?: { top: number; right: number; bottom: number; left: number };
+	drawerWidth?: number;
 	singlePointRatio?: number;
 	minRatio?: number;
 	maxRatio?: number;
@@ -753,7 +754,19 @@ export function computeNeighborhoodCameraState(
 	const { points } = input;
 	if (points.length === 0) return null;
 
-	const pad = input.padding ?? { top: 68, right: 120, bottom: 68, left: 68 };
+	const drawerWidth = input.drawerWidth ?? 0;
+	const basePad = input.padding ?? {
+		top: 68,
+		right: 160,
+		bottom: 68,
+		left: 68,
+	};
+	const pad = {
+		top: basePad.top,
+		right: basePad.right + drawerWidth,
+		bottom: basePad.bottom,
+		left: basePad.left,
+	};
 	const singlePointRatio = input.singlePointRatio ?? 0.15;
 	const minRatio = input.minRatio ?? 0.14;
 	const maxRatio = input.maxRatio ?? 1.6;
