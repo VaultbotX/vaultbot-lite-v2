@@ -93,3 +93,16 @@ func TestWikidataClient_GetGenresByName(t *testing.T) {
 		t.Errorf("unexpected genres: %v", genres)
 	}
 }
+
+func TestWikidataClient_UserAgent(t *testing.T) {
+	cDefault := NewClient()
+	if cDefault.userAgent != "VaultbotGenreService/1.0.0 ( https://github.com/VaultbotX )" {
+		t.Errorf("expected default userAgent without personal email, got: %s", cDefault.userAgent)
+	}
+
+	cEmail := NewClient(WithUserAgentEmail("bot@example.com"))
+	expectedEmailUA := "VaultbotGenreService/1.0.0 ( bot@example.com )"
+	if cEmail.userAgent != expectedEmailUA {
+		t.Errorf("expected %s, got %s", expectedEmailUA, cEmail.userAgent)
+	}
+}

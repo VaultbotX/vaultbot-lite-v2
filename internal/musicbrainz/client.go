@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -52,11 +53,26 @@ func WithUserAgent(userAgent string) ClientOption {
 	}
 }
 
+func WithUserAgentEmail(email string) ClientOption {
+	return func(c *Client) {
+		if email != "" {
+			c.userAgent = fmt.Sprintf("VaultbotGenreService/1.0.0 ( %s / https://github.com/VaultbotX )", email)
+		}
+	}
+}
+
+func defaultUserAgent(email string) string {
+	if email != "" {
+		return fmt.Sprintf("VaultbotGenreService/1.0.0 ( %s / https://github.com/VaultbotX )", email)
+	}
+	return "VaultbotGenreService/1.0.0 ( https://github.com/VaultbotX )"
+}
+
 func NewClient(opts ...ClientOption) *Client {
 	c := &Client{
 		httpClient: &http.Client{Timeout: 15 * time.Second},
 		limiter:    rate.NewLimiter(rate.Every(1050*time.Millisecond), 1),
-		userAgent:  "VaultbotGenreService/1.0.0 ( trey@tbrittain.com / https://github.com/VaultbotX )",
+		userAgent:  defaultUserAgent(os.Getenv("USER_AGENT_EMAIL")),
 		maxRetries: 3,
 		baseURL:    "https://musicbrainz.org/ws/2",
 	}
