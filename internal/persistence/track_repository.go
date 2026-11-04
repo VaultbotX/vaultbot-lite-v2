@@ -46,6 +46,26 @@ func NewPostgresTrackRepository(db *sqlx.DB, opts ...TrackRepoOption) *PostgresT
 }
 
 func (r *PostgresTrackRepository) AddTrackToDatabase(track *spotify.FullTrack, artists []*spotify.FullArtist) error {
+	// Pre-hydrate external genres upfront so HTTP calls do not hold open a database transaction
+	artistGenresMap := make(map[string][]string, len(artists))
+	for _, artist := range artists {
+		var genreNames []string
+		genreNames = append(genreNames, artist.Genres...)
+
+		if r.hydrator != nil {
+			hydrateCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			extGenres, source := r.hydrator.HydrateArtistGenres(hydrateCtx, artist.ID.String(), artist.Name)
+			cancel()
+
+			if len(extGenres) > 0 {
+				log.Infof("Hydrated %d external genres for artist %s from %s", len(extGenres), artist.Name, source)
+				genreNames = append(genreNames, extGenres...)
+			}
+		}
+
+		artistGenresMap[artist.ID.String()] = genresvc.NormalizeGenres(genreNames)
+	}
+
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
@@ -54,18 +74,7 @@ func (r *PostgresTrackRepository) AddTrackToDatabase(track *spotify.FullTrack, a
 	var allGenreIds []int
 	var allArtistIds []int
 	for _, artist := range artists {
-		var genreNames []string
-		genreNames = append(genreNames, artist.Genres...)
-
-		if r.hydrator != nil {
-			extGenres, source := r.hydrator.HydrateArtistGenres(context.Background(), artist.ID.String(), artist.Name)
-			if len(extGenres) > 0 {
-				log.Infof("Hydrated %d external genres for artist %s from %s", len(extGenres), artist.Name, source)
-				genreNames = append(genreNames, extGenres...)
-			}
-		}
-
-		genreNames = genresvc.NormalizeGenres(genreNames)
+		genreNames := artistGenresMap[artist.ID.String()]
 
 		var genreIds []int
 		for _, genre := range genreNames {
