@@ -17,8 +17,8 @@ func TestNormalizeGenres(t *testing.T) {
 			expected: []string{"pop", "indie rock"},
 		},
 		{
-			name:     "filters noise and year tags",
-			input:    []string{"seen live", "female vocals", "2020s", "1995", "synth-pop", "dance pop"},
+			name:     "filters year tags and validates length",
+			input:    []string{"2020s", "1995", "", "synth-pop", "dance pop"},
 			expected: []string{"synth-pop", "dance pop"},
 		},
 		{

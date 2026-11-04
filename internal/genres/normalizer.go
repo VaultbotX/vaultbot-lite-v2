@@ -5,49 +5,10 @@ import (
 	"strings"
 )
 
-var excludedTags = map[string]struct{}{
-	"seen live":             {},
-	"favorites":             {},
-	"favourite":             {},
-	"favorite":              {},
-	"male vocalists":        {},
-	"female vocalists":      {},
-	"female vocals":         {},
-	"male vocals":           {},
-	"beautiful":             {},
-	"awesome":               {},
-	"love":                  {},
-	"cool":                  {},
-	"under 2000 listeners": {},
-	"all":                   {},
-	// Common language / nationality tags that are not musical genres
-	"english":    {},
-	"american":   {},
-	"british":    {},
-	"canadian":   {},
-	"australian": {},
-	"german":     {},
-	"french":     {},
-	"italian":    {},
-	"spanish":    {},
-	"swedish":    {},
-	"norwegian":  {},
-	"danish":     {},
-	"finnish":    {},
-	"japanese":   {},
-	"korean":     {},
-	"chinese":    {},
-	"irish":      {},
-	"scottish":   {},
-	"welsh":      {},
-	"russian":    {},
-	"polish":     {},
-}
-
 var yearRegex = regexp.MustCompile(`^(19|20)\d{2}s?$`)
 var whitespaceRegex = regexp.MustCompile(`\s+`)
 
-// NormalizeGenres cleans, trims, deduplicates, and filters non-genre tags.
+// NormalizeGenres cleans, trims, deduplicates, and validates genre strings.
 func NormalizeGenres(rawGenres []string) []string {
 	seen := make(map[string]struct{})
 	var result []string
@@ -58,10 +19,6 @@ func NormalizeGenres(rawGenres []string) []string {
 		cleaned = strings.TrimPrefix(cleaned, "the ")
 
 		if len(cleaned) == 0 || len(cleaned) > 64 {
-			continue
-		}
-
-		if _, excluded := excludedTags[cleaned]; excluded {
 			continue
 		}
 
