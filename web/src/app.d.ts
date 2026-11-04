@@ -4,6 +4,7 @@ declare global {
 	namespace App {
 		interface PageState {
 			node?: { kind: "genre" | "artist"; id: number } | null;
+			rankings?: "genres" | "artists" | null;
 		}
 		interface Platform {
 			context: {

@@ -965,11 +965,12 @@ export function focusNode(nodeId: string, duration = 500): void {
 	const targetState = computeNeighborhoodCameraState({
 		points,
 		viewport: {
-			width: Math.max(200, width - drawerWidth),
+			width: Math.max(200, width),
 			height: Math.max(200, height),
 		},
 		graphDimensions: sigmaInst.getGraphDimensions(),
 		stagePadding: sigmaInst.getStagePadding(),
+		drawerWidth,
 	});
 	if (!targetState) return;
 

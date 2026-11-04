@@ -716,6 +716,7 @@ export interface NeighborhoodCameraInput {
 	graphDimensions: { width: number; height: number };
 	stagePadding: number;
 	padding?: { top: number; right: number; bottom: number; left: number };
+	drawerWidth?: number;
 	singlePointRatio?: number;
 	minRatio?: number;
 	maxRatio?: number;
@@ -753,7 +754,19 @@ export function computeNeighborhoodCameraState(
 	const { points } = input;
 	if (points.length === 0) return null;
 
-	const pad = input.padding ?? { top: 68, right: 120, bottom: 68, left: 68 };
+	const drawerWidth = input.drawerWidth ?? 0;
+	const basePad = input.padding ?? {
+		top: 68,
+		right: 160,
+		bottom: 68,
+		left: 68,
+	};
+	const pad = {
+		top: basePad.top,
+		right: basePad.right + drawerWidth,
+		bottom: basePad.bottom,
+		left: basePad.left,
+	};
 	const singlePointRatio = input.singlePointRatio ?? 0.15;
 	const minRatio = input.minRatio ?? 0.14;
 	const maxRatio = input.maxRatio ?? 1.6;
@@ -1028,6 +1041,31 @@ export function parseNodeParam(value: string | null): SelectedNode | null {
 	const id = Number(match[2]);
 	if (!Number.isInteger(id) || id <= 0) return null;
 	return { kind: match[1] === "g" ? "genre" : "artist", id };
+}
+
+export type RankingsKind = "genres" | "artists";
+
+export interface RankingItem {
+	id: number;
+	name: string;
+	rank: number;
+	entries: number;
+}
+
+export function parseRankingsParam(value: string | null): RankingsKind | null {
+	if (value === "genres" || value === "artists") return value;
+	return null;
+}
+
+// Builds the rankings fetch URL for a given kind, appending the active
+// time window as `start`/`end` query params when one is active.
+export function rankingsFetchUrl(
+	kind: RankingsKind,
+	activeWindow: TimeRange | null,
+): string {
+	const base = `/api/rankings?kind=${kind}`;
+	if (!activeWindow) return base;
+	return `${base}&start=${activeWindow[0]}&end=${activeWindow[1]}`;
 }
 
 // Parses the `?start=&end=` epoch-second window shared by /api/genres/:id
