@@ -37,4 +37,5 @@ jobs:
           POSTGRES_USER: ${{ secrets.NEON_USER }}
           POSTGRES_PASSWORD: ${{ secrets.NEON_PASSWORD }}
           POSTGRES_DB: ${{ secrets.NEON_DB }}
+          USER_AGENT_EMAIL: ${{ vars.USER_AGENT_EMAIL || secrets.USER_AGENT_EMAIL }}
         run: ./bin/poll
