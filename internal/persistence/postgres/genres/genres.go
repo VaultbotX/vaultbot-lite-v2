@@ -14,14 +14,16 @@ type Genre struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
-// AddGenre adds a genre to the database
+// AddGenre adds a genre to the database or reuses an existing canonical match
 func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
 	var addGenre Genre
 
 	err := tx.QueryRowx(`
 		SELECT id, name, created_at
 		FROM genres
-		WHERE name = $1
+		WHERE REPLACE(REPLACE(LOWER(name), '-', ''), ' ', '') = REPLACE(REPLACE(LOWER($1), '-', ''), ' ', '')
+		ORDER BY id ASC
+		LIMIT 1
 	`, name).StructScan(&addGenre)
 
 	if err != nil {
@@ -29,7 +31,7 @@ func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
 			return Genre{}, err
 		}
 
-		// no genre found, create a new one
+		// no canonical genre found, create a new one
 		err := tx.QueryRowx(`
 			INSERT INTO genres (name) 
 			VALUES ($1)
@@ -38,10 +40,20 @@ func AddGenre(tx *sqlx.Tx, name string) (Genre, error) {
 		`, name).StructScan(&addGenre)
 
 		if err != nil {
-			return Genre{}, err
+			if !errors.Is(err, sql.ErrNoRows) {
+				return Genre{}, err
+			}
+			err = tx.QueryRowx(`
+				SELECT id, name, created_at
+				FROM genres
+				WHERE name = $1
+			`, name).StructScan(&addGenre)
+			if err != nil {
+				return Genre{}, err
+			}
+		} else {
+			addGenre.Name = name
 		}
-
-		addGenre.Name = name
 	}
 
 	return addGenre, nil
