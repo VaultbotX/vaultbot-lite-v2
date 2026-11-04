@@ -20,6 +20,28 @@ var excludedTags = map[string]struct{}{
 	"cool":                  {},
 	"under 2000 listeners": {},
 	"all":                   {},
+	// Common language / nationality tags that are not musical genres
+	"english":    {},
+	"american":   {},
+	"british":    {},
+	"canadian":   {},
+	"australian": {},
+	"german":     {},
+	"french":     {},
+	"italian":    {},
+	"spanish":    {},
+	"swedish":    {},
+	"norwegian":  {},
+	"danish":     {},
+	"finnish":    {},
+	"japanese":   {},
+	"korean":     {},
+	"chinese":    {},
+	"irish":      {},
+	"scottish":   {},
+	"welsh":      {},
+	"russian":    {},
+	"polish":     {},
 }
 
 var yearRegex = regexp.MustCompile(`^(19|20)\d{2}s?$`)
