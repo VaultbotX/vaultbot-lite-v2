@@ -192,14 +192,6 @@ func (c *Client) GetGenresBySpotifyID(ctx context.Context, spotifyID string) ([]
 		}
 	}
 
-	if len(genres) == 0 {
-		for _, t := range artist.Tags {
-			if t.Name != "" {
-				genres = append(genres, t.Name)
-			}
-		}
-	}
-
 	return genres, nil
 }
 
@@ -243,14 +235,6 @@ func (c *Client) GetGenresByName(ctx context.Context, name string) ([]string, er
 	for _, g := range matchedArtist.Genres {
 		if g.Name != "" {
 			genres = append(genres, g.Name)
-		}
-	}
-
-	if len(genres) == 0 {
-		for _, t := range matchedArtist.Tags {
-			if t.Name != "" {
-				genres = append(genres, t.Name)
-			}
 		}
 	}
 

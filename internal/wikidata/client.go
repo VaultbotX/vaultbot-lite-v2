@@ -164,6 +164,7 @@ func (c *Client) GetGenresBySpotifyID(ctx context.Context, spotifyID string) ([]
 SELECT ?genreLabel WHERE {
   ?item wdt:P1902 "%s" .
   ?item wdt:P136 ?genre .
+  ?genre wdt:P31*/wdt:P279* wd:Q188451 .
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
 `, spotifyID)
@@ -184,7 +185,7 @@ func (c *Client) GetGenresByName(ctx context.Context, name string) ([]string, er
 		return nil, nil
 	}
 
-	keywords := []string{"singer", "band", "musician", "group", "artist"}
+	keywords := []string{"singer", "band", "musician", "musical", "group", "artist", "rapper", "dj", "composer", "producer"}
 	var targetEntityID string
 
 	for _, item := range search.Search {
@@ -201,12 +202,13 @@ func (c *Client) GetGenresByName(ctx context.Context, name string) ([]string, er
 	}
 
 	if targetEntityID == "" {
-		targetEntityID = search.Search[0].ID
+		return nil, nil
 	}
 
 	query := fmt.Sprintf(`
 SELECT ?genreLabel WHERE {
   wd:%s wdt:P136 ?genre .
+  ?genre wdt:P31*/wdt:P279* wd:Q188451 .
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
 `, targetEntityID)
